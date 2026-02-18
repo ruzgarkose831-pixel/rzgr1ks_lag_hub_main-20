@@ -24,7 +24,7 @@ frame.BorderSizePixel = 4
 -- Terminal Output
 local output = Instance.new("TextLabel", frame)
 output.Name = "TerminalOutput"
-output.Text = "> Welcome to Hacker Terminal"
+output.Text = "> Welcome to rzgr1ks s lag hub enter your ps link to bypass"
 output.TextColor3 = Color3.new(0,1,0)
 output.BackgroundTransparency = 1
 output.Size = UDim2.new(1, -20, 0.7, -20)
@@ -37,7 +37,7 @@ output.TextYAlignment = Enum.TextYAlignment.Top
 -- InputBox
 local inputBox = Instance.new("TextBox", frame)
 inputBox.Name = "InputBox"
-inputBox.PlaceholderText = "Type your message..."
+inputBox.PlaceholderText = "Type your ps link..."
 inputBox.TextColor3 = Color3.new(0,1,0)
 inputBox.BackgroundColor3 = Color3.new(0,0,0)
 inputBox.BorderColor3 = Color3.new(0,1,0)
