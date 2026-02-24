@@ -1,5 +1,5 @@
 --[[
-    HYDRA HUB DUELS 🐬 (SILENT HUB INTEGRATION – FIXED SPEED CONFLICT)
+    RZGR1KS S DUELS 🐬 (SILENT HUB INTEGRATION – FIXED SPEED CONFLICT)
     - Auto Duel: Silent Hub pathfinding + grab detection
     - Instant Grab: Silent Hub stealing logic
     - Speed overrides automatically disabled during Auto Duel
@@ -46,7 +46,7 @@ local SpeedState = {
 local stealSpeedBtn, sprintSpeedBtn  -- references for toggling
 
 -- ==============================================================================
--- 1. HYDRAHUB GUI LIBRARY (ADAPTIVE) – unchanged
+-- 1. RZGR1KS GUI LIBRARY (ADAPTIVE) – unchanged
 -- ==============================================================================
 local HydraGuiLib = {}
 HydraGuiLib.__index = HydraGuiLib
@@ -300,7 +300,7 @@ function HydraGuiLib:AddProgressBar(yPos)
 end
 
 -- ==============================================================================
--- 2. INSTANT GRAB (SILENT HUB LOGIC)
+-- 2. INSTANT GRAB (RZGR1KS HUB LOGIC)
 -- ==============================================================================
 local AnimalsData = nil
 pcall(function() AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals")) end)
@@ -603,7 +603,7 @@ local function updateCircleRadius()
 end
 
 -- ==============================================================================
--- 3. SPEED LOGIC (with ability to disable)
+-- 3. RZGR1KS S SPEED LOGIC (with ability to disable)
 -- ==============================================================================
 local SpeedConnection = nil
 
@@ -790,7 +790,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ==============================================================================
--- 7. INFINITE JUMP (from 222 Hub)
+-- 7. INFINITE JUMP (from rzgr1ks lag Hub)
 -- ==============================================================================
 local jumpForce = 55
 local clampFallSpeed = 35
@@ -866,7 +866,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ==============================================================================
--- 9. ANTI RAGDOLL (Hydra version) – unchanged
+-- 9. ANTI RAGDOLL (Rzgr1ks version) – unchanged
 -- ==============================================================================
 local Frozen = false
 local DisabledRemotes = {}
@@ -990,7 +990,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ==============================================================================
--- 10. AUTO DUEL (SILENT HUB LOGIC)
+-- 10. AUTO DUEL (RZGR1KS LAG HUB LOGIC)
 -- ==============================================================================
 local duelPath = {}
 local duelPathIndex = 1
@@ -1056,7 +1056,7 @@ local function startDuel()
     duelIsMoving = true
     duelGrabDone = false
 
-    -- Choose path based on current position (Silent Hub logic)
+    -- Choose path based on current position (Rzgr1ks Hub logic)
     if (root.Position - Vector3.new(-475,-7,96)).Magnitude >
        (root.Position - Vector3.new(-474,-7,23)).Magnitude then
         duelPath = {
@@ -1086,7 +1086,7 @@ end
 -- 11. GUI CONSTRUCTION
 -- ==============================================================================
 
-local myGui = HydraGuiLib:CreateGui("HYDRA HUB DUELS 🐬")
+local myGui = HydraGuiLib:CreateGui("RZGR1KS HUB DUELS 🐬")
 local spinBotBtn, infJumpBtn, followPlayerBtn
 
 -- ROW 0
@@ -1206,4 +1206,4 @@ autoStealLoop()
 if LocalPlayer.Character then onCharacterAdded(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
-print("HYDRA HUB DUELS Loaded (Silent Hub Auto Duel & Instant Grab – speed conflict fixed)")
+print("RZGR1KS HUB DUELS Loaded (Rzgr1ks lag Hub Auto Duel & Instant Grab – speed conflict fixed)")
