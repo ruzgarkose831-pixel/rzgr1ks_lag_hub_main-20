@@ -1,8 +1,8 @@
 --[[ 
-    rzgr1ks DUEL SCRIPT - V98 (ENGLISH VERSION)
-    - Fix: Anti-Die (Smooth Speed Bypass)
-    - UI: English Translation
-    - Customization: "rzgr1ks" brand
+    rzgr1ks DUEL SCRIPT - V100 (STABLE SPEED)
+    - Fix: Anti-Cheat Bypass (No more dying)
+    - Method: Hybrid Velocity & Power
+    - UI: English & Mini & Draggable
 ]]
 
 local Players = game:GetService("Players")
@@ -12,7 +12,7 @@ local player = Players.LocalPlayer
 
 -- 1. SETTINGS
 _G.Data = {
-    Speed = 25, 
+    Speed = 30, 
     Jump = 55, 
     HB_Size = 25,
     HB_Enabled = false, 
@@ -27,7 +27,7 @@ local VisualParts = {nil, nil, nil, nil}
 
 -- 2. MAIN PANEL
 local gui = Instance.new("ScreenGui")
-gui.Name = "rzgr1ks_GUI"
+gui.Name = "rzgr1ks_V100"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
@@ -37,22 +37,19 @@ main.Position = UDim2.new(0.5, -120, 0.5, -150)
 main.BackgroundColor3 = Color3.fromRGB(15,15,20)
 main.BorderSizePixel = 0
 main.Parent = gui
-main.Visible = true
 Instance.new("UICorner",main).CornerRadius = UDim.new(0,12)
 local Stroke = Instance.new("UIStroke", main); Stroke.Thickness = 2; Stroke.Color = Color3.fromRGB(255,140,0)
 
--- MINI TOGGLE BUTTON (rzgr1ks)
+-- MINI BUTTON (rzgr1ks)
 local toggleBtn = Instance.new("TextButton", gui)
-toggleBtn.Size = UDim2.new(0, 65, 0, 30)
+toggleBtn.Size = UDim2.new(0, 70, 0, 30)
 toggleBtn.Position = UDim2.new(0, 10, 0.2, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 toggleBtn.Text = "rzgr1ks"; toggleBtn.TextColor3 = Color3.fromRGB(255,140,0); toggleBtn.Font = "GothamBold"; toggleBtn.TextSize = 12
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0,8)
 Instance.new("UIStroke", toggleBtn).Color = Color3.fromRGB(255,140,0)
 
-toggleBtn.MouseButton1Click:Connect(function()
-    main.Visible = not main.Visible
-end)
+toggleBtn.MouseButton1Click:Connect(function() main.Visible = not main.Visible end)
 
 -- DRAG SYSTEM (FULL FRAME)
 local dragging, dragStart, startPos
@@ -67,21 +64,21 @@ UIS.InputChanged:Connect(function(input)
         main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-UIS.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+UIS.InputEnded:Connect(function(input) dragging = false end)
 
 -- TITLE
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1,0,0,35); title.BackgroundTransparency = 1; title.Text = "rzgr1ks duel script"
 title.Font = "GothamBold"; title.TextSize = 13; title.TextColor3 = Color3.fromRGB(255,140,0)
 
--- SCROLLING CONTAINER
+-- SCROLLING FRAME
 local container = Instance.new("ScrollingFrame", main)
 container.Size = UDim2.new(1,-10,1,-45); container.Position = UDim2.new(0,5,0,40)
 container.BackgroundTransparency = 1; container.ScrollBarThickness = 0
-container.CanvasSize = UDim2.new(0,0,0,500)
+container.CanvasSize = UDim2.new(0,0,0,450)
 local layout = Instance.new("UIListLayout", container); layout.Padding = UDim.new(0,5)
 
--- 3. UI BUILDER FUNCTIONS
+-- UI FUNCTIONS
 local function CreateToggle(text, callback)
     local b = Instance.new("TextButton", container)
     b.Size = UDim2.new(1,0,0,28); b.BackgroundColor3 = Color3.fromRGB(30,30,35); b.Text = text .. ": OFF"
@@ -118,11 +115,11 @@ local function CreateBtn(text, color, callback)
     return b
 end
 
--- 4. ADD FEATURES (ENGLISH)
+-- FEATURES
 CreateToggle("Hitbox Expander", function(s) _G.Data.HB_Enabled = s end)
 CreateSlider("HB Size", 2, 100, 25, function(v) _G.Data.HB_Size = v end)
 CreateToggle("Player ESP", function(s) _G.Data.ESP_Enabled = s end)
-CreateSlider("Speed Boost", 16, 60, 25, function(v) _G.Data.Speed = v end)
+CreateSlider("Speed Boost", 16, 120, 30, function(v) _G.Data.Speed = v end)
 CreateSlider("Jump Power", 50, 150, 55, function(v) _G.Data.Jump = v end)
 
 local slotBtn = CreateBtn("SELECTED: SLOT 1", Color3.fromRGB(60, 45, 0), function()
@@ -156,23 +153,30 @@ end)
 
 CreateBtn("STOP AUTO WALK", Color3.fromRGB(120, 0, 0), function() _G.Data.Walking = false end)
 
--- 5. SMOOTH LOGIC LOOPS
-RunService.Heartbeat:Connect(function(dt)
+-- 5. FINAL SPEED SYSTEM (NO DIE ENGINE)
+RunService.PostSimulation:Connect(function()
     local char = player.Character
     local hum = char and char:FindFirstChild("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     
-    if hum and hrp and not _G.Data.Walking and hum.MoveDirection.Magnitude > 0 then
-        local extraSpeed = (_G.Data.Speed - 16)
-        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * extraSpeed * dt)
+    if hum and hrp then
+        -- Hız Bypass: CFrame yerine sadece Velocity kontrolü
+        if hum.MoveDirection.Magnitude > 0 and not _G.Data.Walking then
+            local vel = hum.MoveDirection * _G.Data.Speed
+            hrp.Velocity = Vector3.new(vel.X, hrp.Velocity.Y, vel.Z)
+        end
     end
 end)
 
+-- Jump Bypass
 UIS.JumpRequest:Connect(function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp and not _G.Data.Walking then hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Data.Jump, hrp.Velocity.Z) end
+    if hrp and not _G.Data.Walking then
+        hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Data.Jump, hrp.Velocity.Z)
+    end
 end)
 
+-- ESP & Hitbox
 RunService.Stepped:Connect(function()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
