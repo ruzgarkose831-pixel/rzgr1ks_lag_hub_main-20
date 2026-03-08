@@ -5,206 +5,145 @@ local player = Players.LocalPlayer
 
 -- 1. TEMİZLİK
 local function cleanup()
-    for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if v.Name == "rzgr1ks_V31" then v:Destroy() end
+    if game:GetService("CoreGui"):FindFirstChild("rzgr1ks_V33") then
+        game:GetService("CoreGui").rzgr1ks_V33:Destroy()
+    end
+    if workspace:FindFirstChild("FakeFloor_" .. player.Name) then
+        workspace["FakeFloor_" .. player.Name]:Destroy()
     end
 end
 cleanup()
 
--- 2. LEMON HUB PREMIUM UI
-local sg = Instance.new("ScreenGui")
-sg.Name = "rzgr1ks_V31"
-sg.Parent = game:GetService("CoreGui") or player.PlayerGui
+-- 2. UI ANA YAPI (Boyutlar Küçültüldü)
+local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
+sg.Name = "rzgr1ks_V33"
 sg.IgnoreGuiInset = true
 
+-- ANA PANEL (240x360 - Daha Küçük)
 local Main = Instance.new("Frame", sg)
-Main.Size = UDim2.new(0, 330, 0, 480)
-Main.Position = UDim2.new(0.5, -165, 0.5, -240)
-Main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+Main.Size = UDim2.new(0, 240, 0, 360)
+Main.Position = UDim2.new(0.5, -120, 0.5, -180)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 
 local Stroke = Instance.new("UIStroke", Main)
-Stroke.Color = Color3.fromRGB(255, 120, 0) -- Neon Turuncu
-Stroke.Thickness = 2
+Stroke.Color = Color3.fromRGB(255, 130, 0)
+Stroke.Thickness = 1.5
 
+-- SARI TOP (Açma Butonu)
+local OpenBtn = Instance.new("TextButton", sg)
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Position = UDim2.new(0, 15, 0.5, -25)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+OpenBtn.Text = "HUB"
+OpenBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.Visible = false
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", OpenBtn).Thickness = 2
+
+-- KAYDIRILABİLİR LİSTE
 local Scroll = Instance.new("ScrollingFrame", Main)
 Scroll.Size = UDim2.new(1, -10, 1, -50)
 Scroll.Position = UDim2.new(0, 5, 0, 45)
 Scroll.BackgroundTransparency = 1
 Scroll.CanvasSize = UDim2.new(0, 0, 2.5, 0)
-Scroll.ScrollBarThickness = 2
+Scroll.ScrollBarThickness = 0
 
 local UIList = Instance.new("UIListLayout", Scroll)
-UIList.Padding = UDim.new(0, 10)
+UIList.Padding = UDim.new(0, 6)
 UIList.HorizontalAlignment = "Center"
 
+-- BAŞLIK
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "LEMON HUB V31 - PREMIUM"
-Title.TextColor3 = Color3.fromRGB(255, 120, 0)
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Text = "rzgr1ks V33"
+Title.TextColor3 = Color3.fromRGB(255, 130, 0)
 Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
+Title.TextSize = 13
 
--- AYARLAR
-_G.Aimbot = false
-_G.Hitbox = false
-_G.AntiRagdoll = false
-_G.Spinbot = false
+-- KAPATMA (Sarı Topa Dönüştürür)
+local Cls = Instance.new("TextButton", Main)
+Cls.Size = UDim2.new(0, 25, 0, 25); Cls.Position = UDim2.new(1, -30, 0, 5)
+Cls.Text = "X"; Cls.BackgroundColor3 = Color3.new(0.6, 0, 0); Cls.TextColor3 = Color3.new(1, 1, 1)
+
+Cls.MouseButton1Click:Connect(function() Main.Visible = false; OpenBtn.Visible = true end)
+OpenBtn.MouseButton1Click:Connect(function() Main.Visible = true; OpenBtn.Visible = false end)
+
+-- AYARLAR VE BYPASS
 _G.HighWalk = false
+_G.FlyHeight = 8
 _G.SpeedVal = 70
-_G.JumpVal = 50
-_G.FlyHeight = 7 -- Havada durma yüksekliği
+_G.AntiRagdoll = false
 
--- UI BİLEŞENLERİ
+local FakeFloor = Instance.new("Part", workspace)
+FakeFloor.Name = "FakeFloor_" .. player.Name
+FakeFloor.Size = Vector3.new(10, 1, 10)
+FakeFloor.Transparency = 1
+FakeFloor.Anchored = true
+FakeFloor.CanCollide = false
+
+-- UI OLUŞTURUCULAR
 local function createToggle(name, callback)
     local btn = Instance.new("TextButton", Scroll)
-    btn.Size = UDim2.new(0, 290, 0, 42)
+    btn.Size = UDim2.new(0, 210, 0, 35)
     btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    btn.Text = "  " .. name .. ": OFF"
+    btn.Text = " " .. name .. ": OFF"
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.TextXAlignment = "Left"
     btn.Font = "Gotham"
+    btn.TextSize = 11
     Instance.new("UICorner", btn)
     
     local act = false
     btn.MouseButton1Click:Connect(function()
         act = not act
-        btn.Text = act and ("  " .. name .. ": ON") or ("  " .. name .. ": OFF")
-        btn.TextColor3 = act and Color3.fromRGB(255, 120, 0) or Color3.new(1, 1, 1)
+        btn.Text = act and (" " .. name .. ": ON") or (" " .. name .. ": OFF")
+        btn.TextColor3 = act and Color3.fromRGB(255, 130, 0) or Color3.new(1, 1, 1)
         callback(act)
     end)
 end
 
-local function createSlider(name, min, max, default, callback)
-    local sFrame = Instance.new("Frame", Scroll)
-    sFrame.Size = UDim2.new(0, 290, 0, 55)
-    sFrame.BackgroundTransparency = 1
-    
-    local lab = Instance.new("TextLabel", sFrame)
-    lab.Text = name .. ": " .. default
-    lab.Size = UDim2.new(1, 0, 0, 20)
-    lab.TextColor3 = Color3.new(0.8, 0.8, 0.8)
-    lab.BackgroundTransparency = 1
-    
-    local bar = Instance.new("TextButton", sFrame)
-    bar.Size = UDim2.new(0, 270, 0, 6)
-    bar.Position = UDim2.new(0.5, -135, 0, 35)
-    bar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    bar.Text = ""
-    Instance.new("UICorner", bar)
-    
-    local fill = Instance.new("Frame", bar)
-    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(255, 120, 0)
-    Instance.new("UICorner", fill)
-    
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local connection
-            connection = UIS.InputChanged:Connect(function(move)
-                if move.UserInputType == Enum.UserInputType.MouseButton1 or move.UserInputType == Enum.UserInputType.Touch then
-                    local p = math.clamp((move.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-                    fill.Size = UDim2.new(p, 0, 1, 0)
-                    local val = math.floor(min + (max - min) * p)
-                    lab.Text = name .. ": " .. val
-                    callback(val)
-                end
-            end)
-            UIS.InputEnded:Connect(function(endInput)
-                if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
-                    connection:Disconnect()
-                end
-            end)
-        end
-    end)
-end
-
 -- ÖZELLİKLERİ EKLE
-createToggle("Aimbot Lock", function(v) _G.Aimbot = v end)
-createToggle("Hitbox Expander", function(v) _G.Hitbox = v end)
-createSlider("Movement Speed", 16, 500, 70, function(v) _G.SpeedVal = v end)
-createSlider("Jump Power", 50, 500, 50, function(v) _G.JumpVal = v end)
-createToggle("Anti-Ragdoll (God Mode)", function(v) _G.AntiRagdoll = v end)
-createToggle("High Walk (Yüksek Yürüme)", function(v) _G.HighWalk = v v31_FixHighWalk(v) end)
-createSlider("High Walk Height", 0, 50, 7, function(v) _G.FlyHeight = v end)
-createToggle("Spin Bot", function(v) _G.Spinbot = v end)
+createToggle("High Walk (Bypass)", function(v) _G.HighWalk = v end)
+createToggle("Anti-Ragdoll", function(v) _G.AntiRagdoll = v end)
 createToggle("Infinite Jump", function(v) _G.InfJump = v end)
 
--- 3. MOTOR VE HATA DÜZELTMELERİ
-function v31_FixHighWalk(active)
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not active and root then
-        if root:FindFirstChild("AirWalker") then root.AirWalker:Destroy() end
-    end
-end
-
+-- MOTOR
 RunService.RenderStepped:Connect(function()
     local char = player.Character
-    local hum = char and char:FindFirstChild("Humanoid")
     local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
 
     if hum and root then
         hum.WalkSpeed = _G.SpeedVal
-        hum.JumpPower = _G.JumpVal
         
-        -- HIGH WALK (STUCK FIX)
+        -- High Walk Bypass (Sahte Zemin)
         if _G.HighWalk then
-            local bv = root:FindFirstChild("AirWalker") or Instance.new("BodyVelocity", root)
-            bv.Name = "AirWalker"
-            bv.MaxForce = Vector3.new(0, math.huge, 0)
-            bv.Velocity = Vector3.new(0, 0, 0)
-            
-            -- Işınlanma yerine yumuşak yükselme
-            local targetHeight = _G.FlyHeight
-            local ray = Ray.new(root.Position, Vector3.new(0, -100, 0))
-            local _, hitPos = workspace:FindPartOnRayWithIgnoreList(ray, {char})
-            local currentGroundDist = (root.Position.Y - hitPos.Y)
-            
-            if currentGroundDist < targetHeight then
-                root.CFrame = root.CFrame * CFrame.new(0, 0.3, 0)
-            elseif currentGroundDist > targetHeight + 1 then
-                root.CFrame = root.CFrame * CFrame.new(0, -0.3, 0)
-            end
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+            FakeFloor.CFrame = root.CFrame * CFrame.new(0, -(_G.FlyHeight / 2), 0)
+            FakeFloor.CanCollide = true
+            root.Velocity = Vector3.new(root.Velocity.X, 0.05, root.Velocity.Z)
+        else
+            FakeFloor.CanCollide = false
+            FakeFloor.Position = Vector3.new(0, -1000, 0)
         end
-        
-        -- ANTI-RAGDOLL
+
+        -- Anti-Ragdoll
         if _G.AntiRagdoll then
             hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
             hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
             if hum.PlatformStand then hum.PlatformStand = false end
-            if root.Velocity.Magnitude > 100 then root.Velocity = Vector3.new(0,0,0) end -- Fırlatılmayı engeller
-        end
-    end
-
-    if _G.Spinbot and root then
-        root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(60), 0)
-    end
-    
-    if _G.Hitbox then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                p.Character.HumanoidRootPart.Size = Vector3.new(20, 20, 20)
-                p.Character.HumanoidRootPart.Transparency = 0.8
-                p.Character.HumanoidRootPart.CanCollide = false
-            end
         end
     end
 end)
 
--- Infinite Jump
 UIS.JumpRequest:Connect(function()
     if _G.InfJump and player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid:ChangeState(3)
     end
 end)
-
--- KAPATMA
-local Cls = Instance.new("TextButton", Main)
-Cls.Size = UDim2.new(0, 30, 0, 30); Cls.Position = UDim2.new(1, -35, 0, 5)
-Cls.Text = "X"; Cls.BackgroundColor3 = Color3.new(0.6, 0, 0); Cls.TextColor3 = Color3.new(1, 1, 1)
-Cls.MouseButton1Click:Connect(function() sg:Destroy() end)
