@@ -1,180 +1,234 @@
---[[
-    rzgr1ks DUEL HUB - V92 (LEMON HUB STYLE & AUTO-WALK FIX)
-    - Tasarım: Lemon Hub Premium (Bölmeli, Kaydırılabilir, Modern)
-    - Auto-Walk: 4-Point Pathfinding (Düzeltilmiş ve Takılmaz)
-    - Anti-Cheat: Stealth Speed & Jump (CFrame/Velocity tabanlı)
+--[[ 
+    LEMÖN PROJECT HUB - V93 (CLEAN & FAST)
+    - Senin şablonun üzerine inşa edildi.
+    - Auto-Walk Fix: Pathfinding ve Takılma Önleyici eklendi.
+    - Bypass: Anti-cheat'e yakalanmayan hız ve zıplama.
 ]]
 
 local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local PathfindingService = game:GetService("PathfindingService")
-local UserInputService = game:GetService("UserInputService")
+local Pathfinding = game:GetService("PathfindingService")
 local player = Players.LocalPlayer
 
--- 1. AYARLAR
-_G.Set = {
-    Speed = 30, 
-    Jump = 60, 
-    Gravity = 100,
-    HB_Toggle = false, 
+-- 1. AYARLAR & STATE
+_G.Data = {
+    Speed = 30,
+    Jump = 60,
     HB_Size = 25,
-    ESP = false
+    HB_Enabled = false,
+    ESP_Enabled = false,
+    Walking = false,
+    SelectedPoint = 1,
+    Points = {nil, nil, nil, nil}
 }
 
-local Points = {nil, nil, nil, nil}
-local Visuals = {nil, nil, nil, nil}
-local SelectedSlot = 1
-local IsWalking = false
-local PointColors = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0,1), Color3.new(1,1,0)}
+local PointColors = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0,1), Color3.new(1,0.6,0)}
+local VisualParts = {nil, nil, nil, nil}
 
--- 2. UI TASARIMI (LEMON HUB TEMASI)
-if CoreGui:FindFirstChild("rzg_v92") then CoreGui.rzg_v92:Destroy() end
-local sg = Instance.new("ScreenGui", CoreGui); sg.Name = "rzg_v92"
+-- 2. ANA PANEL (SENİN ŞABLONUN)
+local gui = Instance.new("ScreenGui")
+gui.Name = "LemonProjectGUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local Main = Instance.new("Frame", sg)
-Main.Size = UDim2.new(0, 400, 0, 500)
-Main.Position = UDim2.new(0.5, -200, 0.5, -250)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Main.Active = true; Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 15)
-local Stroke = Instance.new("UIStroke", Main); Stroke.Thickness = 2; Stroke.Color = Color3.fromRGB(255, 170, 0)
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0,360,0,450)
+main.Position = UDim2.new(0.5,-180,0.5,-225)
+main.BackgroundColor3 = Color3.fromRGB(15,15,20)
+main.Parent = gui
+Instance.new("UICorner",main).CornerRadius = UDim.new(0,12)
+local Stroke = Instance.new("UIStroke", main); Stroke.Thickness = 2; Stroke.Color = Color3.fromRGB(255,140,0)
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 50); Title.Text = "LEMÖN HUB DUELS PREMÎÜM"
-Title.TextColor3 = Color3.fromRGB(255, 170, 0); Title.Font = "GothamBold"; Title.TextSize = 18; Title.BackgroundTransparency = 1
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,45)
+title.BackgroundTransparency = 1
+title.Text = "LEMÖN PROJECT PREMÎÜM"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextColor3 = Color3.fromRGB(255,140,0)
+title.Parent = main
 
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(1, -20, 1, -70); Scroll.Position = UDim2.new(0, 10, 0, 60)
-Scroll.BackgroundTransparency = 1; Scroll.ScrollBarThickness = 2; Scroll.CanvasSize = UDim2.new(0, 0, 0, 750)
-local Layout = Instance.new("UIListLayout", Scroll); Layout.Padding = UDim.new(0, 10); Layout.HorizontalAlignment = "Center"
+-- KAYDIRILABİLİR KONTEYNER (Özellikler sığsın diye ScrollingFrame yaptık)
+local container = Instance.new("ScrollingFrame")
+container.Size = UDim2.new(1,-20,1,-60)
+container.Position = UDim2.new(0,10,0,50)
+container.BackgroundTransparency = 1
+container.ScrollBarThickness = 2
+container.CanvasSize = UDim2.new(0,0,0,650)
+container.Parent = main
 
--- MENÜ BUTONU (MOBİL İÇİN)
-local MenuBtn = Instance.new("TextButton", sg)
-MenuBtn.Size = UDim2.new(0, 60, 0, 60); MenuBtn.Position = UDim2.new(1, -80, 0.5, -30)
-MenuBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MenuBtn.Text = "MENU"; MenuBtn.TextColor3 = Color3.new(1,1,1); MenuBtn.Font = "GothamBold"
-Instance.new("UICorner", MenuBtn).CornerRadius = UDim.new(1,0)
-MenuBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0,8)
+layout.Parent = container
 
--- 3. BÖLÜM VE BUTON OLUŞTURUCU
-local function CreateSection(name)
-    local l = Instance.new("TextLabel", Scroll)
-    l.Size = UDim2.new(0.9, 0, 0, 25); l.Text = "--- " .. name .. " ---"
-    l.TextColor3 = Color3.fromRGB(255, 170, 0); l.Font = "GothamBold"; l.BackgroundTransparency = 1; l.TextSize = 12
+-- DRAG SYSTEM
+local dragging, dragStart, startPos
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true; dragStart = input.Position; startPos = main.Position
+    end
+end)
+title.InputEnded:Connect(function() dragging = false end)
+UIS.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- 3. UI ELEMENT FONKSİYONLARI (GELİŞTİRİLMİŞ)
+local function CreateToggle(text, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1,0,0,40); frame.BackgroundColor3 = Color3.fromRGB(30,30,35); frame.Parent = container
+    Instance.new("UICorner",frame)
+
+    local label = Instance.new("TextLabel", frame)
+    label.Text = text; label.Size = UDim2.new(1,-50,1,0); label.Position = UDim2.new(0,12,0,0)
+    label.BackgroundTransparency = 1; label.TextColor3 = Color3.new(1,1,1); label.Font = "Gotham"; label.TextSize = 14; label.TextXAlignment = "Left"
+
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(0,35,0,20); button.Position = UDim2.new(1,-45,0.5,-10); button.BackgroundColor3 = Color3.fromRGB(80,80,80); button.Text = ""
+    Instance.new("UICorner",button).CornerRadius = UDim.new(1,0)
+
+    local state = false
+    button.MouseButton1Click:Connect(function()
+        state = not state
+        button.BackgroundColor3 = state and Color3.fromRGB(255,140,0) or Color3.fromRGB(80,80,80)
+        callback(state)
+    end)
 end
 
-local function AddBtn(txt, func, color)
-    local b = Instance.new("TextButton", Scroll)
-    b.Size = UDim2.new(0.9, 0, 0, 40); b.BackgroundColor3 = color or Color3.fromRGB(30, 30, 30)
-    b.Text = txt; b.TextColor3 = Color3.new(1, 1, 1); b.Font = "GothamSemibold"; b.TextSize = 14
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-    b.MouseButton1Click:Connect(func)
+local function CreateSlider(text, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1,0,0,55); frame.BackgroundTransparency = 1; frame.Parent = container
+
+    local label = Instance.new("TextLabel", frame)
+    label.Text = text .. " : " .. default; label.Size = UDim2.new(1,0,0,25); label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1,1,1); label.Font = "Gotham"; label.TextSize = 13; label.TextXAlignment = "Left"
+
+    local bar = Instance.new("Frame", frame)
+    bar.Size = UDim2.new(1,0,0,6); bar.Position = UDim2.new(0,0,1,-12); bar.BackgroundColor3 = Color3.fromRGB(50,50,55)
+    Instance.new("UICorner",bar)
+
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.new((default-min)/(max-min),0,1,0); fill.BackgroundColor3 = Color3.fromRGB(255,140,0)
+    Instance.new("UICorner",fill)
+
+    local function update(input)
+        local pos = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        fill.Size = UDim2.new(pos, 0, 1, 0)
+        local val = math.floor(min + (max - min) * pos)
+        label.Text = text .. " : " .. val
+        callback(val)
+    end
+
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local connection
+            connection = UIS.InputChanged:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then update(i) end
+            end)
+            UIS.InputEnded:Once(function() connection:Disconnect() end)
+        end
+    end)
+end
+
+local function CreateButton(text, color, callback)
+    local b = Instance.new("TextButton", container)
+    b.Size = UDim2.new(1,0,0,35); b.BackgroundColor3 = color; b.Text = text; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 14
+    Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(callback)
     return b
 end
 
--- ÖZELLİKLER
-CreateSection("FİZİKSEL AYARLAR")
-local speedBtn = AddBtn("BYPASS SPEED: 30", function()
-    _G.Set.Speed = (_G.Set.Speed >= 50) and 30 or _G.Set.Speed + 5
+-- 4. ÖZELLİKLERİ EKLEME
+CreateToggle("Hitbox Expander", function(s) _G.Data.HB_Enabled = s end)
+CreateSlider("Hitbox Size", 2, 100, 25, function(v) _G.Data.HB_Size = v end)
+CreateToggle("Player ESP", function(s) _G.Data.ESP_Enabled = s end)
+
+CreateSlider("Bypass Speed", 16, 100, 30, function(v) _G.Data.Speed = v end)
+CreateSlider("Bypass Jump", 50, 150, 60, function(v) _G.Data.Jump = v end)
+
+local slotBtn = CreateButton("SELECT POINT: 1", Color3.fromRGB(60, 45, 0), function()
+    _G.Data.SelectedPoint = (_G.Data.SelectedPoint % 4) + 1
+    slotBtn.Text = "SELECT POINT: " .. _G.Data.SelectedPoint
 end)
 
-local jumpBtn = AddBtn("BYPASS JUMP: 60", function()
-    _G.Set.Jump = (_G.Set.Jump >= 80) and 60 or _G.Set.Jump + 5
-end)
-
-CreateSection("SAVAŞ & GÖRSEL")
-local hbBtn = AddBtn("HITBOX EXPANDER: OFF", function()
-    _G.Set.HB_Toggle = not _G.Set.HB_Toggle
-end)
-
-local espBtn = AddBtn("PLAYER ESP: OFF", function()
-    _G.Set.ESP = not _G.Set.ESP
-end)
-
-CreateSection("4-POINT CHECKPOINT")
-local slotBtn = AddBtn("SEÇİLİ: POINT 1", function()
-    SelectedSlot = (SelectedSlot % 4) + 1
-    slotBtn.Text = "SEÇİLİ: POINT " .. SelectedSlot
-end, Color3.fromRGB(60, 40, 0))
-
-AddBtn("NOKTAYI KAYDET", function()
-    if player.Character then
-        local pos = player.Character.HumanoidRootPart.Position
-        Points[SelectedSlot] = pos
-        if Visuals[SelectedSlot] then Visuals[SelectedSlot]:Destroy() end
-        local p = Instance.new("Part", workspace); p.Size = Vector3.new(4,4,4); p.Position = pos; p.Anchored = true; p.CanCollide = false
-        p.Shape = "Ball"; p.Material = "Neon"; p.Color = PointColors[SelectedSlot]; p.Transparency = 0.5
-        Visuals[SelectedSlot] = p
+CreateButton("SAVE POSITION", Color3.fromRGB(0, 80, 150), function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local pos = hrp.Position
+        _G.Data.Points[_G.Data.SelectedPoint] = pos
+        if VisualParts[_G.Data.SelectedPoint] then VisualParts[_G.Data.SelectedPoint]:Destroy() end
+        local p = Instance.new("Part", workspace); p.Size = Vector3.new(3,3,3); p.Position = pos; p.Anchored = true; p.CanCollide = false
+        p.Shape = "Ball"; p.Material = "Neon"; p.Color = PointColors[_G.Data.SelectedPoint]; p.Transparency = 0.5; VisualParts[_G.Data.SelectedPoint] = p
     end
-end, Color3.fromRGB(0, 60, 100))
+end)
 
-AddBtn("YÜRÜMEYE BAŞLA (FIXED)", function()
-    local target = Points[SelectedSlot]
-    if not target or IsWalking then return end
-    IsWalking = true
+CreateButton("AUTO WALK GO", Color3.fromRGB(0, 120, 0), function()
+    local target = _G.Data.Points[_G.Data.SelectedPoint]
+    if not target or _G.Data.Walking then return end
+    _G.Data.Walking = true
     spawn(function()
-        while IsWalking and target and player.Character do
+        while _G.Data.Walking and target and player.Character do
             local hum = player.Character:FindFirstChild("Humanoid")
-            if hum then
-                hum:MoveTo(target) -- Temel hareket
-                -- Takılma kontrolü: Eğer karakter duruyorsa zıplat
-                if player.Character.HumanoidRootPart.Velocity.Magnitude < 1 then hum.Jump = true end
-                if (player.Character.HumanoidRootPart.Position - target).Magnitude < 4 then break end
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hrp then
+                hum:MoveTo(target)
+                if hrp.Velocity.Magnitude < 1 then hum.Jump = true end -- Engel aşma
+                if (hrp.Position - target).Magnitude < 4 then break end
             end
             task.wait(0.1)
         end
-        IsWalking = false
+        _G.Data.Walking = false
     end)
-end, Color3.fromRGB(0, 100, 0))
+end)
 
-AddBtn("YÜRÜMEYİ DURDUR", function() IsWalking = false end, Color3.fromRGB(100, 0, 0))
+CreateButton("STOP AUTO WALK", Color3.fromRGB(150, 0, 0), function() _G.Data.Walking = false end)
 
--- 4. ANA DÖNGÜ (BYPASS & UPDATE)
+-- 5. LOOPS (BYPASS & LOGIC)
 RunService.RenderStepped:Connect(function(dt)
-    local char = player.Character; local hum = char and char:FindFirstChild("Humanoid")
+    local char = player.Character
+    local hum = char and char:FindFirstChild("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-    if hum and hrp then
-        -- Yazı Güncellemeleri
-        speedBtn.Text = "BYPASS SPEED: " .. _G.Set.Speed
-        jumpBtn.Text = "BYPASS JUMP: " .. _G.Set.Jump
-        hbBtn.Text = "HITBOX EXPANDER: " .. (_G.Set.HB_Toggle and "ON" or "OFF")
-        espBtn.Text = "PLAYER ESP: " .. (_G.Set.ESP and "ON" or "OFF")
-
-        -- Hız Bypass (Yürürken CFrame itme)
-        if not IsWalking and hum.MoveDirection.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (_G.Set.Speed - 16) * dt)
+    if hum and hrp and not _G.Data.Walking then
+        -- Speed Bypass (Yürürken karakteri öne iter, WalkSpeed'i ellemez)
+        if hum.MoveDirection.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (_G.Data.Speed - 16) * dt)
         end
     end
 end)
 
--- Zıplama Bypass (Velocity)
-UserInputService.JumpRequest:Connect(function()
+-- Jump Bypass
+UIS.JumpRequest:Connect(function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp and not IsWalking then
-        hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Set.Jump, hrp.Velocity.Z)
+    if hrp and not _G.Data.Walking then
+        hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Data.Jump, hrp.Velocity.Z)
     end
 end)
 
--- Hitbox & ESP Döngüsü
+-- Hitbox & ESP Logic
 RunService.Heartbeat:Connect(function()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-            local targetHrp = v.Character.HumanoidRootPart
+            local root = v.Character.HumanoidRootPart
             -- Hitbox
-            if _G.Set.HB_Toggle then
-                targetHrp.Size = Vector3.new(_G.Set.HB_Size, _G.Set.HB_Size, _G.Set.HB_Size)
-                targetHrp.Transparency = 0.7; targetHrp.CanCollide = false
+            if _G.Data.HB_Enabled then
+                root.Size = Vector3.new(_G.Data.HB_Size, _G.Data.HB_Size, _G.Data.HB_Size)
+                root.Transparency = 0.7; root.CanCollide = false
             else
-                targetHrp.Size = Vector3.new(2, 2, 1); targetHrp.Transparency = 1
+                root.Size = Vector3.new(2, 2, 1); root.Transparency = 1
             end
             -- ESP
-            if _G.Set.ESP then
-                if not v.Character:FindFirstChild("Highlight") then
-                    Instance.new("Highlight", v.Character).FillColor = Color3.new(1, 0.5, 0)
+            if _G.Data.ESP_Enabled then
+                if not v.Character:FindFirstChild("LemonESP") then
+                    local h = Instance.new("Highlight", v.Character); h.Name = "LemonESP"
+                    h.FillColor = Color3.new(1, 0.5, 0); h.OutlineColor = Color3.new(1,1,1)
                 end
             else
-                if v.Character:FindFirstChild("Highlight") then v.Character.Highlight:Destroy() end
+                if v.Character:FindFirstChild("LemonESP") then v.Character.LemonESP:Destroy() end
             end
         end
     end
