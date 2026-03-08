@@ -1,138 +1,115 @@
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "rzgr1ks_Fixed"
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false 
-ScreenGui.IgnoreGuiInset = true -- Ekranın en üstüne kadar kullanabilmeyi sağlar
+-- GUI Temizliği (Eskileri siler)
+if player:WaitForChild("PlayerGui"):FindFirstChild("rzgr1ks_Final") then
+    player.PlayerGui.rzgr1ks_Final:Destroy()
+end
 
--- Main Menu
+local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
+ScreenGui.Name = "rzgr1ks_Final"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Ana Panel
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 280, 0, 350)
-Main.Position = UDim2.new(0.5, -140, 0.2, 0)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+Main.Size = UDim2.new(0, 240, 0, 200)
+Main.Position = UDim2.new(0.5, -120, 0.2, 0)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true 
-Main.Visible = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 15)
 
+-- Başlık
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 50)
-Title.Text = "rzgr1ks Hub PRO"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "rzgr1ks Hub V6"
 Title.TextColor3 = Color3.fromRGB(0, 255, 170)
 Title.BackgroundTransparency = 1
-Title.TextSize = 24
-Title.Font = Enum.Font.SourceSansBold
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
 
--- States
-_G.BoostActive = false
-_G.ESPActive = false
+-- Değişkenler
+_G.Boost = false
+_G.ESP = false
 
--- Function: ESP Logic
-local function updateESP()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local highlight = p.Character:FindFirstChild("ESPHighlight")
-            if _G.ESPActive then
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "ESPHighlight"
-                    highlight.Parent = p.Character
-                    highlight.FillColor = Color3.fromRGB(255, 0, 50)
-                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                end
-            else
-                if highlight then highlight:Destroy() end
-            end
-        end
-    end
-end
-
--- Main Loop (Speed, Jump, Tool Check)
+-- SÜREKLİ DÖNGÜ (Zorla Uygula)
 task.spawn(function()
     while task.wait(0.1) do
-        local char = player.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.UseJumpPower = true
-                if _G.BoostActive then
-                    local hasTool = char:FindFirstChildOfClass("Tool")
-                    hum.WalkSpeed = hasTool and 30 or 60
+        pcall(function()
+            local char = player.Character
+            if char and _G.Boost then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.UseJumpPower = true
                     hum.JumpPower = 15
+                    -- Tool kontrolü
+                    if char:FindFirstChildOfClass("Tool") then
+                        hum.WalkSpeed = 30
+                    else
+                        hum.WalkSpeed = 60
+                    end
                 end
             end
-        end
-        if _G.ESPActive then updateESP() end
+            
+            -- ESP Döngüsü
+            if _G.ESP then
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= player and p.Character then
+                        local h = p.Character:FindFirstChild("Highlight") or Instance.new("Highlight", p.Character)
+                        h.FillColor = Color3.fromRGB(255, 0, 0)
+                        h.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    end
+                end
+            end
+        end)
     end
 end)
 
--- Ultra-Responsive Button Function (Mobile Friendly)
-local function createButton(name, posY, callback)
-    local Btn = Instance.new("TextButton", Main)
-    Btn.Size = UDim2.new(0, 240, 0, 60)
-    Btn.Position = UDim2.new(0.5, -120, 0, posY)
-    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-    Btn.Text = name .. " : OFF"
-    Btn.TextColor3 = Color3.white
-    Btn.Font = Enum.Font.SourceSansBold
-    Btn.TextSize = 18
-    Btn.AutoButtonColor = true
-    Instance.new("UICorner", Btn)
-
-    local active = false
+-- BASİT BUTON OLUŞTURUCU
+local function makeBtn(txt, pos, color, callback)
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0, 200, 0, 45)
+    b.Position = UDim2.new(0, 20, 0, pos)
+    b.Text = txt
+    b.BackgroundColor3 = color
+    b.TextColor3 = Color3.white
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.ZIndex = 10 -- En üstte olması için
     
-    -- Hem tıklama hem dokunma için en hızlı tepki veren event
-    Btn.Activated:Connect(function()
-        active = not active
-        Btn.Text = active and (name .. " : ON") or (name .. " : OFF")
-        Btn.BackgroundColor3 = active and Color3.fromRGB(0, 180, 130) or Color3.fromRGB(40, 40, 55)
-        callback(active)
+    -- Mobilde en iyi çalışan tıklama olayı
+    b.MouseButton1Click:Connect(function()
+        callback()
     end)
+    
+    return b
 end
 
--- Create Two Separate Buttons
-createButton("BOOST MODE", 70, function(val) 
-    _G.BoostActive = val 
-    if not val then
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum then hum.WalkSpeed = 16 hum.JumpPower = 50 end
-    end
+-- Butonları Tanımla
+local boostBtn = makeBtn("BOOST: OFF", 60, Color3.fromRGB(50, 50, 60), function()
+    _G.Boost = not _G.Boost
+    -- Buraya buton metni güncelleme eklenebilir ama donmayı engellemek için sade bıraktım
 end)
 
-createButton("PLAYER ESP", 150, function(val) 
-    _G.ESPActive = val 
-    if not val then
+local espBtn = makeBtn("ESP: OFF", 115, Color3.fromRGB(50, 50, 60), function()
+    _G.ESP = not _G.ESP
+    if not _G.ESP then
         for _, p in pairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("ESPHighlight") then
-                p.Character.ESPHighlight:Destroy()
+            if p.Character and p.Character:FindFirstChild("Highlight") then
+                p.Character.Highlight:Destroy()
             end
         end
     end
 end)
 
--- Close Button
-local Close = Instance.new("TextButton", Main)
-Close.Size = UDim2.new(0, 35, 0, 35)
-Close.Position = UDim2.new(1, -40, 0, 5)
-Close.Text = "X"
-Close.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
-Close.TextColor3 = Color3.white
-Instance.new("UICorner", Close)
-
--- Open Button (Mini Circle)
-local OpenBtn = Instance.new("TextButton", ScreenGui)
-OpenBtn.Size = UDim2.new(0, 60, 0, 60)
-OpenBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
-OpenBtn.Text = "OPEN"
-OpenBtn.Visible = false
-OpenBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
-OpenBtn.Font = Enum.Font.SourceSansBold
-Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
-
-Close.Activated:Connect(function() Main.Visible = false OpenBtn.Visible = true end)
-OpenBtn.Activated:Connect(function() Main.Visible = true OpenBtn.Visible = false end)
+-- Durum Güncelleme (Görsel geri bildirim)
+task.spawn(function()
+    while task.wait(0.3) do
+        boostBtn.Text = _G.Boost and "BOOST: ON (Speed/Jump)" or "BOOST: OFF"
+        boostBtn.BackgroundColor3 = _G.Boost and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(50, 50, 60)
+        
+        espBtn.Text = _G.ESP and "ESP: ON" or "ESP: OFF"
+        espBtn.BackgroundColor3 = _G.ESP and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(50, 50, 60)
+    end
+end)
