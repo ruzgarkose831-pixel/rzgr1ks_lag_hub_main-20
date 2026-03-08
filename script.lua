@@ -4,79 +4,99 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
--- Cleanup
-local old = player.PlayerGui:FindFirstChild("rzgr1ks_V23")
-if old then old:Destroy() end
+-- 1. ESKİLERİ TAMAMEN TEMİZLE
+for _, v in pairs(player.PlayerGui:GetChildren()) do
+    if v.Name == "rzgr1ks_Final" then v:Destroy() end
+end
 
+-- 2. ANA YAPI (En Üst Katman)
 local ScreenGui = Instance.new("ScreenGui", player.PlayerGui)
-ScreenGui.Name = "rzgr1ks_V23"
+ScreenGui.Name = "rzgr1ks_Final"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 99999
+ScreenGui.DisplayOrder = 999999
 
--- States
+-- STATES
 _G.Aimbot = false
 _G.SpeedBoost = false
 _G.FakeLag = false
-_G.ServerLag = false -- Yeni özellik
-_G.SpeedValue = 65
+_G.ServerLag = false
+_G.SpeedValue = 70
 
--- [MENU BUTTON]
+-- [FLOATING OPEN BUTTON]
 local OpenBtn = Instance.new("TextButton", ScreenGui)
-OpenBtn.Size = UDim2.new(0, 60, 0, 60); OpenBtn.Position = UDim2.new(0, 10, 0.4, 0)
-OpenBtn.BackgroundColor3 = Color3.fromRGB(255, 220, 0); OpenBtn.Text = "MENU"; OpenBtn.Visible = false
+OpenBtn.Size = UDim2.new(0, 60, 0, 60)
+OpenBtn.Position = UDim2.new(0, 5, 0.45, 0)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(255, 220, 0)
+OpenBtn.Text = "MENU"
+OpenBtn.Font = "GothamBold"
+OpenBtn.Visible = false
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
 
 -- [MAIN PANEL]
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 300, 0, 400); Main.Position = UDim2.new(0.5, -150, 0.2, 0)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15); Main.Active = true; Main.Draggable = true
-Main.BorderColor3 = Color3.fromRGB(255, 220, 0); Main.BorderSizePixel = 2
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+Main.Size = UDim2.new(0, 280, 0, 380)
+Main.Position = UDim2.new(0.5, -140, 0.25, 0)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BorderSizePixel = 2
+Main.BorderColor3 = Color3.fromRGB(255, 220, 0)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main)
 
-local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(1, -20, 1, -50); Scroll.Position = UDim2.new(0, 10, 0, 45); Scroll.BackgroundTransparency = 1; Scroll.CanvasSize = UDim2.new(0, 0, 1.5, 0)
-Instance.new("UIListLayout", Scroll).Padding = UDim.new(0, 10)
+-- Header
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "rzgr1ks Hub V24"
+Title.TextColor3 = Color3.new(1, 1, 0)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.Font = "GothamBold"
 
--- BUTTON CREATOR
-local function makeBtn(text, callback)
-    local b = Instance.new("TextButton", Scroll)
-    b.Size = UDim2.new(1, 0, 0, 45); b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    b.Text = text .. ": OFF"; b.TextColor3 = Color3.white; b.Font = "GothamBold"; b.TextSize = 14
+-- 3. BUTON OLUŞTURUCU (Hatasız ve Doğrudan)
+local function createButton(text, yPos, callback)
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0, 240, 0, 45)
+    b.Position = UDim2.new(0, 20, 0, yPos)
+    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    b.Text = text .. ": OFF"
+    b.TextColor3 = Color3.white
+    b.Font = "GothamBold"
+    b.TextSize = 14
     Instance.new("UICorner", b)
+
     local active = false
     b.MouseButton1Click:Connect(function()
         active = not active
         b.Text = active and (text .. ": ON") or (text .. ": OFF")
-        b.BackgroundColor3 = active and Color3.fromRGB(255, 180, 0) or Color3.fromRGB(40, 40, 40)
+        b.BackgroundColor3 = active and Color3.fromRGB(255, 180, 0) or Color3.fromRGB(45, 45, 45)
         callback(active)
     end)
 end
 
--- FEATURES
-makeBtn("Aimbot Lock", function(v) _G.Aimbot = v end)
-makeBtn("Speed Hack", function(v) _G.SpeedBoost = v end)
-makeBtn("Fake Lag (Client)", function(v) _G.FakeLag = v end)
-makeBtn("Server Lag (Dangerous)", function(v) _G.ServerLag = v end)
+-- ÖZELLİKLERİ EKLE (Sırayla)
+createButton("Aimbot Lock", 60, function(v) _G.Aimbot = v end)
+createButton("Speed Hack", 115, function(v) _G.SpeedBoost = v end)
+createButton("Fake Lag (Blink)", 170, function(v) _G.FakeLag = v end)
+createButton("Server Lag (Stress)", 225, function(v) _G.ServerLag = v end)
+createButton("Infinite Jump", 280, function(v) _G.InfJump = v end)
 
 -- CLOSE/OPEN
-local Close = Instance.new("TextButton", Main); Close.Size = UDim2.new(0, 30, 0, 30); Close.Position = UDim2.new(1, -35, 0, 5); Close.Text = "X"; Close.BackgroundColor3 = Color3.new(1, 0, 0)
+local Close = Instance.new("TextButton", Main)
+Close.Size = UDim2.new(0, 30, 0, 30)
+Close.Position = UDim2.new(1, -35, 0, 5)
+Close.Text = "X"
+Close.BackgroundColor3 = Color3.new(0.8, 0, 0)
 Close.MouseButton1Click:Connect(function() Main.Visible = false; OpenBtn.Visible = true end)
-OpenBtn.Activated:Connect(function() Main.Visible = true; OpenBtn.Visible = false end)
+OpenBtn.MouseButton1Click:Connect(function() Main.Visible = true; OpenBtn.Visible = false end)
 
--- ENGINE
+-- 4. ANA MOTOR (Engine)
 RunService.RenderStepped:Connect(function()
     local char = player.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    
-    -- SERVER LAG SPAM (USE WITH CAUTION)
-    if _G.ServerLag then
-        local tool = char and char:FindFirstChildOfClass("Tool")
-        if tool then
-            -- Sunucuya saniyede onlarca vuruş/kullanım sinyali gönderir
-            for i = 1, 20 do
-                tool:Activate()
-            end
-        end
+    local hum = char and char:FindFirstChild("Humanoid")
+
+    -- SPEED
+    if _G.SpeedBoost and hum then
+        hum.WalkSpeed = _G.SpeedValue
     end
 
     -- FAKE LAG
@@ -86,12 +106,36 @@ RunService.RenderStepped:Connect(function()
         root.Anchored = false
     end
 
-    -- SPEED & AIMBOT (V22 logic)
-    if _G.SpeedBoost and char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.WalkSpeed = _G.SpeedValue
+    -- SERVER LAG (SPAM TOOLS)
+    if _G.ServerLag and char then
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool then
+            for i = 1, 15 do
+                tool:Activate()
+            end
+        end
     end
 
+    -- AIMBOT LOCK
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        -- (Targeting logic continues here as in previous versions)
+        local target = nil
+        local dist = 300
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
+                local pos, vis = camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+                if vis then
+                    local m = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
+                    if m < dist then target = p; dist = m end
+                end
+            end
+        end
+        if target then
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        end
     end
+end)
+
+-- INF JUMP
+UIS.JumpRequest:Connect(function()
+    if _G.InfJump and player.Character then player.Character.Humanoid:ChangeState(3) end
 end)
