@@ -3,101 +3,90 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- 1. ZORUNLU TEMİZLİK (Eski versiyonları siler)
-if game:GetService("CoreGui"):FindFirstChild("rzgr1ks_V54") then game:GetService("CoreGui").rzgr1ks_V54:Destroy() end
+-- 1. CLEANUP
+if game:GetService("CoreGui"):FindFirstChild("rzgr1ks_V55") then game:GetService("CoreGui").rzgr1ks_V55:Destroy() end
 
--- 2. ANA PANEL TASARIMI
-local sg = Instance.new("ScreenGui", game:GetService("CoreGui")); sg.Name = "rzgr1ks_V54"
+-- 2. STABLE MAIN PANEL
+local sg = Instance.new("ScreenGui", game:GetService("CoreGui")); sg.Name = "rzgr1ks_V55"
 local Main = Instance.new("Frame", sg)
-Main.Size = UDim2.new(0, 310, 0, 280); Main.Position = UDim2.new(0.5, -155, 0.5, -140)
+Main.Size = UDim2.new(0, 310, 0, 240); Main.Position = UDim2.new(0.5, -155, 0.5, -120)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15); Main.Active = true; Main.Draggable = true
-local Corner = Instance.new("UICorner", Main); local Stroke = Instance.new("UIStroke", Main); Stroke.Thickness = 2
+local Stroke = Instance.new("UIStroke", Main); Stroke.Thickness = 2; Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, -30, 0, 35); Title.Position = UDim2.new(0, 10, 0, 0)
-Title.Text = "rzgr1ks V54 - FIXED GUI"; Title.BackgroundTransparency = 1
-Title.Font = "GothamBold"; Title.TextSize = 11; Title.TextXAlignment = "Left"
+Title.Size = UDim2.new(1, 0, 0, 30); Title.Text = "rzgr1ks V55 - ABSOLUTE FIX"; Title.BackgroundTransparency = 1
+Title.Font = "GothamBold"; Title.TextSize = 11; Title.TextColor3 = Color3.new(1,1,1)
 
--- RGB ANIMATION
+-- RGB
 spawn(function()
-    while task.wait() do
-        local color = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
-        Stroke.Color = color; Title.TextColor3 = color
-    end
+    while task.wait() do Stroke.Color = Color3.fromHSV(tick() % 5 / 5, 0.8, 1) end
 end)
 
--- MINIMIZE SYSTEM
+-- 3. MINIMIZE SYSTEM
 local MiniBtn = Instance.new("TextButton", Main)
-MiniBtn.Size = UDim2.new(0, 25, 0, 25); MiniBtn.Position = UDim2.new(1, -30, 0, 5)
-MiniBtn.Text = "-"; MiniBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50); MiniBtn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", MiniBtn)
-local OpenBtn = Instance.new("TextButton", sg); OpenBtn.Size = UDim2.new(0, 50, 0, 50); OpenBtn.Position = UDim2.new(0, 20, 0.5, -25); OpenBtn.Visible = false; OpenBtn.Text = "OPEN"; OpenBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25); OpenBtn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", OpenBtn); Instance.new("UIStroke", OpenBtn).Color = Color3.fromRGB(255, 140, 0)
+MiniBtn.Size = UDim2.new(0, 25, 0, 25); MiniBtn.Position = UDim2.new(1, -30, 0, 3); MiniBtn.Text = "X"; MiniBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0); MiniBtn.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", MiniBtn)
+local OpenBtn = Instance.new("TextButton", sg); OpenBtn.Size = UDim2.new(0, 45, 0, 45); OpenBtn.Position = UDim2.new(0, 10, 0.5, -22); OpenBtn.Visible = false; OpenBtn.Text = "OPEN"; OpenBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); OpenBtn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", OpenBtn)
 MiniBtn.MouseButton1Click:Connect(function() Main.Visible = false; OpenBtn.Visible = true end)
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = true; OpenBtn.Visible = false end)
 
--- GRID CONTENT
-local Content = Instance.new("ScrollingFrame", Main)
-Content.Size = UDim2.new(1, -10, 1, -45); Content.Position = UDim2.new(0, 5, 0, 40); Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 2
-local Grid = Instance.new("UIGridLayout", Content); Grid.CellSize = UDim2.new(0, 142, 0, 32); Grid.Padding = UDim2.new(0, 6, 0, 6)
+-- 4. FIXED POSITION BUTTONS (NO SCROLLING - NO BUG)
+_G.Set = {Speed = 70, Hitbox = false, HitboxSize = 25, ESP = false, Spin = false, Plat = false}
 
-_G.Cfg = {Speed = 70, Elev = 15, Spin = false, Hitbox = false, HitboxSize = 25, ESP = false}
-
--- 3. BUTONLARI ZORLA OLUŞTURMA (FORCE CREATE)
-local function AddToggle(txt, key)
-    local t = Instance.new("TextButton", Content)
-    t.BackgroundColor3 = Color3.fromRGB(30, 30, 30); t.Text = txt..": OFF"; t.TextColor3 = Color3.new(1, 1, 1); t.Font = "Gotham"; t.TextSize = 8; Instance.new("UICorner", t)
+local function QuickToggle(name, key, pos)
+    local t = Instance.new("TextButton", Main)
+    t.Size = UDim2.new(0, 140, 0, 30); t.Position = pos; t.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    t.Text = name..": OFF"; t.TextColor3 = Color3.new(1,1,1); t.Font = "Gotham"; t.TextSize = 8; Instance.new("UICorner", t)
     t.MouseButton1Click:Connect(function()
-        _G.Cfg[key] = not _G.Cfg[key]
-        t.Text = _G.Cfg[key] and txt..": ON" or txt..": OFF"
-        t.TextColor3 = _G.Cfg[key] and Color3.fromRGB(255, 140, 0) or Color3.new(1, 1, 1)
+        _G.Set[key] = not _G.Set[key]
+        t.Text = _G.Set[key] and name..": ON" or name..": OFF"
+        t.TextColor3 = _G.Set[key] and Color3.fromRGB(255, 140, 0) or Color3.new(1, 1, 1)
     end)
 end
 
-local function AddSlider(txt, min, max, def, key)
-    local f = Instance.new("Frame", Content); f.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", f); l.Text = txt..": "..def; l.Size = UDim2.new(1,0,0,12); l.TextColor3 = Color3.new(1,1,1); l.TextSize = 7; l.BackgroundTransparency = 1
-    local b = Instance.new("TextButton", f); b.Size = UDim2.new(0, 130, 0, 4); b.Position = UDim2.new(0,6,0,18); b.BackgroundColor3 = Color3.fromRGB(50,50,50); b.Text = ""
+-- Butonları Yan Yana Diz (Manuel Pozisyon)
+QuickToggle("Block Platform", "Plat", UDim2.new(0, 10, 0, 40))
+QuickToggle("ESP Wallhack", "ESP", UDim2.new(0, 160, 0, 40))
+QuickToggle("Hitbox Expand", "Hitbox", UDim2.new(0, 10, 0, 80))
+QuickToggle("Torque Spin", "Spin", UDim2.new(0, 160, 0, 80))
+
+-- 5. SLIDERS (MANUAL POSITION)
+local function QuickSlider(txt, min, max, def, key, y)
+    local f = Instance.new("Frame", Main); f.Size = UDim2.new(0, 290, 0, 35); f.Position = UDim2.new(0, 10, 0, y); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Text = txt..": "..def; l.Size = UDim2.new(1,0,0,15); l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.TextSize = 8
+    local b = Instance.new("TextButton", f); b.Size = UDim2.new(1, 0, 0, 4); b.Position = UDim2.new(0,0,0,20); b.BackgroundColor3 = Color3.fromRGB(50,50,50); b.Text = ""
     local fill = Instance.new("Frame", b); fill.Size = UDim2.new((def-min)/(max-min),0,1,0); fill.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
     b.MouseButton1Down:Connect(function()
         local move; move = UIS.InputChanged:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
                 local p = math.clamp((inp.Position.X - b.AbsolutePosition.X) / b.AbsoluteSize.X, 0, 1)
                 fill.Size = UDim2.new(p, 0, 1, 0); local val = math.floor(min + (max - min) * p)
-                l.Text = txt..": "..val; _G.Cfg[key] = val
+                l.Text = txt..": "..val; _G.Set[key] = val
             end
         end)
         UIS.InputEnded:Connect(function(u) if u.UserInputType == Enum.UserInputType.MouseButton1 or u.UserInputType == Enum.UserInputType.Touch then move:Disconnect() end end)
     end)
 end
 
--- 4. OZELLIKLERI YUKLE
-AddToggle("Block Platform", "Platform")
-AddToggle("ESP Wallhack", "ESP")
-AddToggle("Hitbox Expand", "Hitbox")
-AddToggle("Spinbot Torque", "Spin")
-AddSlider("Walk Speed", 16, 500, 70, "Speed")
-AddSlider("Hitbox Size", 5, 100, 25, "HitboxSize")
-AddSlider("Elev Height", 5, 200, 15, "Elev")
+QuickSlider("Walk Speed", 16, 500, 70, "Speed", 125)
+QuickSlider("Hitbox Size", 5, 100, 25, "HitboxSize", 165)
+QuickSlider("Elevation Height", 5, 200, 15, "Elev", 205)
 
--- 5. ENGINE & ESP FIX
-local AirBlock = Instance.new("Part"); AirBlock.Name = "AirBlock_" .. player.Name; AirBlock.Size = Vector3.new(16, 1, 16); AirBlock.Transparency = 0.8; AirBlock.Anchored = true; AirBlock.Parent = workspace
+-- 6. FINAL ENGINE
+local AirBlock = Instance.new("Part", workspace); AirBlock.Size = Vector3.new(16, 1, 16); AirBlock.Transparency = 0.8; AirBlock.Anchored = true
 
 RunService.Heartbeat:Connect(function()
-    local char = player.Character; local hum = char and char:FindFirstChild("Humanoid")
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not hum or not root then return end
-    hum.WalkSpeed = _G.Cfg.Speed
-    if _G.Cfg.Spin then root.RotVelocity = Vector3.new(0, 50, 0) end
-    if _G.Cfg.Platform then AirBlock.CanCollide = true; AirBlock.CFrame = CFrame.new(root.Position.X, _G.Cfg.Elev, root.Position.Z) else AirBlock.CanCollide = false; AirBlock.Position = Vector3.new(0, -1000, 0) end
+    local char = player.Character; local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    char.Humanoid.WalkSpeed = _G.Set.Speed
+    if _G.Set.Spin then root.RotVelocity = Vector3.new(0, 50, 0) end
+    if _G.Set.Plat then AirBlock.CanCollide = true; AirBlock.CFrame = CFrame.new(root.Position.X, _G.Set.Elev or 15, root.Position.Z) else AirBlock.CanCollide = false; AirBlock.Position = Vector3.new(0,-1000,0) end
     
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = v.Character.HumanoidRootPart
-            -- HITBOX FIX
-            if _G.Cfg.Hitbox then hrp.Size = Vector3.new(_G.Cfg.HitboxSize, _G.Cfg.HitboxSize, _G.Cfg.HitboxSize); hrp.Transparency = 0.7; hrp.CanCollide = false
+            if _G.Set.Hitbox then hrp.Size = Vector3.new(_G.Set.HitboxSize, _G.Set.HitboxSize, _G.Set.HitboxSize); hrp.Transparency = 0.7; hrp.CanCollide = false
             else hrp.Size = Vector3.new(2, 2, 1); hrp.Transparency = 0; hrp.CanCollide = true end
-            -- ESP FIX (Highlight)
-            local hl = v.Character:FindFirstChild("ESP_Highlight") or Instance.new("Highlight", v.Character)
-            hl.Name = "ESP_Highlight"; hl.Enabled = _G.Cfg.ESP; hl.FillColor = Color3.fromRGB(255, 140, 0)
+            local hl = v.Character:FindFirstChild("ESPHL") or Instance.new("Highlight", v.Character); hl.Name = "ESPHL"; hl.Enabled = _G.Set.ESP; hl.FillColor = Color3.fromRGB(255, 140, 0)
         end
     end
 end)
