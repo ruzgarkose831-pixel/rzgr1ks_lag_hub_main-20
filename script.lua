@@ -2,19 +2,22 @@ local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
+-- Ana GUI Ayarları
 local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "rzgr1ks_Hub_V2"
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false 
 
--- Ana Menü
+-- Ana Menü Çerçevesi
 local Main = Instance.new("Frame")
 Main.Parent = ScreenGui
 Main.Size = UDim2.new(0,350,0,520)
 Main.Position = UDim2.new(0.35,0,0.2,0)
 Main.BackgroundColor3 = Color3.fromRGB(25,25,35)
 Main.Active = true
-Main.Draggable = true
+Main.Draggable = true 
 
-local UICorner = Instance.new("UICorner",Main)
+local UICorner = Instance.new("UICorner", Main)
 UICorner.CornerRadius = UDim.new(0,15)
 
 -- Başlık
@@ -22,177 +25,156 @@ local Title = Instance.new("TextLabel")
 Title.Parent = Main
 Title.Size = UDim2.new(1,0,0,50)
 Title.BackgroundTransparency = 1
-Title.Text = "rzgr1ks Hub"
+Title.Text = "rzgr1ks Hub PRO"
 Title.TextColor3 = Color3.fromRGB(0,255,170)
 Title.TextScaled = true
 Title.Font = Enum.Font.SourceSansBold
 
--- Toggle oluşturucu
-local function createToggle(name,posY,callback)
+-- Durum Değişkenleri
+_G.ESPEnabled = false
 
+-- Yardımcı Fonksiyon: Humanoid Getir
+local function getHumanoid()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum then hum.UseJumpPower = true end
+	return hum
+end
+
+-- ESP Uygulama Fonksiyonu
+local function applyESP(targetChar)
+	if _G.ESPEnabled and targetChar then
+		local highlight = targetChar:FindFirstChild("ESPHighlight")
+		if not highlight then
+			highlight = Instance.new("Highlight")
+			highlight.Name = "ESPHighlight"
+			highlight.Parent = targetChar
+			highlight.FillColor = Color3.fromRGB(255, 0, 50)
+			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+			highlight.FillTransparency = 0.5
+		end
+	end
+end
+
+-- Toggle Oluşturucu
+local function createToggle(name, posY, callback)
 	local Btn = Instance.new("TextButton")
 	Btn.Parent = Main
 	Btn.Size = UDim2.new(0,300,0,40)
-	Btn.Position = UDim2.new(0.05,0,posY,0)
+	Btn.Position = UDim2.new(0.05, 0, posY, 0)
 	Btn.Text = name.." : OFF"
 	Btn.BackgroundColor3 = Color3.fromRGB(60,60,80)
 	Btn.TextColor3 = Color3.fromRGB(255,255,255)
-
-	local corner = Instance.new("UICorner",Btn)
+	Btn.Font = Enum.Font.SourceSansBold
+	Instance.new("UICorner", Btn)
 
 	local enabled = false
-
 	Btn.MouseButton1Click:Connect(function()
-
 		enabled = not enabled
-
-		if enabled then
-			Btn.Text = name.." : ON"
-			Btn.BackgroundColor3 = Color3.fromRGB(0,170,120)
-		else
-			Btn.Text = name.." : OFF"
-			Btn.BackgroundColor3 = Color3.fromRGB(60,60,80)
-		end
-
-		if callback then
-			callback(enabled)
-		end
-
+		Btn.Text = enabled and (name.." : ON") or (name.." : OFF")
+		Btn.BackgroundColor3 = enabled and Color3.fromRGB(0,170,120) or Color3.fromRGB(60,60,80)
+		if callback then callback(enabled) end
 	end)
-
 end
 
--- Togglelar
-createToggle("Speed Mode",0.15,function(enabled)
+-- --- ÖZELLİKLER ---
 
-	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-
-	if humanoid then
-		if enabled then
-			humanoid.WalkSpeed = 50
-			humanoid.JumpPower = 45
-		else
-			humanoid.WalkSpeed = 30
-			humanoid.JumpPower = 50
-		end
-	end
-
+-- 1. Speed Mode
+createToggle("Speed Mode", 0.15, function(enabled)
+	local hum = getHumanoid()
+	if hum then hum.WalkSpeed = enabled and 60 or 16 end
 end)
 
-createToggle("Jump Boost",0.25)
+-- 2. Jump Boost
+createToggle("Jump Boost", 0.25, function(enabled)
+	local hum = getHumanoid()
+	if hum then hum.JumpPower = enabled and 120 or 50 end
+end)
 
-createToggle("Extra Mode",0.35)
+-- 3. Player ESP
+createToggle("Player ESP", 0.35, function(enabled)
+	_G.ESPEnabled = enabled
+	if not enabled then
+		for _, p in pairs(Players:GetPlayers()) do
+			if p.Character and p.Character:FindFirstChild("ESPHighlight") then
+				p.Character.ESPHighlight:Destroy()
+			end
+		end
+	else
+		for _, p in pairs(Players:GetPlayers()) do
+			if p ~= player and p.Character then applyESP(p.Character) end
+		end
+	end
+end)
 
--- Slider frame
-local SliderFrame = Instance.new("Frame")
-SliderFrame.Parent = Main
+-- Slider (Dinamik JumpPower)
+local SliderFrame = Instance.new("Frame", Main)
 SliderFrame.Size = UDim2.new(0,300,0,40)
 SliderFrame.Position = UDim2.new(0.05,0,0.50,0)
 SliderFrame.BackgroundColor3 = Color3.fromRGB(60,60,80)
+Instance.new("UICorner", SliderFrame)
 
-local sliderCorner = Instance.new("UICorner",SliderFrame)
+local SliderBar = Instance.new("Frame", SliderFrame)
+SliderBar.Size = UDim2.new(0.9,0,0,6)
+SliderBar.Position = UDim2.new(0.05,0,0.5,-3)
+SliderBar.BackgroundColor3 = Color3.fromRGB(100,100,130)
 
-local SliderBar = Instance.new("Frame")
-SliderBar.Parent = SliderFrame
-SliderBar.Size = UDim2.new(1,0,0,6)
-SliderBar.Position = UDim2.new(0,0,0.5,-3)
-SliderBar.BackgroundColor3 = Color3.fromRGB(120,120,150)
-
-local SliderKnob = Instance.new("Frame")
-SliderKnob.Parent = SliderFrame
+local SliderKnob = Instance.new("Frame", SliderBar)
 SliderKnob.Size = UDim2.new(0,20,0,20)
 SliderKnob.Position = UDim2.new(0,0,0.5,-10)
 SliderKnob.BackgroundColor3 = Color3.fromRGB(0,255,170)
+Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1,0)
 
-local knobCorner = Instance.new("UICorner",SliderKnob)
-knobCorner.CornerRadius = UDim.new(1,0)
-
-local ValueLabel = Instance.new("TextLabel")
-ValueLabel.Parent = SliderFrame
+local ValueLabel = Instance.new("TextLabel", SliderFrame)
 ValueLabel.Size = UDim2.new(1,0,0,20)
 ValueLabel.Position = UDim2.new(0,0,-0.6,0)
 ValueLabel.BackgroundTransparency = 1
-ValueLabel.Text = "JumpPower: 50"
+ValueLabel.Text = "Custom Jump: 50"
 ValueLabel.TextColor3 = Color3.fromRGB(255,255,255)
-ValueLabel.TextScaled = true
+ValueLabel.Font = Enum.Font.SourceSans
 
 local dragging = false
-
-SliderKnob.InputBegan:Connect(function(input)
-
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-	end
-
-end)
-
-UIS.InputEnded:Connect(function(input)
-
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-
-end)
+SliderKnob.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
+UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
 
 UIS.InputChanged:Connect(function(input)
-
 	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-
-		local mouseX = UIS:GetMouseLocation().X
-		local frameX = SliderFrame.AbsolutePosition.X
-		local frameSize = SliderFrame.AbsoluteSize.X
-
-		local pos = math.clamp((mouseX-frameX)/frameSize,0,1)
-
-		SliderKnob.Position = UDim2.new(pos,-10,0.5,-10)
-
-		local value = math.floor(30 + (70*pos))
-
-		ValueLabel.Text = "JumpPower: "..value
-
-		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-
-		if humanoid then
-			humanoid.JumpPower = value
-		end
-
+		local pos = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
+		SliderKnob.Position = UDim2.new(pos, -10, 0.5, -10)
+		local val = math.floor(50 + (200 * pos))
+		ValueLabel.Text = "Custom Jump: "..val
+		local hum = getHumanoid()
+		if hum then hum.JumpPower = val end
 	end
-
 end)
 
--- Menü kapat
-local Close = Instance.new("TextButton")
-Close.Parent = Main
+-- Kapatma / Açma Sistemi
+local Close = Instance.new("TextButton", Main)
 Close.Size = UDim2.new(0,30,0,30)
 Close.Position = UDim2.new(1,-35,0,5)
 Close.Text = "X"
 Close.BackgroundColor3 = Color3.fromRGB(200,60,60)
+Close.TextColor3 = Color3.fromRGB(255,255,255)
+Instance.new("UICorner", Close)
 
--- Siyah açma butonu
-local OpenCircle = Instance.new("TextButton")
-OpenCircle.Parent = ScreenGui
+local OpenCircle = Instance.new("TextButton", ScreenGui)
 OpenCircle.Size = UDim2.new(0,60,0,60)
-OpenCircle.Position = UDim2.new(0.05,0,0.5,0)
-OpenCircle.BackgroundColor3 = Color3.fromRGB(0,0,0)
+OpenCircle.Position = UDim2.new(0.02,0,0.8,0)
+OpenCircle.BackgroundColor3 = Color3.fromRGB(0,255,170)
+OpenCircle.Text = "OPEN"
 OpenCircle.Visible = false
-OpenCircle.Text = ""
+Instance.new("UICorner", OpenCircle).CornerRadius = UDim.new(1,0)
 
-local circleCorner = Instance.new("UICorner",OpenCircle)
-circleCorner.CornerRadius = UDim.new(1,0)
+Close.MouseButton1Click:Connect(function() Main.Visible = false OpenCircle.Visible = true end)
+OpenCircle.MouseButton1Click:Connect(function() Main.Visible = true OpenCircle.Visible = false end)
 
-OpenCircle.Active = true
-OpenCircle.Draggable = true
-
-Close.MouseButton1Click:Connect(function()
-
-	Main.Visible = false
-	OpenCircle.Visible = true
-
-end)
-
-OpenCircle.MouseButton1Click:Connect(function()
-
-	Main.Visible = true
-	OpenCircle.Visible = false
-
+-- Arka Plan Döngüsü (Yeni oyuncular için ESP)
+task.spawn(function()
+	while task.wait(3) do
+		if _G.ESPEnabled then
+			for _, p in pairs(Players:GetPlayers()) do
+				if p ~= player and p.Character then applyESP(p.Character) end
+			end
+		end
+	end
 end)
