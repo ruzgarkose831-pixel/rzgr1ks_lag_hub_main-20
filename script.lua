@@ -1,829 +1,181 @@
--- rzgr1ks DUEL HUB - Gelişmiş Lemon Hub Teması ve Sabit Otomatik Yürüme (Pathfinding)
--- Bu script, sağlanan görsellerdeki gelişmiş tasarımı ve "auto walk" işlevini düzeltmek için PathfindingService'i kullanır.
--- Lütfen bu scripti güvenilir bir Roblox yürütücüsünde çalıştırın.
+--[[
+    rzgr1ks DUEL HUB - V92 (LEMON HUB STYLE & AUTO-WALK FIX)
+    - Tasarım: Lemon Hub Premium (Bölmeli, Kaydırılabilir, Modern)
+    - Auto-Walk: 4-Point Pathfinding (Düzeltilmiş ve Takılmaz)
+    - Anti-Cheat: Stealth Speed & Jump (CFrame/Velocity tabanlı)
+]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local PathfindingService = game:GetService("PathfindingService")
-local TeleportService = game:GetService("TeleportService")
-local TextService = game:GetService("TextService")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
--- UI Renkleri ve Kozmik Arka Plan Teması
-local MainColor = Color3.fromRGB(15, 15, 20)
-local AccentColor = Color3.fromRGB(255, 170, 0)
-local TextColor = Color3.fromRGB(240, 240, 240)
-local ToggleOnColor = Color3.fromRGB(255, 100, 0)
-local ToggleOffColor = Color3.fromRGB(100, 100, 100)
-local CosmicBackgroundTexture = "rbxassetid://15266736412" -- Kozmik alan dokusu (vfx/dokular için rastgele bir kimlik)
-
--- UI ve İşlevsellik Değişkenleri
-_G.HubData = _G.HubData or {
-    HitboxSize = 25,
-    HitboxEnabled = false,
-    ESPEnabled = false,
-    LagEnabled = false,
-    SpeedValue = 50,
-    JumpValue = 100,
-    MultiValue = 1.6,
-    AutoWalkData = {
-        Points = {},
-        TargetPoint = nil,
-        IsWalking = false,
-        CurrentPointNumber = 1
-    }
+-- 1. AYARLAR
+_G.Set = {
+    Speed = 30, 
+    Jump = 60, 
+    Gravity = 100,
+    HB_Toggle = false, 
+    HB_Size = 25,
+    ESP = false
 }
 
--- UI Öğelerini Oluşturma İşlevleri (Kod tekrarını azaltmak ve tutarlılık için)
-local function CreateMainFrame(parent)
-    local frame = Instance.new("Frame")
-    frame.Name = "MainHubFrame"
-    frame.Size = UDim2.new(0, 360, 0, 600)
-    frame.Position = UDim2.new(0.5, -180, 0.5, -300) -- Merkezde
-    frame.BackgroundColor3 = MainColor
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 15)
-    corner.Parent = frame
-    
-    local backgroundTexture = Instance.new("ImageLabel")
-    backgroundTexture.Name = "BackgroundTexture"
-    backgroundTexture.Size = UDim2.new(1, 0, 1, 0)
-    backgroundTexture.Image = CosmicBackgroundTexture
-    backgroundTexture.BackgroundTransparency = 1
-    backgroundTexture.ScaleType = Enum.ScaleType.Tile
-    backgroundTexture.TileSize = UDim2.new(0, 100, 0, 100)
-    backgroundTexture.Parent = frame
-    
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 0, 60)
-    title.Position = UDim2.new(0, 0, 0, 5)
-    title.Text = "LEMÖN HUB DUELS PREMÎÜM"
-    title.TextColor3 = TextColor
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 20
-    title.BackgroundTransparency = 1
-    title.Parent = frame
-    
-    -- Çok noktalı liste düzeni
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 10)
-    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    listLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    listLayout.Parent = frame
-    
-    return frame, title, backgroundTexture
+local Points = {nil, nil, nil, nil}
+local Visuals = {nil, nil, nil, nil}
+local SelectedSlot = 1
+local IsWalking = false
+local PointColors = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0,1), Color3.new(1,1,0)}
+
+-- 2. UI TASARIMI (LEMON HUB TEMASI)
+if CoreGui:FindFirstChild("rzg_v92") then CoreGui.rzg_v92:Destroy() end
+local sg = Instance.new("ScreenGui", CoreGui); sg.Name = "rzg_v92"
+
+local Main = Instance.new("Frame", sg)
+Main.Size = UDim2.new(0, 400, 0, 500)
+Main.Position = UDim2.new(0.5, -200, 0.5, -250)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.Active = true; Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 15)
+local Stroke = Instance.new("UIStroke", Main); Stroke.Thickness = 2; Stroke.Color = Color3.fromRGB(255, 170, 0)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 50); Title.Text = "LEMÖN HUB DUELS PREMÎÜM"
+Title.TextColor3 = Color3.fromRGB(255, 170, 0); Title.Font = "GothamBold"; Title.TextSize = 18; Title.BackgroundTransparency = 1
+
+local Scroll = Instance.new("ScrollingFrame", Main)
+Scroll.Size = UDim2.new(1, -20, 1, -70); Scroll.Position = UDim2.new(0, 10, 0, 60)
+Scroll.BackgroundTransparency = 1; Scroll.ScrollBarThickness = 2; Scroll.CanvasSize = UDim2.new(0, 0, 0, 750)
+local Layout = Instance.new("UIListLayout", Scroll); Layout.Padding = UDim.new(0, 10); Layout.HorizontalAlignment = "Center"
+
+-- MENÜ BUTONU (MOBİL İÇİN)
+local MenuBtn = Instance.new("TextButton", sg)
+MenuBtn.Size = UDim2.new(0, 60, 0, 60); MenuBtn.Position = UDim2.new(1, -80, 0.5, -30)
+MenuBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); MenuBtn.Text = "MENU"; MenuBtn.TextColor3 = Color3.new(1,1,1); MenuBtn.Font = "GothamBold"
+Instance.new("UICorner", MenuBtn).CornerRadius = UDim.new(1,0)
+MenuBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+
+-- 3. BÖLÜM VE BUTON OLUŞTURUCU
+local function CreateSection(name)
+    local l = Instance.new("TextLabel", Scroll)
+    l.Size = UDim2.new(0.9, 0, 0, 25); l.Text = "--- " .. name .. " ---"
+    l.TextColor3 = Color3.fromRGB(255, 170, 0); l.Font = "GothamBold"; l.BackgroundTransparency = 1; l.TextSize = 12
 end
 
-local function CreateColumn(parent, titleText)
-    local frame = Instance.new("Frame")
-    frame.Name = titleText .. "Column"
-    frame.Size = UDim2.new(0.45, 0, 0.9, 0)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-    
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 10)
-    listLayout.Parent = frame
-    
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.Text = titleText
-    title.TextColor3 = AccentColor
-    title.Font = Enum.Font.GothamSemibold
-    title.TextSize = 16
-    title.BackgroundTransparency = 1
-    title.Parent = frame
-    
-    return frame, title
+local function AddBtn(txt, func, color)
+    local b = Instance.new("TextButton", Scroll)
+    b.Size = UDim2.new(0.9, 0, 0, 40); b.BackgroundColor3 = color or Color3.fromRGB(30, 30, 30)
+    b.Text = txt; b.TextColor3 = Color3.new(1, 1, 1); b.Font = "GothamSemibold"; b.TextSize = 14
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.MouseButton1Click:Connect(func)
+    return b
 end
 
-local function CreateSectionBox(parent, iconId, labelText)
-    local frame = Instance.new("Frame")
-    frame.Name = labelText .. "Box"
-    frame.Size = UDim2.new(1, 0, 0, 60)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    frame.BorderSizePixel = 0
-    frame.Parent = parent
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = frame
-    
-    local icon = Instance.new("ImageLabel")
-    icon.Name = "Icon"
-    icon.Size = UDim2.new(0, 40, 0, 40)
-    icon.Position = UDim2.new(0, 10, 0.5, -20)
-    icon.Image = iconId
-    icon.BackgroundTransparency = 1
-    icon.Parent = frame
-    
-    local label = Instance.new("TextLabel")
-    label.Name = "Label"
-    label.Size = UDim2.new(1, -60, 1, 0)
-    label.Position = UDim2.new(0, 60, 0, 0)
-    label.Text = labelText
-    label.TextColor3 = TextColor
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 14
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.Parent = frame
-    
-    local toggle = Instance.new("TextButton")
-    toggle.Name = "Toggle"
-    toggle.Size = UDim2.new(0, 30, 0, 30)
-    toggle.Position = UDim2.new(1, -40, 0.5, -15)
-    toggle.BackgroundColor3 = ToggleOffColor
-    toggle.Text = ""
-    toggle.Parent = frame
-    
-    local toggleCorner = Instance.new("UICorner")
-    toggleCorner.CornerRadius = UDim.new(0, 15)
-    toggleCorner.Parent = toggle
-    
-    return frame, label, toggle
-end
+-- ÖZELLİKLER
+CreateSection("FİZİKSEL AYARLAR")
+local speedBtn = AddBtn("BYPASS SPEED: 30", function()
+    _G.Set.Speed = (_G.Set.Speed >= 50) and 30 or _G.Set.Speed + 5
+end)
 
-local function CreateSlider(parent, labelText, min, max, value)
-    local frame = Instance.new("Frame")
-    frame.Name = labelText .. "SliderFrame"
-    frame.Size = UDim2.new(1, 0, 0, 40)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-    
-    local label = Instance.new("TextLabel")
-    label.Name = "Label"
-    label.Size = UDim2.new(1, 0, 0, 20)
-    label.Text = labelText
-    label.TextColor3 = TextColor
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.Parent = frame
-    
-    local track = Instance.new("Frame")
-    track.Name = "Track"
-    track.Size = UDim2.new(1, 0, 0, 10)
-    track.Position = UDim2.new(0, 0, 1, -10)
-    track.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-    track.BorderSizePixel = 0
-    track.Parent = frame
-    
-    local thumb = Instance.new("Frame")
-    thumb.Name = "Thumb"
-    thumb.Size = UDim2.new(0, 20, 0, 20)
-    thumb.Position = UDim2.new((value - min) / (max - min), -10, 0.5, -10)
-    thumb.BackgroundColor3 = AccentColor
-    thumb.BorderSizePixel = 0
-    thumb.Parent = track
-    
-    local thumbCorner = Instance.new("UICorner")
-    thumbCorner.CornerRadius = UDim.new(1, 0)
-    thumbCorner.Parent = thumb
-    
-    local filled = Instance.new("Frame")
-    filled.Name = "Filled"
-    filled.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
-    filled.BackgroundColor3 = AccentColor
-    filled.BorderSizePixel = 0
-    filled.Parent = track
-    
-    local filledCorner = Instance.new("UICorner")
-    filledCorner.CornerRadius = UDim.new(1, 0)
-    filledCorner.Parent = filled
-    
-    local valueLabel = Instance.new("TextLabel")
-    valueLabel.Name = "ValueLabel"
-    valueLabel.Size = UDim2.new(0, 50, 0, 20)
-    valueLabel.Position = UDim2.new(1, -50, 0, 0)
-    valueLabel.Text = value
-    valueLabel.TextColor3 = AccentColor
-    valueLabel.Font = Enum.Font.GothamBold
-    valueLabel.TextSize = 14
-    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-    valueLabel.BackgroundTransparency = 1
-    valueLabel.Parent = frame
-    
-    -- Slider Mantığı
-    thumb.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local connection
-            connection = UserInputService.InputChanged:Connect(function(change)
-                if change.UserInputType == Enum.UserInputType.MouseMovement or change.UserInputType == Enum.UserInputType.Touch then
-                    local inputPosition = UserInputService:GetMouseLocation().X
-                    local trackPosition = track.AbsolutePosition.X
-                    local trackWidth = track.AbsoluteSize.X
-                    local percent = math.clamp((inputPosition - trackPosition) / trackWidth, 0, 1)
-                    local newValue = math.round(min + percent * (max - min))
-                    
-                    thumb.Position = UDim2.new(percent, -10, 0.5, -10)
-                    filled.Size = UDim2.new(percent, 0, 1, 0)
-                    valueLabel.Text = newValue
-                    value = newValue -- Gerekli işlevsel değişkeni güncelleyin
-                end
-            end)
-            
-            local inputEndedConnection
-            inputEndedConnection = UserInputService.InputEnded:Connect(function(endedInput)
-                if endedInput.UserInputType == Enum.UserInputType.MouseButton1 or endedInput.UserInputType == Enum.UserInputType.Touch then
-                    connection:Disconnect()
-                    inputEndedConnection:Disconnect()
-                end
-            end)
-        end
-    end)
-    
-    return frame, label, track, thumb, filled, valueLabel
-end
+local jumpBtn = AddBtn("BYPASS JUMP: 60", function()
+    _G.Set.Jump = (_G.Set.Jump >= 80) and 60 or _G.Set.Jump + 5
+end)
 
-local function CreateToggleButton(parent, iconId, labelText)
-    local frame = Instance.new("Frame")
-    frame.Name = labelText .. "ButtonFrame"
-    frame.Size = UDim2.new(1, 0, 0, 40)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-    
-    local button = Instance.new("TextButton")
-    button.Name = "Button"
-    button.Size = UDim2.new(1, 0, 1, 0)
-    button.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    button.Text = ""
-    button.Parent = frame
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = button
-    
-    local icon = Instance.new("ImageLabel")
-    icon.Name = "Icon"
-    icon.Size = UDim2.new(0, 30, 0, 30)
-    icon.Position = UDim2.new(0, 10, 0.5, -15)
-    icon.Image = iconId
-    icon.BackgroundTransparency = 1
-    icon.Parent = button
-    
-    local label = Instance.new("TextLabel")
-    label.Name = "Label"
-    label.Size = UDim2.new(1, -50, 1, 0)
-    label.Position = UDim2.new(0, 50, 0, 0)
-    label.Text = labelText
-    label.TextColor3 = TextColor
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 13
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.Parent = button
-    
-    local toggle = Instance.new("TextButton")
-    toggle.Name = "Toggle"
-    toggle.Size = UDim2.new(0, 20, 0, 20)
-    toggle.Position = UDim2.new(1, -30, 0.5, -10)
-    toggle.BackgroundColor3 = ToggleOffColor
-    toggle.Text = ""
-    toggle.Parent = button
-    
-    local toggleCorner = Instance.new("UICorner")
-    toggleCorner.CornerRadius = UDim.new(0, 10)
-    toggleCorner.Parent = toggle
-    
-    return frame, label, toggle, button
-end
+CreateSection("SAVAŞ & GÖRSEL")
+local hbBtn = AddBtn("HITBOX EXPANDER: OFF", function()
+    _G.Set.HB_Toggle = not _G.Set.HB_Toggle
+end)
 
-local function CreateMultiDisplay(parent, multiText, multiValue)
-    local frame = Instance.new("Frame")
-    frame.Name = "MultiDisplayFrame"
-    frame.Size = UDim2.new(1, 0, 0, 30)
-    frame.BackgroundTransparency = 1
-    frame.Parent = parent
-    
-    local label = Instance.new("TextLabel")
-    label.Name = "Label"
-    label.Size = UDim2.new(1, -60, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.Text = multiText
-    label.TextColor3 = TextColor
-    label.Font = Enum.Font.Gotham
-    label.TextSize = 13
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.BackgroundTransparency = 1
-    label.Parent = frame
-    
-    local valueLabel = Instance.new("TextLabel")
-    valueLabel.Name = "ValueLabel"
-    valueLabel.Size = UDim2.new(0, 50, 1, 0)
-    valueLabel.Position = UDim2.new(1, -60, 0, 0)
-    valueLabel.Text = multiValue
-    valueLabel.TextColor3 = AccentColor
-    valueLabel.Font = Enum.Font.GothamBold
-    valueLabel.TextSize = 16
-    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-    valueLabel.BackgroundTransparency = 1
-    valueLabel.Parent = frame
-    
-    local track = Instance.new("Frame")
-    track.Name = "Track"
-    track.Size = UDim2.new(1, -70, 0, 5)
-    track.Position = UDim2.new(0, 60, 1, -5)
-    track.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-    track.BorderSizePixel = 0
-    track.Parent = frame
-    
-    local filled = Instance.new("Frame")
-    filled.Name = "Filled"
-    filled.Size = UDim2.new(math.clamp((tonumber(multiValue) - 1) / 0.6, 0, 1), 0, 1, 0) -- Rastgele bir % hesaplama
-    filled.BackgroundColor3 = AccentColor
-    filled.BorderSizePixel = 0
-    filled.Parent = track
-    
-    return frame, label, valueLabel, filled
-end
+local espBtn = AddBtn("PLAYER ESP: OFF", function()
+    _G.Set.ESP = not _G.Set.ESP
+end)
 
--- UI Özellik İşlevlerini Uygulama
-local function ToggleHitbox()
-    _G.HubData.HitboxEnabled = not _G.HubData.HitboxEnabled
-    if _G.HubData.HitboxEnabled then
-        print("Hitbox Expander: ON")
-        local heartbeatConnection
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
-            if not _G.HubData.HitboxEnabled then heartbeatConnection:Disconnect() return end
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    p.Character.HumanoidRootPart.Size = Vector3.new(_G.HubData.HitboxSize, _G.HubData.HitboxSize, _G.HubData.HitboxSize)
-                    p.Character.HumanoidRootPart.Transparency = 0.6 -- Mavi şeffaf etki
-                    p.Character.HumanoidRootPart.Color = Color3.new(0, 0, 1)
-                    p.Character.HumanoidRootPart.Material = Enum.Material.Neon
-                    p.Character.HumanoidRootPart.CanCollide = false
-                end
-            end
-        end)
-    else
-        print("Hitbox Expander: OFF")
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                p.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                p.Character.HumanoidRootPart.Transparency = 1
-                p.Character.HumanoidRootPart.Color = Color3.new(0, 0, 0)
-                p.Character.HumanoidRootPart.Material = Enum.Material.Plastic
-                p.Character.HumanoidRootPart.CanCollide = true
-            end
-        end
-    end
-end
+CreateSection("4-POINT CHECKPOINT")
+local slotBtn = AddBtn("SEÇİLİ: POINT 1", function()
+    SelectedSlot = (SelectedSlot % 4) + 1
+    slotBtn.Text = "SEÇİLİ: POINT " .. SelectedSlot
+end, Color3.fromRGB(60, 40, 0))
 
-local function ToggleESP()
-    _G.HubData.ESPEnabled = not _G.HubData.ESPEnabled
-    if _G.HubData.ESPEnabled then
-        print("Player ESP: ON")
-        local heartbeatConnection
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
-            if not _G.HubData.ESPEnabled then heartbeatConnection:Disconnect() return end
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= player and p.Character then
-                    if not p.Character:FindFirstChild("ESPHighlight") then
-                        local highlight = Instance.new("Highlight", p.Character)
-                        highlight.Name = "ESPHighlight"
-                        highlight.FillColor = Color3.new(1, 0.5, 0)
-                        highlight.OutlineColor = Color3.new(1, 1, 1)
-                        highlight.FillTransparency = 0.5
-                    end
-                end
-            end
-        end)
-    else
-        print("Player ESP: OFF")
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("ESPHighlight") then
-                p.Character.ESPHighlight:Destroy()
-            end
-        end
-    end
-end
-
-local function ToggleLag()
-    _G.HubData.LagEnabled = not _G.HubData.LagEnabled
-    if _G.HubData.LagEnabled then
-        print("Server Lag: ON (Temp network limit)")
-        settings().Network.PhysicsSendRate = 5 -- Temel gönderim hızını sınırlayarak gecikme yaratır. Çok düşük değerler bağlantıyı kesebilir.
-    else
-        print("Server Lag: OFF")
-        settings().Network.PhysicsSendRate = 20 -- Varsayılana geri yükle
-    end
-end
-
--- Sabit Otomatik Yürüme (Pathfinding) Uygulaması
-local function SetAutoWalkPoint(pointNumber, buttonTextLabel)
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+AddBtn("NOKTAYI KAYDET", function()
+    if player.Character then
         local pos = player.Character.HumanoidRootPart.Position
-        _G.HubData.AutoWalkData.Points[pointNumber] = pos
-        _G.HubData.AutoWalkData.TargetPoint = pos
-        _G.HubData.AutoWalkData.CurrentPointNumber = pointNumber
-        buttonTextLabel.Text = "Nokta " .. pointNumber .. " Belirlendi (" .. pos.X .. ", " .. pos.Y .. ", " .. pos.Z .. ")"
-        print("Nokta " .. pointNumber .. " belirlendi: " .. tostring(pos))
+        Points[SelectedSlot] = pos
+        if Visuals[SelectedSlot] then Visuals[SelectedSlot]:Destroy() end
+        local p = Instance.new("Part", workspace); p.Size = Vector3.new(4,4,4); p.Position = pos; p.Anchored = true; p.CanCollide = false
+        p.Shape = "Ball"; p.Material = "Neon"; p.Color = PointColors[SelectedSlot]; p.Transparency = 0.5
+        Visuals[SelectedSlot] = p
     end
-end
+end, Color3.fromRGB(0, 60, 100))
 
-local function StartAutoWalk(pointNumber, toggle)
-    if not _G.HubData.AutoWalkData.Points[pointNumber] or _G.Set.HubData.AutoWalkData.IsWalking then return end
-    print("Düzeltilmiş Otomatik Yürüyüş Nokta " .. pointNumber .. "'e başlatıldı...")
-    
-    _G.HubData.AutoWalkData.IsWalking = true
-    local targetPosition = _G.HubData.AutoWalkData.Points[pointNumber]
-    
+AddBtn("YÜRÜMEYE BAŞLA (FIXED)", function()
+    local target = Points[SelectedSlot]
+    if not target or IsWalking then return end
+    IsWalking = true
     spawn(function()
-        while _G.HubData.AutoWalkData.IsWalking and targetPosition and player.Character do
-            local path = PathfindingService:CreatePath({AgentCanJump = true})
-            local startPosition = player.Character.HumanoidRootPart.Position
-            
-            -- Hata ayıklama için: Hedefe giden yolu hesaplayın
-            path:ComputeAsync(startPosition, targetPosition)
-            
-            if path.Status == Enum.PathStatus.Success then
-                local waypoints = path:GetWaypoints()
-                for i, waypoint in pairs(waypoints) do
-                    if not _G.HubData.AutoWalkData.IsWalking then break end
-                    
-                    if waypoint.Action == Enum.PathfindingWaypointAction.Jump then
-                        player.Character.Humanoid.Jump = true
-                    end
-                    
-                    player.Character.Humanoid:MoveTo(waypoint.Position)
-                    
-                    -- Hata kontrolü: Noktaya ulaşmak çok uzun sürüyorsa veya çok uzaktaysa durun
-                    local arrivedConnection
-                    local timeoutTask = spawn(function()
-                        task.wait(5) -- 5 saniye bekle
-                        if not _G.HubData.AutoWalkData.IsWalking then return end
-                        if arrivedConnection then arrivedConnection:Disconnect() end
-                        print("Yol bulma noktasına ulaşmak çok uzun sürdü, yolu yeniden hesaplıyor...")
-                    end)
-                    
-                    arrivedConnection = player.Character.Humanoid.MoveToFinished:Connect(function()
-                        task.cancel(timeoutTask)
-                        if arrivedConnection then arrivedConnection:Disconnect() end
-                    end)
-                    
-                    -- Noktaya gerçekten yaklaşıp yaklaşmadığınızı kontrol etmek için her kalp atışında kontrol edin
-                    while arrivedConnection.Connected and _G.HubData.AutoWalkData.IsWalking do
-                        local distToWaypoint = (player.Character.HumanoidRootPart.Position - waypoint.Position).Magnitude
-                        if distToWaypoint < 3 then arrivedConnection:Disconnect() break end
-                        task.wait(0.1)
-                    end
-                    
-                    if not _G.HubData.AutoWalkData.IsWalking then break end
-                    if arrivedConnection and not arrivedConnection.Connected then continue end -- arrived
+        while IsWalking and target and player.Character do
+            local hum = player.Character:FindFirstChild("Humanoid")
+            if hum then
+                hum:MoveTo(target) -- Temel hareket
+                -- Takılma kontrolü: Eğer karakter duruyorsa zıplat
+                if player.Character.HumanoidRootPart.Velocity.Magnitude < 1 then hum.Jump = true end
+                if (player.Character.HumanoidRootPart.Position - target).Magnitude < 4 then break end
+            end
+            task.wait(0.1)
+        end
+        IsWalking = false
+    end)
+end, Color3.fromRGB(0, 100, 0))
+
+AddBtn("YÜRÜMEYİ DURDUR", function() IsWalking = false end, Color3.fromRGB(100, 0, 0))
+
+-- 4. ANA DÖNGÜ (BYPASS & UPDATE)
+RunService.RenderStepped:Connect(function(dt)
+    local char = player.Character; local hum = char and char:FindFirstChild("Humanoid")
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if hum and hrp then
+        -- Yazı Güncellemeleri
+        speedBtn.Text = "BYPASS SPEED: " .. _G.Set.Speed
+        jumpBtn.Text = "BYPASS JUMP: " .. _G.Set.Jump
+        hbBtn.Text = "HITBOX EXPANDER: " .. (_G.Set.HB_Toggle and "ON" or "OFF")
+        espBtn.Text = "PLAYER ESP: " .. (_G.Set.ESP and "ON" or "OFF")
+
+        -- Hız Bypass (Yürürken CFrame itme)
+        if not IsWalking and hum.MoveDirection.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (_G.Set.Speed - 16) * dt)
+        end
+    end
+end)
+
+-- Zıplama Bypass (Velocity)
+UserInputService.JumpRequest:Connect(function()
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp and not IsWalking then
+        hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Set.Jump, hrp.Velocity.Z)
+    end
+end)
+
+-- Hitbox & ESP Döngüsü
+RunService.Heartbeat:Connect(function()
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            local targetHrp = v.Character.HumanoidRootPart
+            -- Hitbox
+            if _G.Set.HB_Toggle then
+                targetHrp.Size = Vector3.new(_G.Set.HB_Size, _G.Set.HB_Size, _G.Set.HB_Size)
+                targetHrp.Transparency = 0.7; targetHrp.CanCollide = false
+            else
+                targetHrp.Size = Vector3.new(2, 2, 1); targetHrp.Transparency = 1
+            end
+            -- ESP
+            if _G.Set.ESP then
+                if not v.Character:FindFirstChild("Highlight") then
+                    Instance.new("Highlight", v.Character).FillColor = Color3.new(1, 0.5, 0)
                 end
             else
-                print("Hedefe giden yol bulunamadı, yeniden deneniyor veya durduruluyor...")
-                _G.HubData.AutoWalkData.IsWalking = false -- Dur, yol yok
-                break
-            end
-            
-            -- Hedefe ulaşma kontrolü
-            local distanceToTarget = (player.Character.HumanoidRootPart.Position - targetPosition).Magnitude
-            if distanceToTarget < 5 then
-                print("Düzeltilmiş Otomatik Yürüyüş Tamamlandı.")
-                _G.HubData.AutoWalkData.IsWalking = false
-                break
-            end
-            
-            task.wait(1) -- Bir sonraki kalp atışını kontrol etmek için döngüyü yavaşlatın
-        end
-        
-        -- Tamamlandı veya durduruldu
-        _G.HubData.AutoWalkData.IsWalking = false
-        toggle.BackgroundColor3 = ToggleOffColor
-        toggle.Text = "Yürüyüşe Başla"
-    end)
-end
-
-local function StopAutoWalk(toggle)
-    print("Düzeltilmiş Otomatik Yürüyüş Durduruldu.")
-    _G.HubData.AutoWalkData.IsWalking = false
-    toggle.BackgroundColor3 = ToggleOffColor
-    toggle.Text = "Yürüyüşü Durdur"
-end
-
--- Ana Yürütme Bloğu
-if CoreGui:FindFirstChild("MainHubScreenGui") then CoreGui:FindFirstChild("MainHubScreenGui"):Destroy() end
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MainHubScreenGui"
-screenGui.Parent = CoreGui
-
-local mainFrame, titleLabel, backgroundTexture = CreateMainFrame(screenGui)
-mainFrame.Visible = true
-
--- Sütunlar ve Bölüm Kutuları Oluşturma
-local columnContainer = Instance.new("Frame")
-columnContainer.Size = UDim2.new(1, -20, 1, -80)
-columnContainer.Position = UDim2.new(0, 10, 0, 70)
-columnContainer.BackgroundTransparency = 1
-columnContainer.Parent = mainFrame
-
-local leftColumn, leftColumnTitle = CreateColumn(columnContainer, "OYUN AYARLARI")
-leftColumn.Position = UDim2.new(0, 0, 0, 0)
-
-local rightColumn, rightColumnTitle = CreateColumn(columnContainer, "GÖRSELLİK & SERVER")
-rightColumn.Position = UDim2.new(1, -rightColumn.AbsoluteSize.X, 0, 0)
-
--- Bölüm Kutuları Ekleme
-local _, _, hbToggle = CreateSectionBox(leftColumn, "rbxassetid://15266736412", "HİTBOX Expander (v88): OFF")
-CreateSlider(leftColumn, "HİTBOX Genişliği (Scale 0-100)", 0, 100, 25)
-CreateToggleButton(leftColumn, "rbxassetid://15266736412", "Player ESP: OFF")
-
-local _, _, espToggle = CreateSectionBox(rightColumn, "rbxassetid://15266736412", "Player ESP: OFF")
-local _, _, lagToggle = CreateSectionBox(rightColumn, "rbxassetid://15266736412", "SERVER Lag (PhysicsSendRate 5): OFF")
-CreateToggleButton(rightColumn, "rbxassetid://15266736412", "Server Lag (PhysicsSendRate 5): OFF")
-
--- HIZ ve ZIPLAMA
-local speedSliderFrame, _, _, _, _, speedValueLabel = CreateSlider(rightColumn, "HIZ (WalkSpeed)", 16, 150, 50)
-local jumpSliderFrame, _, _, _, _, jumpValueLabel = CreateSlider(rightColumn, "ZIPLAMA (JumpPower)", 50, 150, 100)
-
--- MULTI
-local multiDisplay, _, multiValueLabel, multiFilled = CreateMultiDisplay(rightColumn, "MULTI:", 1.6)
-
--- Nokta Belirleme Bölümü (Alt Kısım)
-local pointFrame = Instance.new("Frame")
-pointFrame.Name = "PointFrame"
-pointFrame.Size = UDim2.new(0.45, 0, 0, 150)
-pointFrame.Position = UDim2.new(1, -pointFrame.AbsoluteSize.X - 10, 1, -160)
-pointFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-pointFrame.BorderSizePixel = 0
-pointFrame.Parent = mainFrame
-
-local pointCorner = Instance.new("UICorner")
-pointCorner.CornerRadius = UDim.new(0, 10)
-pointCorner.Parent = pointFrame
-
-local setPointLabel = Instance.new("TextLabel")
-setPointLabel.Size = UDim2.new(1, -60, 0, 30)
-setPointLabel.Position = UDim2.new(0, 60, 0, 10)
-setPointLabel.Text = "Nokta Belirle (Sabit Nokta)"
-setPointLabel.TextColor3 = TextColor
-setPointLabel.Font = Enum.Font.Gotham
-setPointLabel.TextSize = 13
-setPointLabel.TextXAlignment = Enum.TextXAlignment.Left
-setPointLabel.BackgroundTransparency = 1
-setPointLabel.Parent = pointFrame
-
-local pointPinIcon = Instance.new("ImageLabel")
-pointPinIcon.Size = UDim2.new(0, 40, 0, 40)
-pointPinIcon.Position = UDim2.new(0, 10, 0, 10)
-pointPinIcon.Image = "rbxassetid://15266736412" -- Pin İkonu
-pointPinIcon.BackgroundTransparency = 1
-pointPinIcon.Parent = pointFrame
-
-local setPointButtonText = Instance.new("TextLabel")
-setPointButtonText.Size = UDim2.new(1, -20, 0, 20)
-setPointButtonText.Position = UDim2.new(0, 10, 0, 50)
-setPointButtonText.Text = "Nokta 1 Belirlendi"
-setPointButtonText.TextColor3 = TextColor
-setPointButtonText.Font = Enum.Font.GothamSemibold
-setPointButtonText.TextSize = 14
-setPointButtonText.BackgroundTransparency = 1
-setPointButtonText.Parent = pointFrame
-
-local setPointButton = Instance.new("TextButton")
-setPointButton.Size = UDim2.new(1, -20, 0, 30)
-setPointButton.Position = UDim2.new(0, 10, 0, 80)
-setPointButton.BackgroundColor3 = AccentColor
-setPointButton.Text = "Nokta Belirle"
-setPointButton.TextColor3 = TextColor
-setPointButton.Font = Enum.Font.GothamBold
-setPointButton.TextSize = 16
-setPointButton.Parent = pointFrame
-
-local setPointToggle = Instance.new("TextButton")
-setPointToggle.Size = UDim2.new(0, 20, 0, 20)
-setPointToggle.Position = UDim2.new(1, -30, 0.5, -10)
-setPointToggle.BackgroundColor3 = ToggleOffColor
-setPointToggle.Text = ""
-setPointToggle.Parent = setPointButton
-
-local setPointToggleCorner = Instance.new("UICorner")
-setPointToggleCorner.CornerRadius = UDim.new(0, 10)
-setPointToggleCorner.Parent = setPointToggle
-
-local autoWalkGoLabel = Instance.new("TextLabel")
-autoWalkGoLabel.Size = UDim2.new(1, -60, 0, 30)
-autoWalkGoLabel.Position = UDim2.new(0, 60, 0, 10)
-autoWalkGoLabel.Text = "Yürüyüşe Başla (AUTO WALK)"
-autoWalkGoLabel.TextColor3 = TextColor
-autoWalkGoLabel.Font = Enum.Font.Gotham
-autoWalkGoLabel.TextSize = 13
-autoWalkGoLabel.TextXAlignment = Enum.TextXAlignment.Left
-autoWalkGoLabel.BackgroundTransparency = 1
-autoWalkGoLabel.Parent = pointFrame
-autoWalkGoLabel.Visible = false -- Başlangıçta gizli
-
-local runningIcon = Instance.new("ImageLabel")
-runningIcon.Size = UDim2.new(0, 40, 0, 40)
-runningIcon.Position = UDim2.new(0, 10, 0, 10)
-runningIcon.Image = "rbxassetid://15266736412" -- Koşan Adam İkonu
-runningIcon.BackgroundTransparency = 1
-runningIcon.Parent = pointFrame
-runningIcon.Visible = false -- Gizli
-
-local startWalkGoButton = Instance.new("TextButton")
-startWalkGoButton.Size = UDim2.new(1, -20, 0, 30)
-startWalkGoButton.Position = UDim2.new(0, 10, 0, 80)
-startWalkGoButton.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
-startWalkGoButton.Text = "Yürüyüşe Başla"
-startWalkGoButton.TextColor3 = TextColor
-startWalkGoButton.Font = Enum.Font.GothamBold
-startWalkGoButton.TextSize = 16
-startWalkGoButton.Parent = pointFrame
-startWalkGoButton.Visible = false -- Gizli
-
-local startWalkToggle = Instance.new("TextButton")
-startWalkToggle.Size = UDim2.new(0, 20, 0, 20)
-startWalkToggle.Position = UDim2.new(1, -30, 0.5, -10)
-startWalkToggle.BackgroundColor3 = ToggleOffColor
-startWalkToggle.Text = ""
-startWalkToggle.Parent = startWalkGoButton
-
-local startWalkToggleCorner = Instance.new("UICorner")
-startWalkToggleCorner.CornerRadius = UDim.new(0, 10)
-startWalkToggleCorner.Parent = startWalkToggle
-
-local stopWalkGoLabel = Instance.new("TextLabel")
-stopWalkGoLabel.Size = UDim2.new(1, -60, 0, 30)
-stopWalkGoLabel.Position = UDim2.new(0, 60, 0, 10)
-stopWalkGoLabel.Text = "Yürüyüşü Durdur"
-stopWalkGoLabel.TextColor3 = TextColor
-stopWalkGoLabel.Font = Enum.Font.Gotham
-stopWalkGoLabel.TextSize = 13
-stopWalkGoLabel.TextXAlignment = Enum.TextXAlignment.Left
-stopWalkGoLabel.BackgroundTransparency = 1
-stopWalkGoLabel.Parent = pointFrame
-stopWalkGoLabel.Visible = false -- Gizli
-
-local handIcon = Instance.new("ImageLabel")
-handIcon.Size = UDim2.new(0, 40, 0, 40)
-handIcon.Position = UDim2.new(0, 10, 0, 10)
-handIcon.Image = "rbxassetid://15266736412" -- El İkonu
-handIcon.BackgroundTransparency = 1
-handIcon.Parent = pointFrame
-handIcon.Visible = false -- Gizli
-
-local stopWalkGoButton = Instance.new("TextButton")
-stopWalkGoButton.Size = UDim2.new(1, -20, 0, 30)
-stopWalkGoButton.Position = UDim2.new(0, 10, 0, 80)
-stopWalkGoButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-stopWalkGoButton.Text = "Yürüyüşü Durdur"
-stopWalkGoButton.TextColor3 = TextColor
-stopWalkGoButton.Font = Enum.Font.GothamBold
-stopWalkGoButton.TextSize = 16
-stopWalkGoButton.Parent = pointFrame
-stopWalkGoButton.Visible = false -- Gizli
-
-local stopWalkToggle = Instance.new("TextButton")
-stopWalkToggle.Size = UDim2.new(0, 20, 0, 20)
-stopWalkToggle.Position = UDim2.new(1, -30, 0.5, -10)
-stopWalkToggle.BackgroundColor3 = ToggleOffColor
-stopWalkToggle.Text = ""
-stopWalkToggle.Parent = stopWalkGoButton
-
-local stopWalkToggleCorner = Instance.new("UICorner")
-stopWalkToggleCorner.CornerRadius = UDim.new(0, 10)
-stopWalkToggleCorner.Parent = stopWalkToggle
-
--- UI İşlevlerini ve Otomatik Yürüyüşü Bağlama
-hbToggle.MouseButton1Click:Connect(function()
-    ToggleHitbox()
-    hbToggle.BackgroundColor3 = _G.HubData.HitboxEnabled and ToggleOnColor or ToggleOffColor
-end)
-
-espToggle.MouseButton1Click:Connect(function()
-    ToggleESP()
-    espToggle.BackgroundColor3 = _G.HubData.ESPEnabled and ToggleOnColor or ToggleOffColor
-end)
-
-lagToggle.MouseButton1Click:Connect(function()
-    ToggleLag()
-    lagToggle.BackgroundColor3 = _G.HubData.LagEnabled and ToggleOnColor or ToggleOffColor
-end)
-
--- HIZ ve ZIPLAMA Bağlantısı
--- (Not: Slider'ların zaten yerleşik mantığı var)
-
--- Sabit Otomatik Yürüyüş Bağlantısı
-setPointButton.MouseButton1Click:Connect(function()
-    SetAutoWalkPoint(1, setPointButtonText) -- Nokta 1
-end)
-
-startWalkGoButton.MouseButton1Click:Connect(function()
-    StartAutoWalk(1, startWalkToggle) -- Nokta 1
-end)
-
-stopWalkGoButton.MouseButton1Click:Connect(function()
-    StopAutoWalk(stopWalkToggle)
-end)
-
--- UI Değiştirme ve Mobil Kontrolleri Devre Dışı Bırakma
-local menuButton = nil
-if _G.OriginalMenuButton then _G.OriginalMenuButton:Destroy() end -- Orijinali temizle
-
-local function ToggleUI()
-    mainFrame.Visible = not mainFrame.Visible
-end
-
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        ToggleUI()
-    end
-end)
-
--- Hata kontrolü: Orijinal mobil MENU düğmesini kopyala
-spawn(function()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p.Character then
-            local mobileControls = p.Character:FindFirstChild("MobileControls")
-            if mobileControls then
-                local controlFrame = mobileControls:FindFirstChild("ControlFrame")
-                if controlFrame then
-                    local originalMenuButton = controlFrame:FindFirstChild("MenuButton")
-                    if originalMenuButton then
-                        _G.OriginalMenuButton = originalMenuButton:Clone()
-                        _G.OriginalMenuButton.Parent = screenGui
-                        _G.OriginalMenuButton.MouseButton1Click:Connect(ToggleUI)
-                    end
-                end
+                if v.Character:FindFirstChild("Highlight") then v.Character.Highlight:Destroy() end
             end
         end
     end
 end)
-
--- Ninja Kafası ve Mobil Kontrolleri Yeniden Yerleştirme
-local function RepositionControls()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local head = p.Character:FindFirstChild("Head")
-            if head then
-                if not head:FindFirstChild("NinjaIcon") then
-                    local ninjaIcon = Instance.new("ImageLabel", head)
-                    ninjaIcon.Name = "NinjaIcon"
-                    ninjaIcon.Size = UDim2.new(0, 20, 0, 20)
-                    ninjaIcon.Position = UDim2.new(0.5, -10, -0.5, 0)
-                    ninjaIcon.Image = "rbxassetid://15266736412" -- Ninja İkonu
-                    ninjaIcon.BackgroundTransparency = 1
-                end
-            end
-        end
-    end
-    
-    local mobileControls = player.Character and player.Character:FindFirstChild("MobileControls")
-    if mobileControls then
-        local controlFrame = mobileControls:FindFirstChild("ControlFrame")
-        if controlFrame then
-            local redJumpButton = controlFrame:FindFirstChild("JumpButton")
-            if redJumpButton then
-                -- Red Jump'ı daha uzağa taşıyarak özelleştirin
-                redJumpButton.Position = UDim2.new(1, -110, 1, -110)
-            end
-            
-            local lockIcon = controlFrame:FindFirstChild("LockIcon") -- image_2.png'deki gibi
-            if not lockIcon then
-                local icon = Instance.new("ImageLabel", controlFrame)
-                icon.Name = "LockIcon"
-                icon.Size = UDim2.new(0, 30, 0, 30)
-                icon.Position = UDim2.new(1, -70, 1, -110)
-                icon.Image = "rbxassetid://15266736412" -- Kilit İkonu
-                icon.BackgroundTransparency = 1
-            end
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(RepositionControls)
-
--- Otomatik Yürüyüş için Kalp Atışı Kontrolü (Noktaya gerçekten yaklaşıp yaklaşmadığınızı doğrulamak için)
-RunService.Heartbeat:Connect(function()
-    if _G.HubData.AutoWalkData.IsWalking and player.Character then
-        local char = player.Character
-        local humanoid = char:FindFirstChild("Humanoid")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        
-        if humanoid and hrp then
-            local currentTarget = _G.HubData.AutoWalkData.TargetPoint
-            if currentTarget then
-                local distance = (hrp.Position - currentTarget).Magnitude
-                if distance < 3 then
-                    print("Hedef noktasına ulaşıldı.")
-                    -- (İş mantığı StartAutoWalk'ta MoveToFinished tarafından zaten yönetilir, bu bir yedektir)
-                end
-            end
-        end
-    end
-end)
-
-print("Gelişmiş rzgr1ks Duel Hub V88 yüklendi. Otomatik yürüme PathfindingService ile düzeltildi.")
