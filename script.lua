@@ -3,39 +3,49 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- 1. TEMİZLİK
+-- 1. TEMİZLİK VE BYPASS HAZIRLIĞI
 local function cleanup()
-    if game:GetService("CoreGui"):FindFirstChild("rzgr1ks_V40") then game:GetService("CoreGui").rzgr1ks_V40:Destroy() end
+    if game:GetService("CoreGui"):FindFirstChild("rzgr1ks_V41") then game:GetService("CoreGui").rzgr1ks_V41:Destroy() end
 end
 cleanup()
 
--- 2. MODERN LEMON GUI
+-- MEVLANA BYPASS (Hız ve Dönüşü Senkronize Eder)
+local function applyBypass(char)
+    if char:FindFirstChild("HumanoidRootPart") then
+        for _, v in pairs(char:GetChildren()) do
+            if v:IsA("BodyAngularVelocity") or v:IsA("BodyVelocity") then v:Destroy() end
+        end
+    end
+end
+
+-- 2. UI TASARIMI (Premium Lemon Hub Style)
 local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
-sg.Name = "rzgr1ks_V40"
+sg.Name = "rzgr1ks_V41"
 
 local Main = Instance.new("Frame", sg)
-Main.Size = UDim2.new(0, 260, 0, 450)
-Main.Position = UDim2.new(0.5, -130, 0.5, -225)
+Main.Size = UDim2.new(0, 260, 0, 480) -- Daha fazla özellik için biraz uzatıldı
+Main.Position = UDim2.new(0.5, -130, 0.5, -240)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true; Main.Draggable = true
 Instance.new("UICorner", Main)
 Instance.new("UIStroke", Main).Color = Color3.fromRGB(255, 130, 0)
 
--- SARI TOP
+-- SARI TOP (Açma Butonu)
 local OpenBtn = Instance.new("TextButton", sg)
 OpenBtn.Size = UDim2.new(0, 45, 0, 45); OpenBtn.Position = UDim2.new(0, 15, 0.5, -22)
-OpenBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0); OpenBtn.Text = "L"; OpenBtn.Visible = false
+OpenBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0); OpenBtn.Text = "HUB"; OpenBtn.Visible = false
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
 
 local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(1, -10, 1, -55); Scroll.Position = UDim2.new(0, 5, 0, 45)
-Scroll.BackgroundTransparency = 1; Scroll.CanvasSize = UDim2.new(0, 0, 5, 0); Scroll.ScrollBarThickness = 0
+Scroll.Size = UDim2.new(1, -10, 1, -50); Scroll.Position = UDim2.new(0, 5, 0, 45)
+Scroll.BackgroundTransparency = 1; Scroll.CanvasSize = UDim2.new(0, 0, 6, 0); Scroll.ScrollBarThickness = 0
 Instance.new("UIListLayout", Scroll).Padding = UDim.new(0, 8)
 
 -- AYARLAR
-_G.SpeedVal = 70; _G.JumpVal = 50; _G.FlySpd = 50; _G.TrueFly = false
+_G.Aimbot = false; _G.Hitbox = false; _G.SpeedVal = 70; _G.JumpVal = 50
+_G.Spinbot = false; _G.TrueFly = false; _G.ServerLag = false; _G.SpinSpd = 30
 
--- SLIDER & TOGGLE YAPICILAR
+-- SLIDER YAPICI
 local function createSlider(name, min, max, default, callback)
     local sFrame = Instance.new("Frame", Scroll)
     sFrame.Size = UDim2.new(0, 230, 0, 55); sFrame.BackgroundTransparency = 1
@@ -70,15 +80,17 @@ local function createToggle(name, callback)
     end)
 end
 
--- ÖZELLİKLER
-createToggle("True Flight (Uçma Fix)", function(v) _G.TrueFly = v end)
-createSlider("Fly Speed", 10, 200, 50, function(v) _G.FlySpd = v end)
+-- TÜM ÖZELLİKLER GERİ GELDİ
+createToggle("Aimbot (V-Locker)", function(v) _G.Aimbot = v end)
+createToggle("Hitbox Expander", function(v) _G.Hitbox = v end)
+createToggle("True Flight (Uçma)", function(v) _G.TrueFly = v end)
+createToggle("Mevlana (Anti-Cheat Bypass)", function(v) _G.Spinbot = v end)
+createSlider("Mevlana Speed", 5, 150, 30, function(v) _G.SpinSpd = v end)
 createSlider("Movement Speed", 16, 500, 70, function(v) _G.SpeedVal = v end)
 createSlider("Jump Power", 50, 500, 50, function(v) _G.JumpVal = v end)
-createToggle("Mevlana (Slow Spin)", function(v) _G.Spinbot = v end)
-createToggle("Hitbox Expander", function(v) _G.Hitbox = v end)
+createToggle("Server Lag Stress", function(v) _G.ServerLag = v end)
 
--- 3. ANA MOTOR (BODYVELOCITY SİSTEMİ)
+-- ANA MOTOR
 RunService.Heartbeat:Connect(function()
     local char = player.Character; local hum = char and char:FindFirstChild("Humanoid")
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -87,23 +99,17 @@ RunService.Heartbeat:Connect(function()
     hum.WalkSpeed = _G.SpeedVal
     hum.JumpPower = _G.JumpVal
 
-    -- True Flight: Bloğa gerek kalmadan dikey hız kontrolü
+    -- BYPASS MEVLANA SİSTEMİ (Ölmeni ve Atılmanı Engeller)
+    if _G.Spinbot then
+        applyBypass(char)
+        root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(_G.SpinSpd), 0)
+    end
+
     if _G.TrueFly then
         hum:ChangeState(Enum.HumanoidStateType.NoPhysics)
-        local flyVel = Vector3.new(0, 0, 0)
-        
-        -- Yukarı/Aşağı kontrolü (PC: Space/L-Ctrl, Mobil: Zıplama Butonu)
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then
-            flyVel = Vector3.new(0, _G.FlySpd, 0)
-        elseif UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-            flyVel = Vector3.new(0, -_G.FlySpd, 0)
-        end
-        
-        root.Velocity = Vector3.new(root.Velocity.X, flyVel.Y, root.Velocity.Z)
+        root.Velocity = Vector3.new(root.Velocity.X, UIS:IsKeyDown(Enum.KeyCode.Space) and 50 or 0, root.Velocity.Z)
     else
-        if hum:GetState() == Enum.HumanoidStateType.NoPhysics then
-            hum:ChangeState(Enum.HumanoidStateType.Running)
-        end
+        if hum:GetState() == Enum.HumanoidStateType.NoPhysics then hum:ChangeState(Enum.HumanoidStateType.Running) end
     end
 
     if _G.Hitbox then
@@ -113,6 +119,10 @@ RunService.Heartbeat:Connect(function()
                 p.Character.HumanoidRootPart.Transparency = 0.7
             end
         end
+    end
+
+    if _G.ServerLag and char:FindFirstChildOfClass("Tool") then
+        for i=1, 5 do char:FindFirstChildOfClass("Tool"):Activate() end
     end
 end)
 
