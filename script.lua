@@ -55,7 +55,7 @@ local UIList = Instance.new("UIListLayout", Scroll)
 UIList.Padding = UDim.new(0, 10)
 UIList.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Helper: Create Toggle
+-- Helper: Create Toggle (Mobil uyumlu)
 local function addToggle(name, callback)
     local Frame = Instance.new("Frame", Scroll)
     Frame.Size = UDim2.new(1, 0, 0, 40)
@@ -75,19 +75,26 @@ local function addToggle(name, callback)
     Btn.Position = UDim2.new(1, -50, 0.5, -11)
     Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     Btn.Text = ""
+    Btn.Active = true
+    Btn.Selectable = true
+    Btn.AutoButtonColor = true
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
 
     local Circle = Instance.new("Frame", Btn)
     Circle.Size = UDim2.new(0, 18, 0, 18)
     Circle.Position = UDim2.new(0, 2, 0.5, -9)
-    Circle.BackgroundColor3 = Color3.white
+    Circle.BackgroundColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", Circle).CornerRadius = UDim.new(1, 0)
 
     local active = false
+
     Btn.Activated:Connect(function()
         active = not active
         Btn.BackgroundColor3 = active and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(40, 40, 40)
-        Circle:TweenPosition(active and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9), "Out", "Quad", 0.1, true)
+        Circle:TweenPosition(
+            active and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9),
+            "Out","Quad",0.1,true
+        )
         callback(active)
     end)
 end
@@ -120,7 +127,7 @@ local function addSlider(name, min, max, default, callback)
     Knob.Size = UDim2.new(0, 12, 0, 12)
     Knob.Position = UDim2.new((default-min)/(max-min), -6, 0.5, -6)
     Knob.Text = ""
-    Knob.BackgroundColor3 = Color3.white
+    Knob.BackgroundColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", Knob).CornerRadius = UDim.new(1, 0)
 
     local dragging = false
@@ -134,12 +141,24 @@ local function addSlider(name, min, max, default, callback)
         callback(val)
     end
 
-    Knob.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true end end)
-    UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
-    UIS.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then update() end end)
+    Knob.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            update()
+        end
+    end)
 end
 
--- BUTTONS (English like Lemon Hub)
+-- BUTTONS
 addToggle("Speed Boost", function(v) _G.SpeedBoost = v end)
 addSlider("Boost Speed", 16, 200, 60, function(v) _G.SpeedValue = v end)
 addToggle("Player ESP", function(v) _G.ESP = v end)
@@ -176,7 +195,10 @@ end)
 -- Inf Jump Logic
 UIS.JumpRequest:Connect(function()
     if _G.InfJump then
-        player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
     end
 end)
 
@@ -185,6 +207,6 @@ local Close = Instance.new("TextButton", Header)
 Close.Size = UDim2.new(0, 30, 0, 30)
 Close.Position = UDim2.new(1, -35, 0, 2)
 Close.Text = "X"
-Close.TextColor3 = Color3.white
+Close.TextColor3 = Color3.new(1,1,1)
 Close.BackgroundTransparency = 1
 Close.Activated:Connect(function() ScreenGui:Destroy() end)
