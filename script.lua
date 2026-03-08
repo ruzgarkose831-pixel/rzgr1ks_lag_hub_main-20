@@ -1,130 +1,125 @@
 --[[
-    rzgr1ks DUEL HUB - V82 (AUTO-MOVE & PATHFINDING)
-    - Auto-Move: Koyduğun checkpoint'e karakter yürüyerek gider.
-    - Pathfinding: Engellerin etrafından dolanır, gerçekçi yürür.
-    - Tüm Legacy Özellikler: Hitbox, ESP, Lag, Config vb. aktiftir.
+    rzgr1ks DUEL HUB - V83 (REBIRTH & FIXED AUTO-WALK)
+    - Auto-Walk: Checkpoint'e yere basarak, takılmadan yürür.
+    - Tüm Özellikler: ESP, Hitbox, Lag, Anti-Ragdoll, Speed, Jump.
+    - Stabilite: Ölme ve donma sorunları giderildi.
 ]]
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
-local PathfindingService = game:GetService("PathfindingService")
 local player = Players.LocalPlayer
 
--- 1. CONFIG & GLOBALS
-local FileName = "rzgr1ks_v82_final.json"
-local CheckpointPos = nil
-local Moving = false
-local Colors = {Color3.new(1,0,0), Color3.new(0,1,1), Color3.new(0,1,0), Color3.new(1,1,0), Color3.new(1,0,1), Color3.new(1,1,1)}
-local ColorIndex = 2
-
+-- 1. AYARLAR VE KAYIT SİSTEMİ
+local FileName = "rzgr1ks_v83.json"
 _G.Set = {
-    Speed = 16, Jump = 50, HitboxSize = 25, 
-    HitboxExp = false, HitboxVisual = true, 
-    ESP = false, AntiRag = true, LagServer = false,
-    HB_ColorIdx = 2, HB_Trans = 0.7
+    Speed = 16, Jump = 50, Gravity = 196.2, 
+    HitboxSize = 25, HB_Toggle = false, HB_Visual = true,
+    ESP = false, AntiRag = true, Lag = false,
+    HB_Color = 2 -- 1:Red, 2:Cyan, 3:Green
 }
 
-local function SaveConfig() writefile(FileName, HttpService:JSONEncode(_G.Set)) end
-local function LoadConfig() if isfile(FileName) then _G.Set = HttpService:JSONDecode(readfile(FileName)) ColorIndex = _G.Set.HB_ColorIdx or 2 end end
-LoadConfig()
+local function Save() writefile(FileName, HttpService:JSONEncode(_G.Set)) end
+local function Load() if isfile(FileName) then _G.Set = HttpService:JSONDecode(readfile(FileName)) end end
+Load()
 
--- 2. AUTO-MOVE FONKSİYONU (PATHFINDING)
-local function GoToCheckpoint()
-    if not CheckpointPos or Moving then return end
-    local char = player.Character
-    local hum = char:FindFirstChild("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    
-    if char and hum and hrp then
-        Moving = true
-        local path = PathfindingService:CreatePath({AgentCanJump = true, WaypointSpacing = 2})
-        path:ComputeAsync(hrp.Position, CheckpointPos)
-        
-        local waypoints = path:GetWaypoints()
-        for _, waypoint in pairs(waypoints) do
-            if not Moving then break end
-            if waypoint.Action == Enum.PathfindingWaypointAction.Jump then
-                hum.Jump = true
-            end
-            hum:MoveTo(waypoint.Position)
-            hum.MoveToFinished:Wait()
-        end
-        Moving = false
-    end
-end
+local Colors = {Color3.new(1,0,0), Color3.new(0,1,1), Color3.new(0,1,0), Color3.new(1,1,0)}
+local CP_Pos = nil
+local IsWalking = false
 
--- 3. ANA PANEL (V82)
-if game:GetService("CoreGui"):FindFirstChild("rzg_hub_v82") then game:GetService("CoreGui").rzg_hub_v82:Destroy() end
-local sg = Instance.new("ScreenGui", game:GetService("CoreGui")); sg.Name = "rzg_hub_v82"
-local Main = Instance.new("Frame", sg); Main.Size = UDim2.new(0, 330, 0, 680); Main.Position = UDim2.new(0.5, -165, 0.5, -340); Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10); Main.Draggable = true; Main.Active = true
+-- 2. ANA PANEL KURULUMU
+if game:GetService("CoreGui"):FindFirstChild("rzg_hub_v83") then game:GetService("CoreGui").rzg_hub_v83:Destroy() end
+local sg = Instance.new("ScreenGui", game:GetService("CoreGui")); sg.Name = "rzg_hub_v83"
+local Main = Instance.new("Frame", sg); Main.Size = UDim2.new(0, 330, 0, 680); Main.Position = UDim2.new(0.5, -165, 0.5, -340); Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15); Main.Active = true; Main.Draggable = true
 local Stroke = Instance.new("UIStroke", Main); Stroke.Thickness = 3; Instance.new("UICorner", Main)
 
 -- MOBİL BUTON
 local OpenBtn = Instance.new("TextButton", sg); OpenBtn.Size = UDim2.new(0, 50, 0, 50); OpenBtn.Position = UDim2.new(1, -60, 0, 20); OpenBtn.Text = "MENU"; Instance.new("UICorner", OpenBtn); OpenBtn.BackgroundTransparency = 0.5
 OpenBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
 
--- UI ELEMENTLERİ (Özet)
-local function CreateToggle(name, key, pos)
-    local t = Instance.new("TextButton", Main); t.Size = UDim2.new(0, 150, 0, 30); t.Position = pos; t.BackgroundColor3 = Color3.fromRGB(25, 25, 25); t.Text = name..": "..(_G.Set[key] and "ON" or "OFF"); t.TextColor3 = Color3.new(1,1,1); t.Font = "Gotham"; t.TextSize = 8; Instance.new("UICorner", t)
+-- 3. UI ELEMENTLERİ
+local function NewToggle(name, key, x, y)
+    local t = Instance.new("TextButton", Main); t.Size = UDim2.new(0, 145, 0, 30); t.Position = UDim2.new(0, x, 0, y); t.BackgroundColor3 = Color3.fromRGB(30, 30, 30); t.Text = name..": "..(_G.Set[key] and "ON" or "OFF"); t.TextColor3 = Color3.new(1,1,1); t.Font = "Gotham"; t.TextSize = 8; Instance.new("UICorner", t)
     t.MouseButton1Click:Connect(function() _G.Set[key] = not _G.Set[key] t.Text = name..": "..(_G.Set[key] and "ON" or "OFF") end)
 end
 
-local function ActionBtn(name, pos, color, func)
-    local b = Instance.new("TextButton", Main); b.Size = UDim2.new(0, 145, 0, 35); b.Position = pos; b.BackgroundColor3 = color; b.Text = name; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 9; Instance.new("UICorner", b)
+local function NewSlider(txt, min, max, key, y)
+    local f = Instance.new("Frame", Main); f.Size = UDim2.new(0, 300, 0, 40); f.Position = UDim2.new(0, 15, 0, y); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Text = txt..": ".._G.Set[key]; l.Size = UDim2.new(1,0,0,15); l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.TextSize = 9
+    local b = Instance.new("TextButton", f); b.Size = UDim2.new(1, 0, 0, 12); b.Position = UDim2.new(0,0,0,18); b.BackgroundColor3 = Color3.fromRGB(45,45,45); b.Text = ""; Instance.new("UICorner", b)
+    local fill = Instance.new("Frame", b); fill.Size = UDim2.new((_G.Set[key]-min)/(max-min),0,1,0); fill.BackgroundColor3 = Color3.new(1,1,1); Instance.new("UICorner", fill)
+    b.MouseButton1Down:Connect(function()
+        local m; m = UIS.InputChanged:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+                local p = math.clamp((i.Position.X - b.AbsolutePosition.X) / b.AbsoluteSize.X, 0, 1)
+                fill.Size = UDim2.new(p, 0, 1, 0); local v = math.floor(min + (max - min) * p); l.Text = txt..": "..v; _G.Set[key] = v
+            end
+        end)
+        UIS.InputEnded:Connect(function(u) if u.UserInputType == Enum.UserInputType.MouseButton1 or u.UserInputType == Enum.UserInputType.Touch then m:Disconnect() end end)
+    end)
+end
+
+-- ÖZELLİKLERİ EKLE
+NewToggle("Hitbox Exp", "HB_Toggle", 10, 45)
+NewToggle("HB Visual", "HB_Visual", 170, 45)
+NewToggle("Anti-Ragdoll", "AntiRag", 10, 80)
+NewToggle("Server Lag", "Lag", 170, 80)
+NewToggle("Player ESP", "ESP", 90, 115)
+
+NewSlider("Hitbox Size", 2, 100, "HitboxSize", 160)
+NewSlider("Walk Speed", 16, 150, "Speed", 210)
+NewSlider("Jump Power", 50, 300, "Jump", 260)
+NewSlider("Gravity", 0, 196, "Gravity", 310)
+
+-- BUTONLAR
+local function NewBtn(name, x, y, color, func)
+    local b = Instance.new("TextButton", Main); b.Size = UDim2.new(0, 145, 0, 35); b.Position = UDim2.new(0, x, 0, y); b.BackgroundColor3 = color; b.Text = name; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 9; Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(func)
 end
 
--- ÖZELLİKLER
-CreateToggle("Hitbox System", "HitboxExp", UDim2.new(0, 10, 0, 45))
-CreateToggle("Visual Hitbox", "HitboxVisual", UDim2.new(0, 170, 0, 45))
-CreateToggle("Server Lag", "LagServer", UDim2.new(0, 90, 0, 80))
-
--- AUTO MOVE BUTONLARI
-ActionBtn("SET CHECKPOINT", UDim2.new(0, 10, 0, 125), Color3.fromRGB(100, 100, 0), function()
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        CheckpointPos = player.Character.HumanoidRootPart.Position
-        print("Checkpoint Ayarlandı!")
+NewBtn("SET CHECKPOINT", 10, 370, Color3.fromRGB(80, 80, 0), function() if player.Character then CP_Pos = player.Character.HumanoidRootPart.Position end end)
+NewBtn("AUTO WALK GO", 170, 370, Color3.fromRGB(0, 100, 0), function()
+    if not CP_Pos or IsWalking then return end
+    IsWalking = true
+    while IsWalking and CP_Pos and player.Character do
+        local dist = (player.Character.HumanoidRootPart.Position - CP_Pos).Magnitude
+        if dist < 3 then IsWalking = false break end
+        player.Character.Humanoid:MoveTo(CP_Pos)
+        task.wait(0.1)
     end
 end)
+NewBtn("STOP WALK", 90, 415, Color3.fromRGB(120, 0, 0), function() IsWalking = false end)
+NewBtn("SAVE CONFIG", 10, 470, Color3.fromRGB(0, 120, 0), Save)
+NewBtn("LOAD CONFIG", 170, 470, Color3.fromRGB(0, 80, 150), Load)
 
-ActionBtn("AUTO MOVE GO", UDim2.new(0, 170, 0, 125), Color3.fromRGB(0, 150, 0), function()
-    spawn(GoToCheckpoint)
-end)
-
-ActionBtn("STOP MOVE", UDim2.new(0, 90, 0, 165), Color3.fromRGB(150, 0, 0), function()
-    Moving = false
-end)
-
--- LİDER (Diğer Sliderlar ve Kayıtlar)
-ActionBtn("SAVE CONFIG", UDim2.new(0, 10, 0, 420), Color3.fromRGB(0, 100, 0), SaveConfig)
-ActionBtn("LOAD CONFIG", UDim2.new(0, 170, 0, 420), Color3.fromRGB(0, 70, 130), LoadConfig)
-
--- 4. ANA MOTOR
-RunService.Heartbeat:Connect(function()
-    local char = player.Character; local hum = char and char:FindFirstChild("Humanoid")
-    if hum then
-        hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-        if hum.Health <= 0 then hum.Health = 100 end
-        if not Moving then hum.WalkSpeed = _G.Set.Speed end -- Yürürken hızı bozmasın
-    end
-end)
-
--- Hitbox Logic
+-- 4. ANA MOTOR (HITBOX & ESP & ANTI-DIE)
 RunService.RenderStepped:Connect(function()
+    workspace.Gravity = _G.Set.Gravity
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = v.Character.HumanoidRootPart
-            if _G.Set.HitboxExp then
+            if _G.Set.HB_Toggle then
                 hrp.Size = Vector3.new(_G.Set.HitboxSize, _G.Set.HitboxSize, _G.Set.HitboxSize)
-                hrp.Transparency = _G.Set.HitboxVisual and _G.Set.HB_Trans or 1
-                hrp.Color = Colors[ColorIndex]
+                hrp.Transparency = _G.Set.HB_Visual and 0.7 or 1
+                hrp.Color = Colors[_G.Set.HB_Color]
                 hrp.CanCollide = false
-            else
-                hrp.Size = Vector3.new(2,2,1)
-            end
+            else hrp.Size = Vector3.new(2,2,1) end
         end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    local c = player.Character; local h = c and c:FindFirstChild("Humanoid")
+    if h then
+        h:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        if h.Health <= 0 then h.Health = 100 end
+        if not IsWalking then h.WalkSpeed = _G.Set.Speed end
+        h.JumpPower = _G.Set.Jump
+        if _G.Set.AntiRag then h.PlatformStand = false end
+    end
+    if _G.Set.Lag and c:FindFirstChild("HumanoidRootPart") then
+        for i=1,5 do local p = Instance.new("Part", workspace); p.Transparency=1; p.Position=c.HumanoidRootPart.Position; task.delay(0.1, function() p:Destroy() end) end
     end
 end)
 
