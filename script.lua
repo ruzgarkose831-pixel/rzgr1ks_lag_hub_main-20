@@ -1,91 +1,137 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- GUI Ayarları
+-- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "rzgr1ks_V3"
+ScreenGui.Name = "rzgr1ks_V4"
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 ScreenGui.ResetOnSpawn = false 
 
--- Ana Menü
+-- Main Menu
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 250, 0, 200)
-Main.Position = UDim2.new(0.5, -125, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Main.Size = UDim2.new(0, 260, 0, 320)
+Main.Position = UDim2.new(0.5, -130, 0.3, 0)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 Main.Active = true
 Main.Draggable = true 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 15)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Size = UDim2.new(1, 0, 0, 45)
 Title.Text = "rzgr1ks Hub"
 Title.TextColor3 = Color3.fromRGB(0, 255, 170)
 Title.BackgroundTransparency = 1
-Title.TextScaled = true
+Title.TextSize = 22
+Title.Font = Enum.Font.SourceSansBold
 
--- Durum Değişkeni
+-- States
 _G.BoostActive = false
+_G.ESPActive = false
 
--- SÜREKLİ GÜNCELLEME DÖNGÜSÜ (Anti-Reset)
--- Bu kısım hızı ve zıplamayı oyunun sıfırlamasına izin vermeden her 0.1 saniyede bir zorlar.
+-- Function: ESP
+local function applyESP(char)
+    if not char then return end
+    local highlight = char:FindFirstChild("ESPHighlight")
+    if _G.ESPActive then
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Name = "ESPHighlight"
+            highlight.Parent = char
+            highlight.FillColor = Color3.fromRGB(255, 0, 50)
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        end
+    elseif highlight then
+        highlight:Destroy()
+    end
+end
+
+-- MAIN LOOP (Speed, Jump, Tool Check)
 task.spawn(function()
-    while true do
-        if _G.BoostActive then
-            local char = player.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.UseJumpPower = true
-                    hum.WalkSpeed = 60 -- İstediğin hız değeri
-                    hum.JumpPower = 15 -- İstediğin zıplama gücü (15)
+    while task.wait(0.1) do
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.UseJumpPower = true
+                
+                if _G.BoostActive then
+                    -- Elinde bir eşya (Tool) var mı kontrol et
+                    local hasTool = char:FindFirstChildOfClass("Tool")
+                    
+                    if hasTool then
+                        hum.WalkSpeed = 30 -- Eşya varken hız 30
+                    else
+                        hum.WalkSpeed = 60 -- Eşya yokken hız 60
+                    end
+                    hum.JumpPower = 15 -- Zıplama gücü sabit 15
                 end
             end
         end
-        task.wait(0.1) -- Çok hızlı kontrol ederek hilenin kapanmasını engeller
-    end
-end)
 
--- Ana Combo Butonu
-local ComboBtn = Instance.new("TextButton", Main)
-ComboBtn.Size = UDim2.new(0, 200, 0, 60)
-ComboBtn.Position = UDim2.new(0.5, -100, 0.4, 0)
-ComboBtn.Text = "BOOST : KAPALI"
-ComboBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-ComboBtn.TextColor3 = Color3.white
-ComboBtn.Font = Enum.Font.SourceSansBold
-ComboBtn.TextSize = 18
-Instance.new("UICorner", ComboBtn)
-
-ComboBtn.MouseButton1Click:Connect(function()
-    _G.BoostActive = not _G.BoostActive
-    if _G.BoostActive then
-        ComboBtn.Text = "BOOST : AÇIK\n(Hız: 60 | Zıplama: 15)"
-        ComboBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 120)
-    else
-        ComboBtn.Text = "BOOST : KAPALI"
-        ComboBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        
-        -- Kapatıldığında normale döndür
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.WalkSpeed = 16
-            hum.JumpPower = 50
+        -- ESP Logic
+        if _G.ESPActive then
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= player and p.Character then
+                    applyESP(p.Character)
+                end
+            end
         end
     end
 end)
 
--- Kapatma / Açma Sistemi
+-- Button Creation
+local function createButton(name, posY, callback)
+    local Btn = Instance.new("TextButton", Main)
+    Btn.Size = UDim2.new(0, 220, 0, 50)
+    Btn.Position = UDim2.new(0.5, -110, 0, posY)
+    Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Btn.Text = name .. " : OFF"
+    Btn.TextColor3 = Color3.white
+    Btn.Font = Enum.Font.SourceSansBold
+    Btn.TextSize = 16
+    Instance.new("UICorner", Btn)
+
+    local active = false
+    Btn.MouseButton1Click:Connect(function()
+        active = not active
+        Btn.Text = active and (name .. " : ON") or (name .. " : OFF")
+        Btn.BackgroundColor3 = active and Color3.fromRGB(0, 170, 120) or Color3.fromRGB(45, 45, 60)
+        callback(active)
+    end)
+end
+
+createButton("BOOST MODE", 80, function(val) 
+    _G.BoostActive = val 
+    if not val then -- Reset when turned off
+        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = 16 hum.JumpPower = 50 end
+    end
+end)
+
+createButton("PLAYER ESP", 150, function(val) 
+    _G.ESPActive = val 
+    if not val then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("ESPHighlight") then
+                p.Character.ESPHighlight:Destroy()
+            end
+        end
+    end
+end)
+
+-- Open/Close
 local Close = Instance.new("TextButton", Main)
 Close.Size = UDim2.new(0, 30, 0, 30)
 Close.Position = UDim2.new(1, -35, 0, 5)
 Close.Text = "X"
 Close.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+Close.TextColor3 = Color3.white
 Instance.new("UICorner", Close)
 
 local OpenBtn = Instance.new("TextButton", ScreenGui)
-OpenBtn.Size = UDim2.new(0, 50, 0, 50)
-OpenBtn.Position = UDim2.new(0.02, 0, 0.7, 0)
-OpenBtn.Text = "MENU"
+OpenBtn.Size = UDim2.new(0, 55, 0, 55)
+OpenBtn.Position = UDim2.new(0.02, 0, 0.4, 0)
+OpenBtn.Text = "HUB"
 OpenBtn.Visible = false
 OpenBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 170)
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
