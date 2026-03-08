@@ -1,8 +1,8 @@
 --[[ 
-    LEMÖN PROJECT HUB - V93 (CLEAN & FAST)
-    - Senin şablonun üzerine inşa edildi.
-    - Auto-Walk Fix: Pathfinding ve Takılma Önleyici eklendi.
-    - Bypass: Anti-cheat'e yakalanmayan hız ve zıplama.
+    LEMÖN PROJECT HUB - V94 (SLIM & COMPACT)
+    - Menü boyutları küçültüldü (Daha az yer kaplar).
+    - Auto-Walk & Bypass özellikleri optimize edildi.
+    - Mobil uyumlu ve hızlı şablon.
 ]]
 
 local Players = game:GetService("Players")
@@ -26,43 +26,43 @@ _G.Data = {
 local PointColors = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0,1), Color3.new(1,0.6,0)}
 local VisualParts = {nil, nil, nil, nil}
 
--- 2. ANA PANEL (SENİN ŞABLONUN)
+-- 2. ANA PANEL (KÜÇÜLTÜLMÜŞ BOYUTLAR)
 local gui = Instance.new("ScreenGui")
-gui.Name = "LemonProjectGUI"
+gui.Name = "LemonSlimGUI"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0,360,0,450)
-main.Position = UDim2.new(0.5,-180,0.5,-225)
+main.Size = UDim2.new(0, 300, 0, 380) -- Boyut küçültüldü (Önceki 360x450 idi)
+main.Position = UDim2.new(0.5, -150, 0.5, -190) -- Ortalaması ayarlandı
 main.BackgroundColor3 = Color3.fromRGB(15,15,20)
 main.Parent = gui
-Instance.new("UICorner",main).CornerRadius = UDim.new(0,12)
+Instance.new("UICorner",main).CornerRadius = UDim.new(0,10)
 local Stroke = Instance.new("UIStroke", main); Stroke.Thickness = 2; Stroke.Color = Color3.fromRGB(255,140,0)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,45)
+title.Size = UDim2.new(1,0,0,40)
 title.BackgroundTransparency = 1
-title.Text = "LEMÖN PROJECT PREMÎÜM"
+title.Text = "LEMON SLIM V94"
 title.Font = Enum.Font.GothamBold
-title.TextSize = 18
+title.TextSize = 16
 title.TextColor3 = Color3.fromRGB(255,140,0)
 title.Parent = main
 
--- KAYDIRILABİLİR KONTEYNER (Özellikler sığsın diye ScrollingFrame yaptık)
+-- KAYDIRILABİLİR KONTEYNER (KÜÇÜK PANEL İÇİN ÖNEMLİ)
 local container = Instance.new("ScrollingFrame")
-container.Size = UDim2.new(1,-20,1,-60)
-container.Position = UDim2.new(0,10,0,50)
+container.Size = UDim2.new(1,-16,1,-55)
+container.Position = UDim2.new(0,8,0,45)
 container.BackgroundTransparency = 1
 container.ScrollBarThickness = 2
-container.CanvasSize = UDim2.new(0,0,0,650)
+container.CanvasSize = UDim2.new(0,0,0,600)
 container.Parent = main
 
 local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0,8)
+layout.Padding = UDim.new(0,6)
 layout.Parent = container
 
--- DRAG SYSTEM
+-- SÜRÜKLEME SİSTEMİ
 local dragging, dragStart, startPos
 title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -77,18 +77,18 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- 3. UI ELEMENT FONKSİYONLARI (GELİŞTİRİLMİŞ)
+-- 3. UI ELEMENTLERİ
 local function CreateToggle(text, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1,0,0,40); frame.BackgroundColor3 = Color3.fromRGB(30,30,35); frame.Parent = container
+    frame.Size = UDim2.new(1,0,0,36); frame.BackgroundColor3 = Color3.fromRGB(30,30,35); frame.Parent = container
     Instance.new("UICorner",frame)
 
     local label = Instance.new("TextLabel", frame)
-    label.Text = text; label.Size = UDim2.new(1,-50,1,0); label.Position = UDim2.new(0,12,0,0)
-    label.BackgroundTransparency = 1; label.TextColor3 = Color3.new(1,1,1); label.Font = "Gotham"; label.TextSize = 14; label.TextXAlignment = "Left"
+    label.Text = text; label.Size = UDim2.new(1,-45,1,0); label.Position = UDim2.new(0,10,0,0)
+    label.BackgroundTransparency = 1; label.TextColor3 = Color3.new(1,1,1); label.Font = "Gotham"; label.TextSize = 13; label.TextXAlignment = "Left"
 
     local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(0,35,0,20); button.Position = UDim2.new(1,-45,0.5,-10); button.BackgroundColor3 = Color3.fromRGB(80,80,80); button.Text = ""
+    button.Size = UDim2.new(0,30,0,18); button.Position = UDim2.new(1,-40,0.5,-9); button.BackgroundColor3 = Color3.fromRGB(80,80,80); button.Text = ""
     Instance.new("UICorner",button).CornerRadius = UDim.new(1,0)
 
     local state = false
@@ -101,14 +101,14 @@ end
 
 local function CreateSlider(text, min, max, default, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1,0,0,55); frame.BackgroundTransparency = 1; frame.Parent = container
+    frame.Size = UDim2.new(1,0,0,50); frame.BackgroundTransparency = 1; frame.Parent = container
 
     local label = Instance.new("TextLabel", frame)
-    label.Text = text .. " : " .. default; label.Size = UDim2.new(1,0,0,25); label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(1,1,1); label.Font = "Gotham"; label.TextSize = 13; label.TextXAlignment = "Left"
+    label.Text = text .. " : " .. default; label.Size = UDim2.new(1,0,0,20); label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1,1,1); label.Font = "Gotham"; label.TextSize = 12; label.TextXAlignment = "Left"
 
     local bar = Instance.new("Frame", frame)
-    bar.Size = UDim2.new(1,0,0,6); bar.Position = UDim2.new(0,0,1,-12); bar.BackgroundColor3 = Color3.fromRGB(50,50,55)
+    bar.Size = UDim2.new(1,0,0,5); bar.Position = UDim2.new(0,0,1,-10); bar.BackgroundColor3 = Color3.fromRGB(50,50,55)
     Instance.new("UICorner",bar)
 
     local fill = Instance.new("Frame", bar)
@@ -136,37 +136,35 @@ end
 
 local function CreateButton(text, color, callback)
     local b = Instance.new("TextButton", container)
-    b.Size = UDim2.new(1,0,0,35); b.BackgroundColor3 = color; b.Text = text; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 14
+    b.Size = UDim2.new(1,0,0,32); b.BackgroundColor3 = color; b.Text = text; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 13
     Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(callback)
     return b
 end
 
--- 4. ÖZELLİKLERİ EKLEME
+-- 4. ÖZELLİKLER
 CreateToggle("Hitbox Expander", function(s) _G.Data.HB_Enabled = s end)
 CreateSlider("Hitbox Size", 2, 100, 25, function(v) _G.Data.HB_Size = v end)
 CreateToggle("Player ESP", function(s) _G.Data.ESP_Enabled = s end)
-
 CreateSlider("Bypass Speed", 16, 100, 30, function(v) _G.Data.Speed = v end)
 CreateSlider("Bypass Jump", 50, 150, 60, function(v) _G.Data.Jump = v end)
 
-local slotBtn = CreateButton("SELECT POINT: 1", Color3.fromRGB(60, 45, 0), function()
+local slotBtn = CreateButton("SLOT: POINT 1", Color3.fromRGB(60, 45, 0), function()
     _G.Data.SelectedPoint = (_G.Data.SelectedPoint % 4) + 1
-    slotBtn.Text = "SELECT POINT: " .. _G.Data.SelectedPoint
+    slotBtn.Text = "SLOT: POINT " .. _G.Data.SelectedPoint
 end)
 
 CreateButton("SAVE POSITION", Color3.fromRGB(0, 80, 150), function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if hrp then
-        local pos = hrp.Position
-        _G.Data.Points[_G.Data.SelectedPoint] = pos
+        _G.Data.Points[_G.Data.SelectedPoint] = hrp.Position
         if VisualParts[_G.Data.SelectedPoint] then VisualParts[_G.Data.SelectedPoint]:Destroy() end
-        local p = Instance.new("Part", workspace); p.Size = Vector3.new(3,3,3); p.Position = pos; p.Anchored = true; p.CanCollide = false
+        local p = Instance.new("Part", workspace); p.Size = Vector3.new(2,2,2); p.Position = hrp.Position; p.Anchored = true; p.CanCollide = false
         p.Shape = "Ball"; p.Material = "Neon"; p.Color = PointColors[_G.Data.SelectedPoint]; p.Transparency = 0.5; VisualParts[_G.Data.SelectedPoint] = p
     end
 end)
 
-CreateButton("AUTO WALK GO", Color3.fromRGB(0, 120, 0), function()
+CreateButton("AUTO WALK START", Color3.fromRGB(0, 100, 0), function()
     local target = _G.Data.Points[_G.Data.SelectedPoint]
     if not target or _G.Data.Walking then return end
     _G.Data.Walking = true
@@ -176,7 +174,7 @@ CreateButton("AUTO WALK GO", Color3.fromRGB(0, 120, 0), function()
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
             if hum and hrp then
                 hum:MoveTo(target)
-                if hrp.Velocity.Magnitude < 1 then hum.Jump = true end -- Engel aşma
+                if hrp.Velocity.Magnitude < 1 then hum.Jump = true end
                 if (hrp.Position - target).Magnitude < 4 then break end
             end
             task.wait(0.1)
@@ -185,47 +183,37 @@ CreateButton("AUTO WALK GO", Color3.fromRGB(0, 120, 0), function()
     end)
 end)
 
-CreateButton("STOP AUTO WALK", Color3.fromRGB(150, 0, 0), function() _G.Data.Walking = false end)
+CreateButton("STOP WALK", Color3.fromRGB(120, 0, 0), function() _G.Data.Walking = false end)
 
--- 5. LOOPS (BYPASS & LOGIC)
+-- 5. LOOPS
 RunService.RenderStepped:Connect(function(dt)
     local char = player.Character
     local hum = char and char:FindFirstChild("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-    if hum and hrp and not _G.Data.Walking then
-        -- Speed Bypass (Yürürken karakteri öne iter, WalkSpeed'i ellemez)
-        if hum.MoveDirection.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (_G.Data.Speed - 16) * dt)
-        end
+    if hum and hrp and not _G.Data.Walking and hum.MoveDirection.Magnitude > 0 then
+        hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (_G.Data.Speed - 16) * dt)
     end
 end)
 
--- Jump Bypass
 UIS.JumpRequest:Connect(function()
     local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp and not _G.Data.Walking then
-        hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Data.Jump, hrp.Velocity.Z)
-    end
+    if hrp and not _G.Data.Walking then hrp.Velocity = Vector3.new(hrp.Velocity.X, _G.Data.Jump, hrp.Velocity.Z) end
 end)
 
--- Hitbox & ESP Logic
 RunService.Heartbeat:Connect(function()
     for _, v in pairs(Players:GetPlayers()) do
         if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local root = v.Character.HumanoidRootPart
-            -- Hitbox
             if _G.Data.HB_Enabled then
                 root.Size = Vector3.new(_G.Data.HB_Size, _G.Data.HB_Size, _G.Data.HB_Size)
                 root.Transparency = 0.7; root.CanCollide = false
             else
                 root.Size = Vector3.new(2, 2, 1); root.Transparency = 1
             end
-            -- ESP
             if _G.Data.ESP_Enabled then
                 if not v.Character:FindFirstChild("LemonESP") then
                     local h = Instance.new("Highlight", v.Character); h.Name = "LemonESP"
-                    h.FillColor = Color3.new(1, 0.5, 0); h.OutlineColor = Color3.new(1,1,1)
+                    h.FillColor = Color3.new(1, 0.5, 0)
                 end
             else
                 if v.Character:FindFirstChild("LemonESP") then v.Character.LemonESP:Destroy() end
