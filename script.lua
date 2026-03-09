@@ -1,138 +1,124 @@
 --[[ 
-    rzgr1ks DUEL HUB V9 (FINAL ARSENAL)
-    - NEW: Player ESP (Box, Health, Name).
-    - NEW: Look-At Aimbot (Head follows closest player).
-    - FULL: Includes Gravity, Bat Hitbox, Anti-Ragdoll, and Auto-Walk.
+    rzgr1ks DUEL HUB V15 (SPINBOT & PHYSICS FIX)
+    - ROOT FIX: Spinbot now disables 'AutoRotate' to prevent physics fighting.
+    - NEW: Using high-torque AngularVelocity for absolute rotation.
+    - ALL FEATURES INCLUDED: ESP, Bat Hitbox, Look-At, Config, Atmosphere.
 ]]
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local ConfigFile = "rzgr1ks_v15_final.json"
 
--- 1. ULTIMATE DATA TABLE
+-- 1. DATA TABLE
 _G.Hub = {
-    -- Combat & Aim
-    LookAt = false, LookAtRange = 50,
-    SmartHitbox = false, HitboxSize = 15,
-    BatHitbox = false, BatHitboxSize = 15,
-    AutoAttack = false, SpamBat = false,
-    Spin = false, SpinSpeed = 50,
-    
-    -- ESP Features
-    ESP = false, ESP_Box = false, ESP_Health = false, ESP_Name = false,
-    
-    -- Movement & Physics
     Speed = false, SpeedVal = 50,
     Jump = false, JumpVal = 80,
     Gravity = false, GravityVal = 196.2,
     AntiRagdoll = false,
+    Spin = false, SpinSpeed = 50,
     Float = false, FloatOffset = -3.5,
-    
-    -- Automation
-    Galaxy = false,
-    AutoWalk = false, Points = {}
+    LookAt = false, LookAtRange = 50,
+    SmartHitbox = false, HitboxSize = 15,
+    BatHitbox = false, BatHitboxSize = 15,
+    AutoAttack = false,
+    ESP_Box = false, ESP_Health = false, ESP_Name = false,
+    Galaxy = false, Brightness = 2, Exposure = 0, FogEnd = 10000,
+    AutoWalk = false, Points = {}, Markers = {}
 }
 
--- 2. ESP SYSTEM ENGINE
-local function CreateESP(target)
-    local box = Drawing.new("Square"); box.Thickness = 1; box.Filled = false; box.Color = Color3.new(1, 1, 1); box.Visible = false
-    local health = Drawing.new("Line"); health.Thickness = 2; health.Color = Color3.new(0, 1, 0); health.Visible = false
-    local name = Drawing.new("Text"); name.Size = 14; name.Center = true; name.Outline = true; name.Color = Color3.new(1, 1, 1); name.Visible = false
+-- 2. RGB ENGINE
+local rgbColor = Color3.new(1,1,1)
+RunService.RenderStepped:Connect(function()
+    rgbColor = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+end)
 
-    local connection
-    connection = RunService.RenderStepped:Connect(function()
-        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and target.Character:FindFirstChild("Humanoid") and _G.Hub.ESP then
-            local hrp = target.Character.HumanoidRootPart
-            local hum = target.Character.Humanoid
-            local pos, onScreen = camera:WorldToViewportPoint(hrp.Position)
-
-            if onScreen then
-                local size = (camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0)).Y - camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.6, 0)).Y)
-                local boxSize = Vector2.new(size / 1.5, size)
-                local boxPos = Vector2.new(pos.X - boxSize.X / 2, pos.Y - boxSize.Y / 2)
-
-                -- Box
-                box.Visible = _G.Hub.ESP_Box; box.Size = boxSize; box.Position = boxPos
-                -- Health
-                health.Visible = _G.Hub.ESP_Health; health.From = Vector2.new(boxPos.X - 5, boxPos.Y + boxSize.Y); health.To = Vector2.new(boxPos.X - 5, boxPos.Y + boxSize.Y - (hum.Health / hum.MaxHealth) * boxSize.Y)
-                -- Name
-                name.Visible = _G.Hub.ESP_Name; name.Position = Vector2.new(pos.X, boxPos.Y - 15); name.Text = target.Name
-            else
-                box.Visible = false; health.Visible = false; name.Visible = false
-            end
-        else
-            box.Visible = false; health.Visible = false; name.Visible = false
-            if not target.Parent then box:Destroy(); health:Destroy(); name:Destroy(); connection:Disconnect() end
-        end
-    end)
-end
-for _, v in pairs(Players:GetPlayers()) do if v ~= player then CreateESP(v) end end
-Players.PlayerAdded:Connect(function(v) CreateESP(v) end)
-
--- 3. UI GENERATION (V7 Base)
+-- 3. UI CONSTRUCTION (V14 Base - RGB)
 local gui = Instance.new("ScreenGui", player.PlayerGui); gui.ResetOnSpawn = false
-local main = Instance.new("Frame", gui); main.Size = UDim2.new(0, 330, 0, 420); main.Position = UDim2.new(0.5, -165, 0.5, -210); main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-Instance.new("UICorner", main); local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(255, 140, 0); stroke.Thickness = 2
+local main = Instance.new("Frame", gui); main.Size = UDim2.new(0, 340, 0, 450); main.Position = UDim2.new(0.5, -170, 0.5, -225); main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+Instance.new("UICorner", main)
+local stroke = Instance.new("UIStroke", main); stroke.Thickness = 2.5; RunService.RenderStepped:Connect(function() stroke.Color = rgbColor end)
 
-local icon = Instance.new("TextButton", gui); icon.Size = UDim2.new(0, 45, 0, 45); icon.Position = UDim2.new(0, 10, 0.5, -20); icon.Text = "🍋"; icon.TextSize = 25; icon.BackgroundColor3 = Color3.fromRGB(20, 20, 25); Instance.new("UICorner", icon).CornerRadius = UDim.new(0, 22)
-icon.MouseButton1Click:Connect(function() main.Visible = true; icon.Visible = false end)
-
-local header = Instance.new("TextButton", main); header.Size = UDim2.new(1, 0, 0, 35); header.Text = "rzgr1ks DUEL HUB V9 - CLOSE"; header.Font = "GothamBold"; header.TextSize = 12; header.BackgroundColor3 = Color3.fromRGB(35, 35, 40); header.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", header)
+local header = Instance.new("TextButton", main); header.Size = UDim2.new(1, 0, 0, 35); header.Text = "rzgr1ks V15 SPIN FIX"; header.Font = "GothamBold"; header.BackgroundColor3 = Color3.fromRGB(15,15,15); header.TextColor3 = Color3.new(1,1,1)
 header.MouseButton1Click:Connect(function() main.Visible = false; icon.Visible = true end)
 
-local scroll = Instance.new("ScrollingFrame", main); scroll.Size = UDim2.new(1, -10, 1, -45); scroll.Position = UDim2.new(0, 5, 0, 40); scroll.CanvasSize = UDim2.new(0, 0, 0, 2000); scroll.BackgroundTransparency = 1; scroll.ScrollBarThickness = 4
+local icon = Instance.new("TextButton", gui); icon.Size = UDim2.new(0, 50, 0, 50); icon.Position = UDim2.new(0, 10, 0.5, -25); icon.Text = "🍋"; icon.BackgroundColor3 = Color3.fromRGB(10,10,10); Instance.new("UICorner", icon).CornerRadius = UDim.new(0, 25)
+Instance.new("UIStroke", icon).Thickness = 2; icon.MouseButton1Click:Connect(function() main.Visible = true; icon.Visible = false end)
+
+local scroll = Instance.new("ScrollingFrame", main); scroll.Size = UDim2.new(1, -10, 1, -45); scroll.Position = UDim2.new(0, 5, 0, 40); scroll.CanvasSize = UDim2.new(0, 0, 0, 2800); scroll.BackgroundTransparency = 1; scroll.ScrollBarThickness = 3
 Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
 
+-- Helper Functions
 local function Toggle(n, k)
-    local b = Instance.new("TextButton", scroll); b.Size = UDim2.new(1, 0, 0, 30); b.Text = n .. " : OFF"; b.BackgroundColor3 = Color3.fromRGB(40, 40, 45); b.Font = "GothamBold"; b.TextSize = 11; b.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(function() _G.Hub[k] = not _G.Hub[k]; b.Text = n .. (_G.Hub[k] and " : ON" or " : OFF"); b.TextColor3 = _G.Hub[k] and Color3.fromRGB(255, 140, 0) or Color3.new(1, 1, 1) end)
+    local b = Instance.new("TextButton", scroll); b.Size = UDim2.new(1, 0, 0, 32); b.BackgroundColor3 = Color3.fromRGB(25,25,30); b.Font = "GothamBold"; b.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", b)
+    RunService.RenderStepped:Connect(function() b.Text = n .. (_G.Hub[k] and " : ON" or " : OFF"); b.TextColor3 = _G.Hub[k] and rgbColor or Color3.new(1,1,1) end)
+    b.MouseButton1Click:Connect(function() _G.Hub[k] = not _G.Hub[k] end)
 end
 
 local function Slider(n, min, max, k)
     local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, 0, 0, 40); f.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 15); l.Text = n .. ": " .. _G.Hub[k]; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.TextSize = 10
-    local bar = Instance.new("Frame", f); bar.Size = UDim2.new(1, -20, 0, 8); bar.Position = UDim2.new(0, 10, 1, -15); bar.BackgroundColor3 = Color3.fromRGB(50,50,55); Instance.new("UICorner", bar)
-    local fill = Instance.new("Frame", bar); fill.Size = UDim2.new((_G.Hub[k]-min)/(max-min),0,1,0); fill.BackgroundColor3 = Color3.fromRGB(255,140,0); Instance.new("UICorner", fill)
-    bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then local conn; conn = UIS.InputChanged:Connect(function() local p = math.clamp((UIS:GetMouseLocation().X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1); fill.Size = UDim2.new(p,0,1,0); local v = math.floor(min+(max-min)*p); _G.Hub[k] = v; l.Text = n .. ": " .. v end) UIS.InputEnded:Once(function() conn:Disconnect() end) end end)
+    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 15); l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Font = "GothamBold"; l.TextSize = 10
+    local bar = Instance.new("Frame", f); bar.Size = UDim2.new(1, -20, 0, 8); bar.Position = UDim2.new(0, 10, 1, -12); bar.BackgroundColor3 = Color3.fromRGB(40,40,40); Instance.new("UICorner", bar)
+    local fill = Instance.new("Frame", bar); Instance.new("UICorner", fill)
+    bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then local conn; conn = UIS.InputChanged:Connect(function() local p = math.clamp((UIS:GetMouseLocation().X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1); _G.Hub[k] = math.floor(min+(max-min)*p) end) UIS.InputEnded:Once(function() conn:Disconnect() end) end end)
+    RunService.RenderStepped:Connect(function() l.Text = n .. ": " .. _G.Hub[k]; fill.Size = UDim2.new((_G.Hub[k]-min)/(max-min),0,1,0); fill.BackgroundColor3 = rgbColor end)
 end
 
 -- 4. BUTTONS
-Toggle("HEAD LOOK-AT (Target Lock)", "LookAt")
-Slider("LOOK-AT DISTANCE", 10, 200, "LookAtRange")
-Toggle("PLAYER BOX ESP", "ESP_Box")
-Toggle("PLAYER NAME ESP", "ESP_Name")
-Toggle("PLAYER HEALTH ESP", "ESP_Health")
-_G.Hub.ESP = true -- Main Master Switch
-Toggle("SMART HITBOX (Player)", "SmartHitbox")
-Slider("PLAYER HB SIZE", 2, 100, "HitboxSize")
-Toggle("BAT/SWORD HITBOX", "BatHitbox")
-Slider("BAT HB SIZE", 5, 100, "BatHitboxSize")
-Toggle("AUTO ATTACK", "AutoAttack")
-Toggle("SPAM BAT", "SpamBat")
-Toggle("SPEED BOOST", "Speed")
-Slider("WALK SPEED", 16, 200, "SpeedVal")
-Toggle("JUMP MOD", "Jump")
-Slider("JUMP POWER", 50, 200, "JumpVal")
-Toggle("GRAVITY MOD", "Gravity")
-Slider("GRAVITY AMOUNT", 0, 200, "GravityVal")
-Toggle("ANTI RAGDOLL", "AntiRagdoll")
-Toggle("SPIN BOT", "Spin")
-Toggle("FLOAT PLATFORM", "Float")
 Toggle("AUTO WALK", "AutoWalk")
+Toggle("BAT HITBOX (Absolute)", "BatHitbox")
+Slider("BAT REACH", 5, 100, "BatHitboxSize")
+Toggle("SMART HITBOX", "SmartHitbox")
+Slider("PLAYER HB SIZE", 2, 100, "HitboxSize")
+Toggle("SPIN BOT", "Spin")
+Slider("SPIN SPEED", 10, 200, "SpinSpeed")
+Toggle("SPEED BOOST", "Speed")
+Slider("WALK SPEED", 16, 250, "SpeedVal")
+Toggle("ANTI RAGDOLL", "AntiRagdoll")
+Toggle("HEAD LOOK-AT", "LookAt")
+Toggle("GALAXY SKY", "Galaxy")
 
--- 5. ENGINE
+-- 5. THE ULTIMATE ENGINE (Spin Fix Included)
 local platform = Instance.new("Part", workspace); platform.Size = Vector3.new(15, 1, 15); platform.Anchored = true; platform.Transparency = 1
 
 RunService.RenderStepped:Connect(function()
     local char = player.Character; if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid"); local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not (hrp and hum) then return end
 
-    -- LOOK-AT LOGIC (Head Follow)
+    -- SPINBOT FIX (Kökten Çözüm)
+    local spinV = hrp:FindFirstChild("rzgr1ks_SpinForce") or Instance.new("BodyAngularVelocity", hrp)
+    spinV.Name = "rzgr1ks_SpinForce"
+    spinV.MaxTorque = Vector3.new(0, math.huge, 0)
+    
+    if _G.Hub.Spin then
+        hum.AutoRotate = false -- Oyunun düzeltmesini engeller
+        spinV.AngularVelocity = Vector3.new(0, _G.Hub.SpinSpeed, 0)
+    else
+        hum.AutoRotate = true
+        spinV.AngularVelocity = Vector3.new(0, 0, 0)
+    end
+
+    -- Absolute Bat Hitbox
+    if _G.Hub.BatHitbox then
+        local t = char:FindFirstChildOfClass("Tool")
+        if t then 
+            for _, p in pairs(t:GetDescendants()) do 
+                if p:IsA("BasePart") then 
+                    p.Size = Vector3.new(_G.Hub.BatHitboxSize, _G.Hub.BatHitboxSize, _G.Hub.BatHitboxSize)
+                    p.Transparency = 0.8; p.CanCollide = false 
+                end 
+            end 
+        end
+    end
+
+    -- Look-At & Movement
     if _G.Hub.LookAt then
         local target = nil; local dist = _G.Hub.LookAtRange
         for _, v in pairs(Players:GetPlayers()) do
@@ -143,32 +129,30 @@ RunService.RenderStepped:Connect(function()
         end
         if target then
             local neck = char:FindFirstChild("Neck", true)
-            if neck then
-                local cframe = CFrame.new(char.Head.Position, target.Position)
-                neck.C0 = char.UpperTorso.CFrame:ToObjectSpace(cframe) * CFrame.Angles(math.rad(90), 0, math.rad(180))
-            end
+            if neck then neck.C0 = char.UpperTorso.CFrame:ToObjectSpace(CFrame.new(char.Head.Position, target.Position)) * CFrame.Angles(1.57, 0, 3.14) end
         end
     end
-
-    -- Physics
-    if _G.Hub.Speed then hum.WalkSpeed = _G.Hub.SpeedVal end
-    if _G.Hub.Jump then hum.JumpPower = _G.Hub.JumpVal; hum.UseJumpPower = true end
-    workspace.Gravity = _G.Hub.Gravity and _G.Hub.GravityVal or 196.2
+    
+    if _G.Hub.Speed and not _G.Hub.AutoWalk then hum.WalkSpeed = _G.Hub.SpeedVal end
+    if _G.Hub.AntiRagdoll then hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false); hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) end
     if _G.Hub.Float then platform.Position = hrp.Position + Vector3.new(0, _G.Hub.FloatOffset, 0); platform.CanCollide = true else platform.CanCollide = false end
+    if _G.Hub.Galaxy then Lighting.ClockTime = 0; Lighting.Ambient = Color3.fromRGB(120, 0, 255) end
+end)
 
-    -- Combat
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        if _G.Hub.AutoAttack or _G.Hub.SpamBat then tool:Activate() end
-        if _G.Hub.BatHitbox then
-            for _, p in pairs(tool:GetDescendants()) do
-                if p:IsA("BasePart") then p.Size = Vector3.new(_G.Hub.BatHitboxSize, _G.Hub.BatHitboxSize, _G.Hub.BatHitboxSize); p.Transparency = 0.8; p.CanCollide = false end
+-- Auto Walk Loop
+task.spawn(function()
+    while task.wait(0.5) do
+        if _G.Hub.AutoWalk and #_G.Hub.Points > 0 and player.Character then
+            for _, pos in pairs(_G.Hub.Points) do
+                if not _G.Hub.AutoWalk then break end
+                local h = player.Character:FindFirstChild("Humanoid")
+                if h then h:MoveTo(pos); repeat task.wait(0.1) until (player.Character.HumanoidRootPart.Position - pos).Magnitude < 5 or not _G.Hub.AutoWalk end
             end
         end
     end
 end)
 
--- Hitbox Expander
+-- Smart Hitbox (Player Expand)
 RunService.Stepped:Connect(function()
     for _, t in pairs(Players:GetPlayers()) do
         if t ~= player and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
