@@ -4,109 +4,132 @@ local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Player = Players.LocalPlayer
 
--- Önceki GUI'yi temizle
-if Player.PlayerGui:FindFirstChild("LemonHubReborn") then
-    Player.PlayerGui.LemonHubReborn:Destroy()
+-- Temizlik
+if Player.PlayerGui:FindFirstChild("LemonGalaxySupreme") then
+    Player.PlayerGui.LemonGalaxySupreme:Destroy()
 end
 
 _G.Settings = {
-    BatHitbox = false, BatSize = 45, SpamBat = false,
-    PlayerHB = false, PlayerHBSize = 25,
-    ESP = false, ESPDist = 1000,
-    SpeedBoost = false, SpeedVal = 75,
-    JumpMod = false, JumpPower = 100,
-    InfJump = false, AntiRagdoll = false,
-    SpinBot = false, SpinSpeed = 200,
-    GalaxyMode = false, GravityVal = 100,
-    ServerLag = false, UnderArms = false, HiddenHead = false,
-    AutoWalk = false, Waypoints = {}
+    -- Karakter & Hareket
+    ESP = false, ESPDist = 1500, GalaxyMode = false, GravityVal = 100,
+    UnderArms = false, HiddenHead = false, SpeedBoost = false, SpeedVal = 75,
+    JumpMod = false, JumpPower = 100, AntiRagdoll = false, SpinBot = false, SpinSpeed = 150,
+    -- Combat & Server
+    BatHitbox = false, BatSize = 45, SpamBat = false, ServerLag = false,
+    InfJump = false, AutoWalk = false, Waypoints = {}
 }
 
 local gui = Instance.new("ScreenGui", Player.PlayerGui)
-gui.Name = "LemonHubReborn"
+gui.Name = "LemonGalaxySupreme"
 gui.ResetOnSpawn = false
 
--- ANA PANEL (Görünürlüğü Garantili Klasik Stil)
+-- ANA PANEL
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0, 520, 0, 480)
-main.Position = UDim2.new(0.5, -260, 0.5, -240)
-main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+main.Size = UDim2.new(0, 540, 0, 420)
+main.Position = UDim2.new(0.5, -270, 0.5, -210)
+main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 main.BorderSizePixel = 0
 main.Active = true
 main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
+main.ClipsDescendants = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
+
+-- UZAY ARKA PLANI
+local bg = Instance.new("ImageLabel", main)
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.Image = "rbxassetid://13264663806"
+bg.ScaleType = Enum.ScaleType.Crop
+bg.Transparency = 0.5; bg.ZIndex = 0
 
 -- RGB KENARLIK
 local stroke = Instance.new("UIStroke", main)
-stroke.Thickness = 2
+stroke.Thickness = 2.5
 RunService.RenderStepped:Connect(function() stroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1) end)
 
--- BAŞLIK
+-- BAŞLIKLAR
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "  LEMÖN HUB DUELS PREMİÜM"
-title.TextColor3 = Color3.fromRGB(255, 160, 0)
-title.Font = Enum.Font.GothamBold; title.TextSize = 16
-title.BackgroundTransparency = 1; title.TextXAlignment = "Left"
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 5)
+title.Text = "LEMÖN HUB DUELS PREMİÜM"
+title.TextColor3 = Color3.fromRGB(255, 170, 0)
+title.Font = "GothamBold"; title.TextSize = 15; title.BackgroundTransparency = 1; title.ZIndex = 2
 
--- KAYDIRMA ALANI (Tüm butonların toplandığı yer)
+local sub = Instance.new("TextLabel", main)
+sub.Size = UDim2.new(1, 0, 0, 20)
+sub.Position = UDim2.new(0, 0, 0, 22)
+sub.Text = "discord.gg/lemonhub"; sub.TextColor3 = Color3.fromRGB(150, 150, 150)
+sub.Font = "Gotham"; sub.TextSize = 10; sub.BackgroundTransparency = 1; sub.ZIndex = 2
+
+-- İKİ SÜTUNLU SCROLL ALANI
 local scroll = Instance.new("ScrollingFrame", main)
-scroll.Size = UDim2.new(1, -20, 1, -60)
-scroll.Position = UDim2.new(0, 10, 0, 50)
+scroll.Size = UDim2.new(1, -10, 1, -60)
+scroll.Position = UDim2.new(0, 5, 0, 55)
 scroll.BackgroundTransparency = 1
-scroll.CanvasSize = UDim2.new(0, 0, 0, 1100) -- Uzunluk garantisi
-scroll.ScrollBarThickness = 3
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 10)
+scroll.ScrollBarThickness = 2
+scroll.CanvasSize = UDim2.new(0, 0, 0, 850)
+scroll.ZIndex = 2
 
--- YARDIMCI FONKSİYONLAR (Fotoğraftaki Stil)
-local function AddToggle(text, letter, key)
-    local f = Instance.new("Frame", scroll)
-    f.Size = UDim2.new(1, -10, 0, 40)
-    f.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    Instance.new("UICorner", f)
+local leftCol = Instance.new("Frame", scroll)
+leftCol.Size = UDim2.new(0.48, 0, 1, 0)
+leftCol.BackgroundTransparency = 1
+local lList = Instance.new("UIListLayout", leftCol); lList.Padding = UDim.new(0, 10)
+
+local rightCol = Instance.new("Frame", scroll)
+rightCol.Size = UDim2.new(0.48, 0, 1, 0)
+rightCol.Position = UDim2.new(0.52, 0, 0, 0)
+rightCol.BackgroundTransparency = 1
+local rList = Instance.new("UIListLayout", rightCol); rList.Padding = UDim.new(0, 10)
+
+-- MODERNIZE TOGGLE & SLIDER FONKSIYONLARI
+local function AddToggle(parent, letter, text, key)
+    local f = Instance.new("Frame", parent)
+    f.Size = UDim2.new(1, 0, 0, 35)
+    f.BackgroundTransparency = 1
     
-    if letter ~= "" then
-        local lBox = Instance.new("TextLabel", f)
-        lBox.Size = UDim2.new(0, 20, 0, 20)
-        lBox.Position = UDim2.new(0, 10, 0.5, -10)
-        lBox.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
-        lBox.Text = letter; lBox.TextColor3 = Color3.new(0,0,0)
-        lBox.Font = "GothamBold"; lBox.TextSize = 12
-        Instance.new("UICorner", lBox)
-    end
+    local lBox = Instance.new("TextLabel", f)
+    lBox.Size = UDim2.new(0, 18, 0, 18)
+    lBox.Position = UDim2.new(0, 5, 0.5, -9)
+    lBox.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
+    lBox.Text = letter; lBox.TextColor3 = Color3.new(0,0,0)
+    lBox.Font = "GothamBold"; lBox.TextSize = 11; Instance.new("UICorner", lBox)
     
     local txt = Instance.new("TextLabel", f)
-    txt.Size = UDim2.new(1, -100, 1, 0)
-    txt.Position = UDim2.new(0, 40, 0, 0)
+    txt.Size = UDim2.new(1, -70, 1, 0)
+    txt.Position = UDim2.new(0, 30, 0, 0)
     txt.Text = text; txt.TextColor3 = Color3.new(1,1,1)
-    txt.Font = "GothamBold"; txt.TextSize = 13; txt.TextXAlignment = "Left"; txt.BackgroundTransparency = 1
+    txt.Font = "GothamBold"; txt.TextSize = 11; txt.TextXAlignment = "Left"; txt.BackgroundTransparency = 1
     
     local btn = Instance.new("TextButton", f)
-    btn.Size = UDim2.new(0, 45, 0, 22)
-    btn.Position = UDim2.new(1, -55, 0.5, -11)
-    btn.BackgroundColor3 = _G.Settings[key] and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+    btn.Size = UDim2.new(0, 38, 0, 20)
+    btn.Position = UDim2.new(1, -40, 0.5, -10)
     btn.Text = ""
+    btn.BackgroundColor3 = _G.Settings[key] and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(40,40,40)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+    
+    local circle = Instance.new("Frame", btn)
+    circle.Size = UDim2.new(0, 14, 0, 14)
+    circle.Position = _G.Settings[key] and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)
+    circle.BackgroundColor3 = Color3.new(1,1,1); Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
     
     btn.MouseButton1Click:Connect(function()
         _G.Settings[key] = not _G.Settings[key]
-        btn.BackgroundColor3 = _G.Settings[key] and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = _G.Settings[key] and Color3.fromRGB(255, 100, 0) or Color3.fromRGB(40,40,40)}):Play()
+        TweenService:Create(circle, TweenInfo.new(0.2), {Position = _G.Settings[key] and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)}):Play()
     end)
 end
 
-local function AddSlider(text, min, max, key)
-    local f = Instance.new("Frame", scroll)
-    f.Size = UDim2.new(1, -10, 0, 50)
+local function AddSlider(parent, text, min, max, key)
+    local f = Instance.new("Frame", parent)
+    f.Size = UDim2.new(1, 0, 0, 45)
     f.BackgroundTransparency = 1
     
     local l = Instance.new("TextLabel", f)
-    l.Size = UDim2.new(1, 0, 0, 20); l.Text = text .. ": " .. _G.Settings[key]
-    l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Font = "GothamBold"; l.TextSize = 11; l.TextXAlignment = "Left"
+    l.Size = UDim2.new(1, 0, 0, 15); l.Text = text .. ": " .. _G.Settings[key]
+    l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.Font = "Gotham"; l.TextSize = 10; l.TextXAlignment = "Left"
     
     local bar = Instance.new("TextButton", f)
-    bar.Size = UDim2.new(1, 0, 0, 15); bar.Position = UDim2.new(0, 0, 1, -20)
-    bar.BackgroundColor3 = Color3.fromRGB(40,40,40); bar.Text = ""; Instance.new("UICorner", bar)
+    bar.Size = UDim2.new(1, -10, 0, 14); bar.Position = UDim2.new(0, 5, 1, -20)
+    bar.BackgroundColor3 = Color3.fromRGB(30, 30, 30); bar.Text = ""; Instance.new("UICorner", bar)
     
     local fill = Instance.new("Frame", bar)
     fill.Size = UDim2.new((_G.Settings[key]-min)/(max-min), 0, 1, 0)
@@ -125,34 +148,37 @@ local function AddSlider(text, min, max, key)
     end)
 end
 
--- ÖZELLİKLERİ SIRAYLA EKLE (Artık kaybolmazlar)
-AddToggle("Player ESP", "G", "ESP")
-AddSlider("ESP Mesafesi", 0, 3000, "ESPDist")
-AddToggle("Bat Hitbox (God)", "C", "BatHitbox")
-AddSlider("Hitbox Menzili", 5, 200, "BatSize")
-AddToggle("Auto Clicker", "", "SpamBat")
-AddToggle("Hız Hilesi", "N", "SpeedBoost")
-AddSlider("Hız Değeri", 16, 500, "SpeedVal")
-AddToggle("Zıplama Hilesi", "L", "JumpMod")
-AddSlider("Zıplama Gücü", 50, 400, "JumpPower")
-AddToggle("Spin Bot (Mevlana)", "P", "SpinBot")
-AddSlider("Dönme Hızı", 50, 1000, "SpinSpeed")
-AddToggle("Anti Ragdoll", "R", "AntiRagdoll")
-AddToggle("Sınırsız Zıplama", "J", "InfJump")
-AddToggle("Galaxy Mode (Yer Çekimi)", "A", "GalaxyMode")
-AddSlider("Yer Çekimi %", 0, 100, "GravityVal")
-AddToggle("Server Lag Spammer", "S", "ServerLag")
-AddToggle("Kolları Gizle", "H", "UnderArms")
-AddToggle("Kafayı Gizle", "K", "HiddenHead")
-AddToggle("Auto Walk", "U", "AutoWalk")
+-- SOL SÜTUN İÇERİĞİ
+AddToggle(leftCol, "G", "Player ESP", "ESP")
+AddSlider(leftCol, "ESP Distance", 0, 2500, "ESPDist")
+AddToggle(leftCol, "A", "Galaxy Mode", "GalaxyMode")
+AddSlider(leftCol, "Gravity %", 0, 100, "GravityVal")
+AddToggle(leftCol, "H", "Underground Arms", "UnderArms")
+AddToggle(leftCol, "K", "Hidden Head", "HiddenHead")
+AddToggle(leftCol, "N", "Hız Hilesi", "SpeedBoost")
+AddSlider(leftCol, "Speed Value", 16, 500, "SpeedVal")
+AddToggle(leftCol, "L", "Zıplama Gücü", "JumpMod")
+AddSlider(leftCol, "Jump Value", 50, 300, "JumpPower")
 
--- [[ LOGIC MOTORLARI ]] --
+-- SAĞ SÜTUN İÇERİĞİ
+AddToggle(rightCol, "C", "God Bat Hitbox", "BatHitbox")
+AddSlider(rightCol, "Reach Range", 5, 200, "BatSize")
+AddToggle(rightCol, "", "Spam Bat (Auto Atk)", "SpamBat")
+AddToggle(rightCol, "S", "SERVER LAG SPAM", "ServerLag")
+AddToggle(rightCol, "R", "Anti-Ragdoll", "AntiRagdoll")
+AddToggle(rightCol, "P", "Spin Bot (Mevlana)", "SpinBot")
+AddSlider(rightCol, "Spin Speed", 50, 800, "SpinSpeed")
+AddToggle(rightCol, "J", "Inf Jump", "InfJump")
+AddToggle(rightCol, "U", "Auto Walk", "AutoWalk")
+
+-- [[ GALAXY OMEGA ENGINE ]] --
+
+-- Hız & Zıplama & Anti-Ragdoll (Heartbeat: Gecikmesiz)
 RunService.Heartbeat:Connect(function()
-    local char = Player.Character; if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hum = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
     if hum then
-        if _G.Settings.SpeedBoost then hum.WalkSpeed = _G.Settings.SpeedVal end
-        if _G.Settings.JumpMod then hum.JumpPower = _G.Settings.JumpPower end
+        hum.WalkSpeed = _G.Settings.SpeedBoost and _G.Settings.SpeedVal or 16
+        hum.JumpPower = _G.Settings.JumpMod and _G.Settings.JumpPower or 50
         if _G.Settings.AntiRagdoll then
             hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
             hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
@@ -160,27 +186,32 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Mevlana (Physical Body Velocity)
 RunService.RenderStepped:Connect(function()
-    local char = Player.Character; if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    
-    -- SPIN
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
     if root then
-        local s = root:FindFirstChild("OmegaSpin") or Instance.new("BodyAngularVelocity", root)
-        s.Name = "OmegaSpin"; s.MaxTorque = Vector3.new(0, math.huge, 0)
-        s.AngularVelocity = _G.Settings.SpinBot and Vector3.new(0, _G.Settings.SpinSpeed, 0) or Vector3.new(0, 0, 0)
+        local vel = root:FindFirstChild("LemonSpin") or Instance.new("BodyAngularVelocity", root)
+        vel.Name = "LemonSpin"; vel.MaxTorque = Vector3.new(0, math.huge, 0)
+        vel.AngularVelocity = _G.Settings.SpinBot and Vector3.new(0, _G.Settings.SpinSpeed, 0) or Vector3.new(0, 0, 0)
     end
-    
-    -- GALAXY (GRAVITY)
-    workspace.Gravity = _G.Settings.GalaxyMode and (196.2 * (_G.Settings.GravityVal / 100)) or 196.2
+end)
 
-    -- BAT HITBOX
-    if _G.Settings.BatHitbox and char:FindFirstChildOfClass("Tool") then
-        local r = char:FindFirstChild("ReachPart") or Instance.new("Part", char)
-        r.Name = "ReachPart"; r.Transparency = 1; r.CanCollide = false; r.Size = Vector3.new(_G.Settings.BatSize, _G.Settings.BatSize, _G.Settings.BatSize)
-        if not r:FindFirstChild("Weld") then
-            local w = Instance.new("Weld", r); w.Part0 = root; w.Part1 = r
-        end
+-- Inf Jump
+UIS.JumpRequest:Connect(function()
+    if _G.Settings.InfJump and Player.Character and Player.Character:FindFirstChildOfClass("Humanoid") then
+        Player.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- God Hitbox & Galaxy Gravity
+RunService.RenderStepped:Connect(function()
+    workspace.Gravity = _G.Settings.GalaxyMode and (196.2 * (_G.Settings.GravityVal / 100)) or 196.2
+    
+    if _G.Settings.BatHitbox and Player.Character and Player.Character:FindFirstChildOfClass("Tool") then
+        local r = Player.Character:FindFirstChild("GodReach") or Instance.new("Part", Player.Character)
+        r.Name = "GodReach"; r.Transparency = 1; r.CanCollide = false
+        r.Size = Vector3.new(_G.Settings.BatSize, _G.Settings.BatSize, _G.Settings.BatSize)
+        r.CFrame = Player.Character.HumanoidRootPart.CFrame
         for _, v in pairs(Players:GetPlayers()) do
             if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
                 firetouchinterest(r, v.Character.HumanoidRootPart, 0)
@@ -190,7 +221,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- LAG SPAMMER
+-- Lag Spammer
 task.spawn(function()
     while task.wait(0.1) do
         if _G.Settings.ServerLag then
@@ -201,4 +232,8 @@ task.spawn(function()
     end
 end)
 
-print("LEMON HUB V43 REBORN LOADED! Butonlar artık sabit ve görünür.")
+-- Animasyonlu Açılış
+main.Size = UDim2.new(0,0,0,0)
+TweenService:Create(main, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Size = UDim2.new(0, 540, 0, 420)}):Play()
+
+print("LEMON HUB V44 SUPREME - GÖRÜNÜR VE AKTİF!")
