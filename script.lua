@@ -11,8 +11,9 @@ local Vars = {SpeedVal = 40, HBSize = 15}
 RS.RenderStepped:Connect(function()
     if Toggles.Speed and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
         local hum = LP.Character:FindFirstChild("Humanoid")
-        if hum.MoveDirection.Magnitude > 0 then
-            LP.Character.HumanoidRootPart.CFrame = LP.Character.HumanoidRootPart.CFrame + (hum.MoveDirection * (Vars.SpeedVal/45))
+        if hum and hum.MoveDirection.Magnitude > 0 then
+            LP.Character.HumanoidRootPart.CFrame =
+                LP.Character.HumanoidRootPart.CFrame + (hum.MoveDirection * (Vars.SpeedVal/45))
         end
     end
     
@@ -34,38 +35,85 @@ RS.RenderStepped:Connect(function()
     end
 end)
 
--- [[ 2. UI TASARIMI (22S BLUE STYLE) ]] --
-local sg = Instance.new("ScreenGui", LP.PlayerGui)
-local main = Instance.new("Frame", sg)
+-- [[ 2. UI TASARIMI (FIXED GUI) ]] --
+local sg = Instance.new("ScreenGui")
+sg.Parent = LP:WaitForChild("PlayerGui")
+sg.ResetOnSpawn = false
+
+local main = Instance.new("Frame")
+main.Parent = sg
 main.Size = UDim2.new(0, 200, 0, 280)
 main.Position = UDim2.new(0.85, -100, 0.4, 0)
 main.BackgroundColor3 = Color3.fromRGB(2, 2, 8)
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
-local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(0, 100, 255); stroke.Thickness = 2
 
--- Başlık ve Küçültme Tuşu
-local header = Instance.new("TextLabel", main)
-header.Size = UDim2.new(1, 0, 0, 30); header.Text = "  22S x LEMON"; header.TextColor3 = Color3.new(1,1,1); header.BackgroundColor3 = Color3.fromRGB(5, 5, 20); header.TextXAlignment = "Left"; header.Font = "SourceSansBold"
+local corner = Instance.new("UICorner")
+corner.Parent = main
+corner.CornerRadius = UDim.new(0, 10)
 
-local minBtn = Instance.new("TextButton", main)
-minBtn.Size = UDim2.new(0, 25, 0, 25); minBtn.Position = UDim2.new(1, -28, 0, 2.5); minBtn.Text = "-"; minBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 200); minBtn.TextColor3 = Color3.white
-Instance.new("UICorner", minBtn)
+local stroke = Instance.new("UIStroke")
+stroke.Parent = main
+stroke.Color = Color3.fromRGB(0, 100, 255)
+stroke.Thickness = 2
 
-local content = Instance.new("ScrollingFrame", main)
-content.Size = UDim2.new(1, 0, 1, -35); content.Position = UDim2.new(0, 0, 0, 35); content.BackgroundTransparency = 1; content.ScrollBarThickness = 2
-local layout = Instance.new("UIListLayout", content); layout.Padding = UDim.new(0, 5); layout.HorizontalAlignment = "Center"
+-- Başlık
+local header = Instance.new("TextLabel")
+header.Parent = main
+header.Size = UDim2.new(1, 0, 0, 30)
+header.Text = "  22S x LEMON"
+header.TextColor3 = Color3.new(1,1,1)
+header.BackgroundColor3 = Color3.fromRGB(5, 5, 20)
+header.TextXAlignment = Enum.TextXAlignment.Left
+header.Font = Enum.Font.SourceSansBold
+header.TextSize = 18
+
+-- Küçültme tuşu
+local minBtn = Instance.new("TextButton")
+minBtn.Parent = main
+minBtn.Size = UDim2.new(0, 25, 0, 25)
+minBtn.Position = UDim2.new(1, -28, 0, 2.5)
+minBtn.Text = "-"
+minBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 200)
+minBtn.TextColor3 = Color3.new(1,1,1)
+minBtn.Font = Enum.Font.SourceSansBold
+minBtn.TextSize = 18
+
+local minCorner = Instance.new("UICorner")
+minCorner.Parent = minBtn
+
+-- İçerik
+local content = Instance.new("ScrollingFrame")
+content.Parent = main
+content.Size = UDim2.new(1, 0, 1, -35)
+content.Position = UDim2.new(0, 0, 0, 35)
+content.BackgroundTransparency = 1
+content.ScrollBarThickness = 4
+content.CanvasSize = UDim2.new(0,0,0,350)
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = content
+layout.Padding = UDim.new(0, 5)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 -- [[ 3. ÖZELLİK EKLEME ]] --
 local function CreateToggle(name, var)
-    local btn = Instance.new("TextButton", content)
-    btn.Size = UDim2.new(0.9, 0, 0, 30); btn.BackgroundColor3 = Color3.fromRGB(20, 20, 40); btn.TextColor3 = Color3.fromRGB(180, 180, 180); btn.Text = name; btn.Font = "SourceSans"
-    Instance.new("UICorner", btn)
+    local btn = Instance.new("TextButton")
+    btn.Parent = content
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    btn.Text = name
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 16
+    
+    local c = Instance.new("UICorner")
+    c.Parent = btn
+    
     btn.MouseButton1Click:Connect(function()
         Toggles[var] = not Toggles[var]
         btn.BackgroundColor3 = Toggles[var] and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(20, 20, 40)
-        btn.TextColor3 = Toggles[var] and Color3.new(1, 1, 1) or Color3.fromRGB(180, 180, 180)
+        btn.TextColor3 = Toggles[var] and Color3.new(1,1,1) or Color3.fromRGB(180, 180, 180)
     end)
 end
 
@@ -75,21 +123,33 @@ CreateToggle("Auto Click E", "AutoE")
 CreateToggle("Auto Left (Z)", "AutoZ")
 CreateToggle("Auto Right (C)", "AutoC")
 
--- Hız Ayarı Input
-local speedInp = Instance.new("TextBox", content)
-speedInp.Size = UDim2.new(0.9, 0, 0, 25); speedInp.PlaceholderText = "Speed (40)"; speedInp.BackgroundColor3 = Color3.fromRGB(10, 10, 20); speedInp.TextColor3 = Color3.white
-speedInp.FocusLost:Connect(function() Vars.SpeedVal = tonumber(speedInp.Text) or 40 end)
+-- Hız Ayarı
+local speedInp = Instance.new("TextBox")
+speedInp.Parent = content
+speedInp.Size = UDim2.new(0.9, 0, 0, 25)
+speedInp.PlaceholderText = "Speed (40)"
+speedInp.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+speedInp.TextColor3 = Color3.new(1,1,1)
+speedInp.Font = Enum.Font.SourceSans
+speedInp.TextSize = 16
+
+local corner2 = Instance.new("UICorner")
+corner2.Parent = speedInp
+
+speedInp.FocusLost:Connect(function()
+    Vars.SpeedVal = tonumber(speedInp.Text) or 40
+end)
 
 -- [[ 4. KÜÇÜLTME FONKSİYONU ]] --
 local open = true
 minBtn.MouseButton1Click:Connect(function()
     open = not open
     if not open then
-        main:TweenSize(UDim2.new(0, 200, 0, 30), "Out", "Quart", 0.3, true)
+        main:TweenSize(UDim2.new(0, 200, 0, 30), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
         minBtn.Text = "+"
         content.Visible = false
     else
-        main:TweenSize(UDim2.new(0, 200, 0, 280), "Out", "Quart", 0.3, true)
+        main:TweenSize(UDim2.new(0, 200, 0, 280), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
         minBtn.Text = "-"
         task.wait(0.25)
         content.Visible = true
@@ -99,9 +159,15 @@ end)
 -- [[ 5. KLAVYE KISAYOLLARI ]] --
 UIS.InputBegan:Connect(function(i, g)
     if g then return end
-    if i.KeyCode == Enum.KeyCode.RightShift then main.Visible = not main.Visible end
-    if i.KeyCode == Enum.KeyCode.Z then Toggles.AutoZ = not Toggles.AutoZ end -- Koordinat Z
-    if i.KeyCode == Enum.KeyCode.C then Toggles.AutoC = not Toggles.AutoC end -- Koordinat C
+    if i.KeyCode == Enum.KeyCode.RightShift then
+        main.Visible = not main.Visible
+    end
+    if i.KeyCode == Enum.KeyCode.Z then
+        Toggles.AutoZ = not Toggles.AutoZ
+    end
+    if i.KeyCode == Enum.KeyCode.C then
+        Toggles.AutoC = not Toggles.AutoC
+    end
 end)
 
 print("🚀 22S x LEMON V3 LOADED - Sağ Shift Menüyü Kapatır")
