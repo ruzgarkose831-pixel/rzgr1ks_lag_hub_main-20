@@ -7,7 +7,7 @@ _G.Settings = {
     AutoFarm = false,        -- Tam otomatiği açar/kapatır
     DeliveryPos = Vector3.new(-164, 45, 120), -- Videodaki teslimat noktası
     TPSpeed = 12,            -- Akış hızı (Halı varken artırıldı)
-    CarpetName = "Carpet",   -- Halının tam adı
+    CarpetName = "Flying Carpet",   -- Halının tam adı
     ItemPath = workspace:FindFirstChild("Items") -- Eşyaların olduğu klasör (Oyuna göre değişebilir)
 }
 
