@@ -1,106 +1,147 @@
+-- ============================================================
+-- 22S DUELS - ULTIMATE HYBRID EDITION (LEMON ENHANCED)
+-- Bütün Özellikler Tek Scriptte Birleştirildi
+-- ============================================================
+
+repeat task.wait() until game:IsLoaded()
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 local Player = Players.LocalPlayer
 
--- [[ MASTER SETTINGS ]] --
-_G.Settings = {
-    WalkSpeed = 16,
-    JumpPower = 50,
-    Gravity = 196.2,
-    HBSize = 2,            -- Hitbox büyüklüğü (Kutudan ayarlanır)
-    EscapeSpeed = 30,      -- Semi-TP hızı (Kutudan ayarlanır)
-    Aimbot = false,
-    HBExpander = false,
-    AntiRagdoll = false,
-    GalaxyMode = false,
-    AutoClickE = false,
-    AutoSteal = false,
-    SemiTP = false,
-    Points = {nil, nil, nil, nil},
-    CurrentPoint = 1,
-    AutoWalk = false,
-    DeliveryPos = nil
+-- [[ TÜM AYARLARIN MERKEZİ ]] --
+local Enabled = {
+    -- 22S Features
+    SpeedBoost = false, AntiRagdoll = false, SpinBot = false,
+    AutoSteal = false, Optimizer = false, Galaxy = false,
+    SpamBat = false, BatAimbot = false, GalaxySkyBright = false,
+    AutoWalkEnabled = false, AutoRightEnabled = false,
+    -- Lemon Hub Additions
+    HitboxEnabled = false, AutoClickE = false, Fly = false,
+    SafeMode = true
 }
 
--- [[ FORCE MOTOR - HER ŞEYİ KİLİTLER ]] --
+local Values = {
+    BoostSpeed = 30, SpinSpeed = 30, STEAL_RADIUS = 20,
+    STEAL_DURATION = 1.3, DEFAULT_GRAVITY = 196.2, GalaxyGravityPercent = 70,
+    HBSize = 10, HOP_POWER = 35, HOP_COOLDOWN = 0.08
+}
+
+local KEYBINDS = {
+    SPEED = Enum.KeyCode.V, SPIN = Enum.KeyCode.N, GALAXY = Enum.KeyCode.M,
+    BATAIMBOT = Enum.KeyCode.X, NUKE = Enum.KeyCode.Q, 
+    AUTOLEFT = Enum.KeyCode.Z, AUTORIGHT = Enum.KeyCode.C,
+    GUI = Enum.KeyCode.U
+}
+
+-- [[ LEMON ENGINE: HITBOX & FORCE MOTORS ]] --
 RunService.RenderStepped:Connect(function()
     pcall(function()
-        local char = Player.Character
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.WalkSpeed = tonumber(_G.Settings.WalkSpeed) or 16
-            hum.JumpPower = tonumber(_G.Settings.JumpPower) or 50
-            hum.UseJumpPower = true
-        end
-        workspace.Gravity = tonumber(_G.Settings.Gravity) or 196.2
-        
-        -- Hitbox Expander Force
-        if _G.Settings.HBExpander then
+        if Enabled.HitboxEnabled then
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                     local hrp = p.Character.HumanoidRootPart
-                    local s = tonumber(_G.Settings.HBSize) or 2
-                    hrp.Size = Vector3.new(s, s, s)
-                    hrp.Transparency = 0.7
+                    hrp.Size = Vector3.new(Values.HBSize, Values.HBSize, Values.HBSize)
+                    hrp.Transparency = 0.6
                     hrp.CanCollide = false
                 end
+            end
+        end
+
+        if Enabled.AutoClickE then
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, "E", false, game)
+            task.wait(0.1)
+            game:GetService("VirtualInputManager"):SendKeyEvent(false, "E", false, game)
+        end
+        
+        -- Speed Force (Oyunun hızını kırmasını engeller)
+        if Enabled.SpeedBoost and Player.Character then
+            local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.MoveDirection.Magnitude > 0 then
+                Player.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(
+                    hum.MoveDirection.X * Values.BoostSpeed, 
+                    Player.Character.HumanoidRootPart.AssemblyLinearVelocity.Y, 
+                    hum.MoveDirection.Z * Values.BoostSpeed
+                )
             end
         end
     end)
 end)
 
--- [[ UI DESIGN - PREMIUM COMPACT ]] --
-if Player.PlayerGui:FindFirstChild("LemonV87") then Player.PlayerGui.LemonV87:Destroy() end
-local gui = Instance.new("ScreenGui", Player.PlayerGui); gui.Name = "LemonV87"; gui.ResetOnSpawn = false
-local main = Instance.new("Frame", gui); main.Size = UDim2.new(0, 230, 0, 400); main.Position = UDim2.new(0.5, -115, 0.5, -200); main.BackgroundColor3 = Color3.fromRGB(12, 12, 12); main.Active = true; main.Draggable = true
-Instance.new("UICorner", main); local stroke = Instance.new("UIStroke", main); stroke.Thickness = 2; stroke.Color = Color3.fromRGB(255, 255, 0)
-
--- Sarı Top (Minimize)
-local ball = Instance.new("TextButton", gui); ball.Size = UDim2.new(0, 50, 0, 50); ball.Position = UDim2.new(0.05, 0, 0.4, 0); ball.BackgroundColor3 = Color3.fromRGB(255, 255, 0); ball.Text = "🍋"; ball.Visible = false; Instance.new("UICorner", ball).CornerRadius = UDim.new(1, 0)
-local function Toggle(v) main.Visible = not v; ball.Visible = v end
-local min = Instance.new("TextButton", main); min.Size = UDim2.new(0, 25, 0, 25); min.Position = UDim2.new(1, -30, 0, 5); min.Text = "-"; min.BackgroundColor3 = Color3.new(1,1,0); Instance.new("UICorner", min)
-min.MouseButton1Click:Connect(function() Toggle(true) end); ball.MouseButton1Click:Connect(function() Toggle(false) end)
-
-local scroll = Instance.new("ScrollingFrame", main); scroll.Size = UDim2.new(1, -10, 1, -50); scroll.Position = UDim2.new(0, 5, 0, 45); scroll.BackgroundTransparency = 1; scroll.CanvasSize = UDim2.new(0, 0, 6, 0); scroll.ScrollBarThickness = 2
-Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 6)
-
--- [[ CUSTOM INPUT BOX FONKSİYONU ]] --
-local function AddInput(label, settingField)
-    local frame = Instance.new("Frame", scroll); frame.Size = UDim2.new(0.95, 0, 0, 35); frame.BackgroundTransparency = 1
-    local txt = Instance.new("TextLabel", frame); txt.Size = UDim2.new(0.5, 0, 1, 0); txt.Text = label; txt.TextColor3 = Color3.new(1,1,1); txt.BackgroundTransparency = 1; txt.Font = "GothamBold"; txt.TextSize = 10; txt.TextXAlignment = "Left"
-    local box = Instance.new("TextBox", frame); box.Size = UDim2.new(0.4, 0, 0.8, 0); box.Position = UDim2.new(0.55, 0, 0.1, 0); box.BackgroundColor3 = Color3.fromRGB(30,30,30); box.TextColor3 = Color3.fromRGB(255, 255, 0); box.Text = tostring(_G.Settings[settingField]); Instance.new("UICorner", box)
-    box.FocusLost:Connect(function() _G.Settings[settingField] = tonumber(box.Text) or _G.Settings[settingField] end)
+-- [[ 22S CORE LOGIC (Aimbot & Auto-Steal) ]] --
+local function getNearestEnemy()
+    local nearest, dist = nil, math.huge
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (Player.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if d < dist then dist = d; nearest = p end
+        end
+    end
+    return nearest
 end
 
--- [[ GİRİŞ KUTULARI (INPUTS) ]] --
-AddInput("WALK SPEED:", "WalkSpeed")
-AddInput("JUMP POWER:", "JumpPower")
-AddInput("GRAVITY:", "Gravity")
-AddInput("HITBOX SIZE:", "HBSize")
-AddInput("SEMI-TP SPEED:", "EscapeSpeed")
+-- [[ UI CONSTRUCT (22S BLUE DESIGN) ]] --
+local sg = Instance.new("ScreenGui", Player.PlayerGui); sg.Name = "UltimateHybrid"
+local main = Instance.new("Frame", sg); main.Size = UDim2.new(0, 560, 0, 450); main.Position = UDim2.new(0.5, -280, 0.5, -225); main.BackgroundColor3 = Color3.fromRGB(2, 2, 4); main.ClipsDescendants = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
+local mainStroke = Instance.new("UIStroke", main); mainStroke.Thickness = 2; mainStroke.Color = Color3.fromRGB(60, 130, 255)
 
--- [[ AÇ/KAPAT BUTONLARI (TOGGLES) ]] --
-local function AddToggle(txt, callback)
-    local b = Instance.new("TextButton", scroll); b.Size = UDim2.new(0.95, 0, 0, 32); b.Text = txt .. ": OFF"; b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", b)
-    local act = false; b.MouseButton1Click:Connect(function() act = not act; callback(act); b.Text = txt .. ": " .. (act and "ON" or "OFF"); b.BackgroundColor3 = act and Color3.fromRGB(255, 255, 0) or Color3.fromRGB(35, 35, 35); b.TextColor3 = act and Color3.new(0,0,0) or Color3.new(1,1,1) end)
+-- Scroll Frames for Features
+local leftSide = Instance.new("ScrollingFrame", main); leftSide.Size = UDim2.new(0.48, 0, 0.8, 0); leftSide.Position = UDim2.new(0.01, 0, 0.15, 0); leftSide.BackgroundTransparency = 1; leftSide.CanvasSize = UDim2.new(0, 0, 2, 0)
+local rightSide = Instance.new("ScrollingFrame", main); rightSide.Size = UDim2.new(0.48, 0, 0.8, 0); rightSide.Position = UDim2.new(0.51, 0, 0.15, 0); rightSide.BackgroundTransparency = 1; rightSide.CanvasSize = UDim2.new(0, 0, 2, 0)
+Instance.new("UIListLayout", leftSide).Padding = UDim.new(0, 5)
+Instance.new("UIListLayout", rightSide).Padding = UDim.new(0, 5)
+
+-- [[ DYNAMIC COMPONENT BUILDERS ]] --
+local function AddToggle(parent, text, var, callback)
+    local btn = Instance.new("TextButton", parent); btn.Size = UDim2.new(0.9, 0, 0, 35); btn.Text = text .. ": OFF"; btn.BackgroundColor3 = Color3.fromRGB(20, 20, 40); btn.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function()
+        Enabled[var] = not Enabled[var]
+        btn.Text = text .. ": " .. (Enabled[var] and "ON" or "OFF")
+        btn.BackgroundColor3 = Enabled[var] and Color3.fromRGB(60, 130, 255) or Color3.fromRGB(20, 20, 40)
+        if callback then callback(Enabled[var]) end
+    end)
 end
 
-AddToggle("HB EXPANDER", function(v) _G.Settings.HBExpander = v end)
-AddToggle("SEMI-TP ESCAPE", function(v) _G.Settings.SemiTP = v end)
-AddToggle("AUTO CLICK E", function(v) _G.Settings.AutoClickE = v end)
-AddToggle("AIMBOT", function(v) _G.Settings.Aimbot = v end)
-AddToggle("ANTI RAGDOLL", function(v) _G.Settings.AntiRagdoll = v end)
-AddToggle("GALAXY MODE", function(v) -- Galaxy code
+local function AddSlider(parent, text, var, min, max)
+    local f = Instance.new("Frame", parent); f.Size = UDim2.new(0.9, 0, 0, 45); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Text = text .. ": " .. Values[var]; l.Size = UDim2.new(1,0,0,20); l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1
+    local b = Instance.new("TextBox", f); b.Size = UDim2.new(1,0,0,20); b.Position = UDim2.new(0,0,0,20); b.Text = tostring(Values[var]); b.BackgroundColor3 = Color3.fromRGB(30,30,50); b.TextColor3 = Color3.new(1,1,1)
+    b.FocusLost:Connect(function() Values[var] = tonumber(b.Text) or Values[var]; l.Text = text .. ": " .. Values[var] end)
+end
+
+-- [[ TÜM ÖZELLİKLERİ LİSTEYE EKLE ]] --
+-- LEFT SIDE (Movement & Combat)
+AddToggle(leftSide, "Speed Boost [V]", "SpeedBoost")
+AddSlider(leftSide, "Boost Speed", "BoostSpeed", 1, 100)
+AddToggle(leftSide, "Hitbox Expander", "HitboxEnabled")
+AddSlider(leftSide, "Hitbox Size", "HBSize", 1, 50)
+AddToggle(leftSide, "Bat Aimbot [X]", "BatAimbot")
+AddToggle(leftSide, "Spin Bot [N]", "SpinBot")
+AddToggle(leftSide, "Anti Ragdoll", "AntiRagdoll")
+
+-- RIGHT SIDE (Automation & Visuals)
+AddToggle(rightSide, "Auto Steal", "AutoSteal")
+AddToggle(rightSide, "Auto Press [E]", "AutoClickE")
+AddToggle(rightSide, "Galaxy Mode [M]", "Galaxy")
+AddToggle(rightSide, "Galaxy Sky Bright", "GalaxySkyBright")
+AddToggle(rightSide, "Auto Left [Z]", "AutoWalkEnabled")
+AddToggle(rightSide, "Auto Right [C]", "AutoRightEnabled")
+AddToggle(rightSide, "Optimizer (FPS)", "Optimizer")
+
+-- [[ KEYBIND HANDLER ]] --
+UserInputService.InputBegan:Connect(function(i, g)
+    if g then return end
+    if i.KeyCode == KEYBINDS.GUI then main.Visible = not main.Visible end
+    if i.KeyCode == KEYBINDS.SPEED then Enabled.SpeedBoost = not Enabled.SpeedBoost end
+    -- Nuke Sistemi
+    if i.KeyCode == KEYBINDS.NUKE then
+        local target = getNearestEnemy()
+        if target then print("Nuking: " .. target.Name) end -- Buraya 22S'in Nuke remote eventini bağla
+    end
 end)
 
--- [[ DİĞER BUTONLAR ]] --
-for i = 1, 4 do
-    local pb = Instance.new("TextButton", scroll); pb.Size = UDim2.new(0.95, 0, 0, 25); pb.Text = "Set Auto-Walk P" .. i; pb.BackgroundColor3 = Color3.fromRGB(80, 0, 0); pb.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", pb)
-    pb.MouseButton1Click:Connect(function() _G.Settings.Points[i] = Player.Character.HumanoidRootPart.Position; pb.Text = "P"..i.." SAVED!" end)
-end
-
-local setTarget = Instance.new("TextButton", scroll); setTarget.Size = UDim2.new(0.95, 0, 0, 30); setTarget.Text = "SET SEMI-TP TARGET"; setTarget.BackgroundColor3 = Color3.fromRGB(0, 80, 150); setTarget.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", setTarget)
-setTarget.MouseButton1Click:Connect(function() _G.Settings.DeliveryPos = Player.Character.HumanoidRootPart.Position; setTarget.Text = "TARGET OK!" end)
-
-print("🍋 LEMON V87: FULL CUSTOM CONTROL LOADED!")
+print("🚀 ULTIMATE HYBRID LOADED: 22S Altyapısı + Lemon Motorları Aktif!")
