@@ -2,13 +2,12 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Player = Players.LocalPlayer
 
--- [[ CONFIGURATION ]] --
+-- [[ SETTINGS ]] --
 _G.Settings = {
     AutoFarm = false,
-    DeliveryPos = Vector3.new(-164, 45, 120),
-    TPSpeed = 15,          
+    DeliveryPos = nil, -- Manual setup required now for 100% accuracy
+    TPSpeed = 16,          
     CarpetName = "Flying Carpet",
-    WaitTime = 0.01
 }
 
 -- [[ CORE GLIDE ENGINE ]] --
@@ -30,15 +29,16 @@ local function Glide(target)
     hrp.CFrame = CFrame.new(target)
 end
 
--- [[ CARPET ACTIVATOR ]] --
-local function UseCarpet()
+-- [[ FORCED EQUIP & ACTIVATE ]] --
+local function ForceEquipCarpet()
     local char = Player.Character
-    local carpet = char:FindFirstChild(_G.Settings.CarpetName) or Player.Backpack:FindFirstChild(_G.Settings.CarpetName)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local carpet = Player.Backpack:FindFirstChild(_G.Settings.CarpetName)
     
-    if carpet then
-        carpet.Parent = char
-        task.wait(0.1)
-        carpet:Activate() -- Simulates click to start flying
+    if carpet and hum then
+        hum:EquipTool(carpet) -- Direct Engine Call to hold the tool
+        task.wait(0.2)
+        carpet:Activate() -- Start flying
     end
 end
 
@@ -49,9 +49,9 @@ local function FindTargetItem()
     for _, v in pairs(workspace:GetDescendants()) do
         if v:IsA("ProximityPrompt") or v:IsA("TouchTransmitter") then
             local part = v.Parent
-            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and not part:IsDescendantOf(Player.Character) then
                 local d = (Player.Character.HumanoidRootPart.Position - part.Position).Magnitude
-                if d < dist and d > 5 then
+                if d < dist and d > 3 then
                     dist = d
                     target = part
                 end
@@ -61,107 +61,61 @@ local function FindTargetItem()
     return target
 end
 
--- [[ MAIN LOOP ]] --
+-- [[ MAIN AUTO LOOP ]] --
 task.spawn(function()
     while task.wait(0.5) do
-        if _G.Settings.AutoFarm then
+        if _G.Settings.AutoFarm and _G.Settings.DeliveryPos then
             local char = Player.Character
-            UseCarpet()
-            task.wait(0.2)
+            
+            -- Ensure carpet is equipped
+            if not char:FindFirstChild(_G.Settings.CarpetName) then
+                ForceEquipCarpet()
+            end
             
             local targetItem = FindTargetItem()
             if targetItem and char:FindFirstChild(_G.Settings.CarpetName) then
+                -- Step 1: Fly to Item
                 Glide(targetItem.Position)
-                task.wait(0.3)
+                task.wait(0.2)
                 
+                -- Step 2: Grab Item
                 local prompt = targetItem:FindFirstChildOfClass("ProximityPrompt")
                 if prompt then fireproximityprompt(prompt) end
                 
+                -- Step 3: Fly back to SAVED Position
                 Glide(_G.Settings.DeliveryPos)
-                task.wait(0.5)
+                task.wait(0.4)
             end
         end
     end
 end)
 
--- [[ NEON ENGLISH GUI ]] --
-if Player.PlayerGui:FindFirstChild("SigmaV63") then Player.PlayerGui.SigmaV63:Destroy() end
+-- [[ NEON UI V64 ]] --
+if Player.PlayerGui:FindFirstChild("SigmaV64") then Player.PlayerGui.SigmaV64:Destroy() end
+local gui = Instance.new("ScreenGui", Player.PlayerGui); gui.Name = "SigmaV64"; gui.ResetOnSpawn = false
+local main = Instance.new("Frame", gui); main.Size = UDim2.new(0, 240, 0, 180); main.Position = UDim2.new(0.02, 0, 0.4, 0); main.BackgroundColor3 = Color3.fromRGB(10, 10, 10); main.Active = true; main.Draggable = true
+Instance.new("UICorner", main)
+local stroke = Instance.new("UIStroke", main); stroke.Thickness = 2; stroke.Color = Color3.fromRGB(0, 255, 200)
 
-local gui = Instance.new("ScreenGui", Player.PlayerGui)
-gui.Name = "SigmaV63"
-gui.ResetOnSpawn = false
+local title = Instance.new("TextLabel", main); title.Size = UDim2.new(1, 0, 0, 40); title.Text = "CARPET STEALER V64"; title.TextColor3 = Color3.new(1, 1, 1); title.Font = "GothamBold"; title.BackgroundTransparency = 1
 
-local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0, 250, 0, 180)
-main.Position = UDim2.new(0.02, 0, 0.4, 0)
-main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-main.Active = true
-main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
-
--- Neon Border
-local stroke = Instance.new("UIStroke", main)
-stroke.Thickness = 2
-stroke.Color = Color3.fromRGB(255, 0, 100)
-task.spawn(function()
-    while task.wait() do
-        for i = 0, 1, 0.01 do
-            stroke.Color = Color3.fromHSV(i, 1, 1)
-            task.wait(0.05)
-        end
-    end
-end)
-
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 40)
-title.Text = "BRAINROT STEALER V63"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = "GothamBold"
-title.TextSize = 14
-title.BackgroundTransparency = 1
-
-local farmBtn = Instance.new("TextButton", main)
-farmBtn.Size = UDim2.new(0.9, 0, 0, 45)
-farmBtn.Position = UDim2.new(0.05, 0, 0.25, 0)
-farmBtn.Text = "AUTO STEAL: DISABLED"
-farmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-farmBtn.TextColor3 = Color3.new(1, 1, 1)
-farmBtn.Font = "Gotham"
-farmBtn.TextSize = 12
-Instance.new("UICorner", farmBtn)
+local farmBtn = Instance.new("TextButton", main); farmBtn.Size = UDim2.new(0.9, 0, 0, 45); farmBtn.Position = UDim2.new(0.05, 0, 0.25, 0); farmBtn.Text = "STATUS: WAITING FOR POS"; farmBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); farmBtn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", farmBtn)
 
 farmBtn.MouseButton1Click:Connect(function()
+    if not _G.Settings.DeliveryPos then farmBtn.Text = "SET POSITION FIRST!"; task.wait(1); farmBtn.Text = "STATUS: WAITING FOR POS"; return end
     _G.Settings.AutoFarm = not _G.Settings.AutoFarm
-    farmBtn.Text = "AUTO STEAL: " .. (_G.Settings.AutoFarm and "ENABLED" or "DISABLED")
-    farmBtn.BackgroundColor3 = _G.Settings.AutoFarm and Color3.fromRGB(0, 170, 100) or Color3.fromRGB(30, 30, 30)
+    farmBtn.Text = _G.Settings.AutoFarm and "FARMING: ON" or "FARMING: OFF"
+    farmBtn.BackgroundColor3 = _G.Settings.AutoFarm and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(30, 30, 30)
 end)
 
-local setPosBtn = Instance.new("TextButton", main)
-setPosBtn.Size = UDim2.new(0.9, 0, 0, 45)
-setPosBtn.Position = UDim2.new(0.05, 0, 0.55, 0)
-setPosBtn.Text = "SET DELIVERY POINT"
-setPosBtn.BackgroundColor3 = Color3.fromRGB(50, 0, 100)
-setPosBtn.TextColor3 = Color3.new(1, 1, 1)
-setPosBtn.Font = "Gotham"
-setPosBtn.TextSize = 12
-Instance.new("UICorner", setPosBtn)
+local setBtn = Instance.new("TextButton", main); setBtn.Size = UDim2.new(0.9, 0, 0, 45); setBtn.Position = UDim2.new(0.05, 0, 0.55, 0); setBtn.Text = "SET DELIVERY POINT"; setBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 255); setBtn.TextColor3 = Color3.new(1, 1, 1); Instance.new("UICorner", setBtn)
 
-setPosBtn.MouseButton1Click:Connect(function()
+setBtn.MouseButton1Click:Connect(function()
     if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
         _G.Settings.DeliveryPos = Player.Character.HumanoidRootPart.Position
-        setPosBtn.Text = "POINT SAVED!"
+        setBtn.Text = "POINT CAPTURED!"
+        farmBtn.Text = "FARMING: READY"
         task.wait(1)
-        setPosBtn.Text = "SET DELIVERY POINT"
+        setBtn.Text = "SET DELIVERY POINT"
     end
 end)
-
-local footer = Instance.new("TextLabel", main)
-footer.Size = UDim2.new(1, 0, 0, 20)
-footer.Position = UDim2.new(0, 0, 1, -20)
-footer.Text = "Status: Ready to mog the server"
-footer.TextColor3 = Color3.fromRGB(150, 150, 150)
-footer.Font = "Gotham"
-footer.TextSize = 10
-footer.BackgroundTransparency = 1
-
-print("V63 HYPER NEON LOADED. STATUS: SIGMA")
