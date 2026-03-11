@@ -4,49 +4,6 @@ local UIS = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local Player = Players.LocalPlayer
 
--- [[ BYPASS & ANTI-CHEAT SHIELD ]] --
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-local oldIndex = mt.__index
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    if method == "Kick" or method == "kick" then return nil end
-    if method == "FireServer" then
-        local n = tostring(self):lower()
-        if n:find("ban") or n:find("check") or n:find("log") or n:find("cheat") then return nil end
-    end
-    return oldNamecall(self, ...)
-end)
-
-mt.__index = newcclosure(function(t, k)
-    if t:IsA("Humanoid") and (k == "WalkSpeed" or k == "JumpPower") then
-        return k == "WalkSpeed" and 16 or 50
-    end
-    return oldIndex(t, k)
-end)
-setreadonly(mt, true)
-
--- [[ TÜM AYARLAR ]] --
-_G.Settings = {
-    -- Player
-    ESP = false, ESPDist = 1000,
-    SpeedBoost = false, SpeedVal = 70,
-    StealthSpeed = false, S_SpeedVal = 0.6,
-    JumpMod = false, JumpPower = 100,
-    InfJump = true, AntiRagdoll = true,
-    -- Combat
-    BatHitbox = false, BatSize = 40,
-    SpinBot = false, SpinSpeed = 150,
-    -- Server (Illegal)
-    ServerNuke = false, PartSpam = false,
-    LocalLag = false, LagAmount = 0.5,
-    -- World
-    GalaxyMode = false, GravityVal = 100
-}
-
 -- [[ GUI TASARIM (KOMPAKT MASTER) ]] --
 if Player.PlayerGui:FindFirstChild("rzgr1ks") then Player.PlayerGui.LemonV51:Destroy() end
 local gui = Instance.new("ScreenGui", Player.PlayerGui); gui.Name = "LemonV51"
