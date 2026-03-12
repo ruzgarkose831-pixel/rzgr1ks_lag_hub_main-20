@@ -10,154 +10,156 @@ local Vars = {
     SpeedVal = 40, JumpVal = 70, GravVal = 50, SpinSpeed = 15, HBSize = 12
 }
 
--- [[ 1. MOBİL EKRAN İÇİN ORTALANMIŞ GUI (DELTA UYUMLU) ]] --
+-- [[ 1. AGRESİF TEMİZLİK VE GUI OLUŞTURMA ]] --
+local guiName = "LemonV8_Fixed"
 local guiParent = nil
 pcall(function() guiParent = (gethui and gethui()) or game:GetService("CoreGui") end)
-if not guiParent then guiParent = LP:FindFirstChild("PlayerGui") or LP:WaitForChild("PlayerGui") end
+if not guiParent then guiParent = LP:FindFirstChild("PlayerGui") end
 
-if guiParent:FindFirstChild("Lemon22S_Delta_V7") then
-    guiParent.Lemon22S_Delta_V7:Destroy()
+if guiParent:FindFirstChild(guiName) then
+    guiParent[guiName]:Destroy()
 end
 
 local sg = Instance.new("ScreenGui")
-sg.Name = "Lemon22S_Delta_V7"
+sg.Name = guiName
 sg.ResetOnSpawn = false
+sg.IgnoreGuiInset = true -- Çentiği görmezden gel
 sg.Parent = guiParent
 
+-- Ana Panel (Ortada)
 local main = Instance.new("Frame")
+main.Name = "MainFrame"
 main.Size = UDim2.new(0, 220, 0, 320)
--- DİKKAT: MENÜYÜ EKRANIN TAM ORTASINA KOYDUM
 main.Position = UDim2.new(0.5, -110, 0.5, -160)
-main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 main.BorderSizePixel = 0
 main.Active = true
-main.Draggable = true 
+main.Draggable = true
 main.Parent = sg
 
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
-local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(0, 120, 255); stroke.Thickness = 2
+local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(0, 150, 255); stroke.Thickness = 2
+local corner = Instance.new("UICorner", main); corner.CornerRadius = UDim.new(0, 10)
 
--- Başlık & Küçültme Tuşu
-local header = Instance.new("TextLabel", main)
-header.Size = UDim2.new(1, 0, 0, 30); header.Text = "  22S x LEMON (V7)"; header.TextColor3 = Color3.new(1,1,1); header.BackgroundColor3 = Color3.fromRGB(10, 10, 15); header.TextXAlignment = "Left"; header.Font = "SourceSansBold"; header.TextSize = 16
+-- Başlık
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+title.Text = "22S x LEMON V8 FIXED"
+title.TextColor3 = Color3.white
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
+title.Parent = main
+Instance.new("UICorner", title)
 
-local minBtn = Instance.new("TextButton", main)
-minBtn.Size = UDim2.new(0, 26, 0, 26); minBtn.Position = UDim2.new(1, -28, 0, 2); minBtn.Text = "-"; minBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 220); minBtn.TextColor3 = Color3.white; minBtn.Font = "SourceSansBold"
-Instance.new("UICorner", minBtn)
+-- Kapatma/Küçültme Butonu
+local close = Instance.new("TextButton", main)
+close.Size = UDim2.new(0, 30, 0, 30)
+close.Position = UDim2.new(1, -35, 0, 2)
+close.Text = "X"
+close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+close.TextColor3 = Color3.white
+close.Parent = main
+Instance.new("UICorner", close)
+close.MouseButton1Click:Connect(function() sg:Destroy() end)
 
--- İçerik Alanı
-local content = Instance.new("ScrollingFrame", main)
-content.Size = UDim2.new(1, 0, 1, -30); content.Position = UDim2.new(0, 0, 0, 30); content.BackgroundTransparency = 1; content.ScrollBarThickness = 3; content.CanvasSize = UDim2.new(0, 0, 0, 450)
-local layout = Instance.new("UIListLayout", content); layout.Padding = UDim.new(0, 5); layout.HorizontalAlignment = "Center"
-Instance.new("UIPadding", content).PaddingTop = UDim.new(0, 5)
+-- Kaydırma Alanı (Zorunlu Boyutlandırma)
+local scroll = Instance.new("ScrollingFrame", main)
+scroll.Size = UDim2.new(1, -10, 1, -45)
+scroll.Position = UDim2.new(0, 5, 0, 40)
+scroll.BackgroundTransparency = 1
+scroll.CanvasSize = UDim2.new(0, 0, 0, 500) -- Elle büyük yaptık ki boş kalmasın
+scroll.ScrollBarThickness = 4
+scroll.Parent = main
 
--- [[ 2. UI ELEMANLARI OLUŞTURUCU ]] --
-local function CreateToggle(name, var)
-    local btn = Instance.new("TextButton", content)
-    btn.Size = UDim2.new(0.9, 0, 0, 32); btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35); btn.TextColor3 = Color3.fromRGB(200, 200, 200); btn.Text = name; btn.Font = "SourceSansBold"; btn.TextSize = 14
-    Instance.new("UICorner", btn)
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 8)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- [[ 2. ELEMENT OLUŞTURMA FONKSİYONLARI ]] --
+local function NewButton(txt, var)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.95, 0, 0, 35) -- Boyutu net veriyoruz
+    b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    b.Text = txt
+    b.TextColor3 = Color3.white
+    b.Font = Enum.Font.SourceSansBold
+    b.TextSize = 14
+    b.Parent = scroll
+    Instance.new("UICorner", b)
     
-    btn.MouseButton1Click:Connect(function()
+    b.MouseButton1Click:Connect(function()
         Toggles[var] = not Toggles[var]
-        btn.BackgroundColor3 = Toggles[var] and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(25, 25, 35)
-        btn.TextColor3 = Toggles[var] and Color3.new(1,1,1) or Color3.fromRGB(200, 200, 200)
+        b.BackgroundColor3 = Toggles[var] and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(40, 40, 50)
     end)
 end
 
-local function CreateInput(placeholder, var, default)
-    local inp = Instance.new("TextBox", content)
-    inp.Size = UDim2.new(0.9, 0, 0, 28); inp.PlaceholderText = placeholder; inp.Text = ""; inp.BackgroundColor3 = Color3.fromRGB(20, 20, 30); inp.TextColor3 = Color3.white; inp.Font = "SourceSans"
-    Instance.new("UICorner", inp)
-    inp.FocusLost:Connect(function() Vars[var] = tonumber(inp.Text) or default end)
+local function NewInput(hint, var, def)
+    local i = Instance.new("TextBox")
+    i.Size = UDim2.new(0.95, 0, 0, 30)
+    i.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    i.PlaceholderText = hint
+    i.Text = ""
+    i.TextColor3 = Color3.white
+    i.Font = Enum.Font.SourceSans
+    i.TextSize = 14
+    i.Parent = scroll
+    Instance.new("UICorner", i)
+    i.FocusLost:Connect(function() Vars[var] = tonumber(i.Text) or def end)
 end
 
--- Bütün Özellikleri Alt Alta Diziyoruz
-CreateToggle("⚡ Speed Hack (Eski)", "Speed")
-CreateToggle("⬆️ Jump Power", "Jump")
-CreateToggle("🌌 Gravity Mode", "Gravity")
-CreateToggle("🔄 Spinbot", "Spin")
-CreateToggle("👁️ Player ESP", "ESP")
-CreateToggle("🎯 Player Hitbox", "Hitbox")
-CreateToggle("🏏 Bat Hitbox", "BatHitbox")
-CreateToggle("🖐️ Auto E (Mobil)", "AutoE")
+-- Butonlar ve Girdiler (Sırayla)
+NewButton("⚡ Speed Hack (Eski Stil)", "Speed")
+NewButton("⬆️ Jump Power", "Jump")
+NewButton("🌌 Gravity Mode", "Gravity")
+NewButton("🔄 Spinbot", "Spin")
+NewButton("👁️ Player ESP", "ESP")
+NewButton("🎯 Player Hitbox", "Hitbox")
+NewButton("🏏 Bat Hitbox", "BatHitbox")
+NewButton("🖐️ Auto E (Mobile)", "AutoE")
 
-CreateInput("Hız Değeri (40)", "SpeedVal", 40)
-CreateInput("Zıplama Gücü (70)", "JumpVal", 70)
-CreateInput("Yerçekimi (50)", "GravVal", 50)
-CreateInput("Hitbox Boyutu (12)", "HBSize", 12)
+NewInput("Hız Değeri (40)", "SpeedVal", 40)
+NewInput("Zıplama Gücü (70)", "JumpVal", 70)
+NewInput("Yerçekimi (50)", "GravVal", 50)
+NewInput("Hitbox Boyutu (12)", "HBSize", 12)
 
--- [[ 3. KÜÇÜLTME FONKSİYONU ]] --
-local open = true
-minBtn.MouseButton1Click:Connect(function()
-    open = not open
-    main.Size = open and UDim2.new(0, 220, 0, 320) or UDim2.new(0, 220, 0, 30)
-    minBtn.Text = open and "-" or "+"
-    content.Visible = open
-end)
-
--- [[ 4. DELTA ÖZEL AUTO E ]] --
-task.spawn(function()
-    while task.wait(0.1) do
-        if Toggles.AutoE then
-            pcall(function()
-                local char = LP.Character
-                local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    for _, obj in pairs(workspace:GetDescendants()) do
-                        if obj:IsA("ProximityPrompt") and obj.Enabled then
-                            local dist = (obj.Parent.Position - hrp.Position).Magnitude
-                            if dist <= (obj.MaxActivationDistance + 5) then
-                                if fireproximityprompt then
-                                    fireproximityprompt(obj, dist)
-                                else
-                                    obj.HoldDuration = 0
-                                    obj:InputHoldBegin()
-                                    task.wait()
-                                    obj:InputHoldEnd()
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- [[ 5. KLASİK MOTORLAR VE ÖZELLİKLER ]] --
+-- [[ 3. ÖZELLİK MOTORLARI ]] --
 RS.RenderStepped:Connect(function()
     pcall(function()
         local char = LP.Character
         local hum = char and char:FindFirstChild("Humanoid")
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-        -- Eski Tip Hız ve Zıplama
+        -- Speed & Jump
         if hum then
             if Toggles.Speed then hum.WalkSpeed = Vars.SpeedVal else hum.WalkSpeed = 16 end
-            if Toggles.Jump then hum.UseJumpPower = true; hum.JumpPower = Vars.JumpVal else hum.JumpPower = 50 end
+            if Toggles.Jump then 
+                hum.UseJumpPower = true 
+                hum.JumpPower = Vars.JumpVal 
+            else 
+                hum.JumpPower = 50 
+            end
         end
 
-        -- Yerçekimi
-        if Toggles.Gravity then workspace.Gravity = Vars.GravVal else workspace.Gravity = 196.2 end
+        -- Gravity
+        workspace.Gravity = Toggles.Gravity and Vars.GravVal or 196.2
 
         -- Spinbot
         if Toggles.Spin and hrp then
             hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(Vars.SpinSpeed), 0)
         end
 
-        -- Oyuncu Hitbox
+        -- Hitbox Expander
         if Toggles.Hitbox then
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local targHrp = p.Character.HumanoidRootPart
-                    targHrp.Size = Vector3.new(Vars.HBSize, Vars.HBSize, Vars.HBSize)
-                    targHrp.Transparency = 0.6
-                    targHrp.CanCollide = false
+                    local h = p.Character.HumanoidRootPart
+                    h.Size = Vector3.new(Vars.HBSize, Vars.HBSize, Vars.HBSize)
+                    h.Transparency = 0.7; h.CanCollide = false
                 end
             end
         end
 
-        -- Sopa / Kılıç Hitbox
+        -- Bat Hitbox
         if Toggles.BatHitbox and char then
             local tool = char:FindFirstChildOfClass("Tool")
             if tool and tool:FindFirstChild("Handle") then
@@ -168,26 +170,41 @@ RS.RenderStepped:Connect(function()
     end)
 end)
 
--- [[ 6. ESP SİSTEMİ ]] --
-local function UpdateESP()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local hl = p.Character:FindFirstChild("ESP_Highlight")
-            if Toggles.ESP then
-                if not hl then
-                    hl = Instance.new("Highlight")
-                    hl.Name = "ESP_Highlight"
-                    hl.FillColor = Color3.fromRGB(255, 0, 0)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.FillTransparency = 0.5
-                    hl.Parent = p.Character
+-- Auto E (Mobile Fix)
+task.spawn(function()
+    while task.wait(0.2) do
+        if Toggles.AutoE then
+            pcall(function()
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") and obj.Enabled then
+                        local dist = (obj.Parent.Position - LP.Character.HumanoidRootPart.Position).Magnitude
+                        if dist <= obj.MaxActivationDistance + 3 then
+                            if fireproximityprompt then fireproximityprompt(obj) else
+                                obj.HoldDuration = 0; obj:InputHoldBegin(); task.wait(); obj:InputHoldEnd()
+                            end
+                        end
+                    end
                 end
-            else
-                if hl then hl:Destroy() end
-            end
+            end)
         end
     end
-end
-RS.Heartbeat:Connect(function() pcall(UpdateESP) end)
+end)
 
-print("✅ CLASSIC HIZ VE TÜM ÖZELLİKLER DELTA MOBİL İÇİN YÜKLENDİ!")
+-- ESP
+RS.Heartbeat:Connect(function()
+    pcall(function()
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local hl = p.Character:FindFirstChild("ESP_HL")
+                if Toggles.ESP then
+                    if not hl then
+                        hl = Instance.new("Highlight", p.Character)
+                        hl.Name = "ESP_HL"; hl.FillColor = Color3.new(1,0,0); hl.OutlineColor = Color3.new(1,1,1)
+                    end
+                elseif hl then hl:Destroy() end
+            end
+        end
+    end)
+end)
+
+print("✅ V8 FIXED YÜKLENDİ - Menü Boş Kalma Sorunu Çözüldü!")
