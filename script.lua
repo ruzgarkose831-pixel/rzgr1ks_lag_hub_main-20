@@ -5,8 +5,8 @@ local LP = Players.LocalPlayer
 local Toggles = {Speed = false, Jump = false, Grav = false, Spin = false, ESP = false, HB = false, Bat = false, AutoE = false}
 local Vars = {SpeedVal = 40, JumpVal = 70, GravVal = 50, HBSize = 12}
 
--- [[ 1. GARANTİLİ GUI OLUŞTURMA ]] --
-local guiName = "LemonV9_Manual"
+-- [[ 1. GARANTİLİ GUI OLUŞTURMA (BÜYÜTÜLMÜŞ BOYUT) ]] --
+local guiName = "rzgr1ks_duels_gui_big"
 local guiParent = (gethui and gethui()) or game:GetService("CoreGui") or LP:FindFirstChild("PlayerGui")
 
 if guiParent:FindFirstChild(guiName) then guiParent[guiName]:Destroy() end
@@ -16,8 +16,8 @@ sg.Name = guiName
 sg.Parent = guiParent
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 210, 0, 360) -- Boyutu biraz büyüttüm her şey sığsın diye
-main.Position = UDim2.new(0.5, -105, 0.5, -180)
+main.Size = UDim2.new(0, 280, 0, 470) -- GENİŞLİK 210'dan 280'e, YÜKSEKLİK 360'tan 470'e ÇIKARILDI
+main.Position = UDim2.new(0.5, -140, 0.5, -235) -- Tam ortaya ayarlandı
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 main.BorderSizePixel = 0
 main.Active = true
@@ -28,25 +28,25 @@ Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
 local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(0, 120, 255); stroke.Thickness = 2
 
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 35)
-title.Text = "22S x LEMON V9 (MANUAL)"
+title.Size = UDim2.new(1, 0, 0, 45) -- Başlık daha kalın oldu
+title.Text = "rzgr1ks duels"
 title.TextColor3 = Color3.white
 title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 title.Font = "SourceSansBold"
-title.TextSize = 15
+title.TextSize = 22 -- Yazı boyutu büyütüldü
 title.Parent = main
 
--- [[ 2. BUTONLARI ELLE YERLEŞTİRME (LAYOUTSUZ) ]] --
+-- [[ 2. BUTONLARI ELLE YERLEŞTİRME (DAHA BÜYÜK VE ARALIKLI) ]] --
 local function CreateBtn(name, var, yPos)
     local btn = Instance.new("TextButton", main)
     btn.Name = name
-    btn.Size = UDim2.new(0, 190, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.Size = UDim2.new(0, 250, 0, 40) -- Butonlar daha geniş (250) ve daha kalın (40)
+    btn.Position = UDim2.new(0, 15, 0, yPos)
     btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     btn.Text = name
     btn.TextColor3 = Color3.white
     btn.Font = "SourceSansBold"
-    btn.TextSize = 14
+    btn.TextSize = 18 -- Buton yazıları büyüdü
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Click:Connect(function()
@@ -57,29 +57,29 @@ end
 
 local function CreateInp(hint, var, def, yPos)
     local inp = Instance.new("TextBox", main)
-    inp.Size = UDim2.new(0, 190, 0, 25)
-    inp.Position = UDim2.new(0, 10, 0, yPos)
+    inp.Size = UDim2.new(0, 250, 0, 35) -- Kutucuklar daha büyük
+    inp.Position = UDim2.new(0, 15, 0, yPos)
     inp.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
     inp.PlaceholderText = hint
     inp.Text = ""
     inp.TextColor3 = Color3.white
     inp.Font = "SourceSans"
-    inp.TextSize = 13
+    inp.TextSize = 16 -- Kutu yazıları büyüdü
     Instance.new("UICorner", inp)
     inp.FocusLost:Connect(function() Vars[var] = tonumber(inp.Text) or def end)
 end
 
--- Koordinatları tek tek veriyoruz (Y ekseni)
-CreateBtn("⚡ Speed Hack", "Speed", 45)
-CreateBtn("⬆️ Jump Power", "Jump", 80)
-CreateBtn("🌌 Gravity Mode", "Grav", 115)
-CreateBtn("🔄 Spinbot", "Spin", 150)
-CreateBtn("👁️ ESP (Kırmızı)", "ESP", 185)
-CreateBtn("🎯 Karakter Hitbox", "HB", 220)
-CreateBtn("🏏 Sopa Hitbox", "Bat", 255)
-CreateBtn("🖐️ Auto E (Mobile)", "AutoE", 290)
+-- Koordinatları büyüyen butonlara göre ayarladık
+CreateBtn("⚡ Speed Hack", "Speed", 55)
+CreateBtn("⬆️ Jump Power", "Jump", 100)
+CreateBtn("🌌 Gravity Mode", "Grav", 145)
+CreateBtn("🔄 Spinbot", "Spin", 190)
+CreateBtn("👁️ ESP (Kırmızı)", "ESP", 235)
+CreateBtn("🎯 Karakter Hitbox", "HB", 280)
+CreateBtn("🏏 Sopa Hitbox", "Bat", 325)
+CreateBtn("🖐️ Auto E (Mobile)", "AutoE", 370)
 
-CreateInp("Hız (Örn: 50)", "SpeedVal", 40, 325)
+CreateInp("Hız (Örn: 50)", "SpeedVal", 40, 415)
 
 -- [[ 3. ÖZELLİK MOTORLARI ]] --
 RS.RenderStepped:Connect(function()
@@ -88,7 +88,7 @@ RS.RenderStepped:Connect(function()
         local hum = char and char:FindFirstChild("Humanoid")
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
-        -- Speed & Jump (Eski Stil)
+        -- Speed & Jump
         if hum then
             hum.WalkSpeed = Toggles.Speed and Vars.SpeedVal or 16
             if Toggles.Jump then hum.UseJumpPower = true; hum.JumpPower = Vars.JumpVal else hum.JumpPower = 50 end
@@ -156,4 +156,4 @@ RS.Heartbeat:Connect(function()
     end
 end)
 
-print("✅ V9 MANUAL FIXED: Butonlar tek tek yerleştirildi, boş çıkması imkansız!")
+print("✅ rzgr1ks duels (BÜYÜK ARAYÜZ) Yüklendi! İyi oyunlar.")
