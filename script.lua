@@ -2,158 +2,132 @@ local Players = game:GetService("Players")
 local RS = game:GetService("RunService")
 local LP = Players.LocalPlayer
 
-local Toggles = {Speed = false, Jump = false, Grav = false, Spin = false, ESP = false, HB = false, Bat = false, AutoE = false}
-local Vars = {SpeedVal = 40, JumpVal = 70, GravVal = 50, HBSize = 12}
+local Toggles = {Speed = false, Jump = false, Grav = false, ESP = false, HB = false}
+local Vars = {SpeedVal = 40, HBSize = 12}
 
--- [[ 1. GARANTİLİ GUI OLUŞTURMA (BÜYÜTÜLMÜŞ BOYUT) ]] --
-local guiName = "rzgr1ks_duels_gui_big"
+-- [[ 1. GARANTİLİ VE GÖRÜNÜR GUI ]] --
+local guiName = "rzgr1ks_V10_Force"
 local guiParent = (gethui and gethui()) or game:GetService("CoreGui") or LP:FindFirstChild("PlayerGui")
 
 if guiParent:FindFirstChild(guiName) then guiParent[guiName]:Destroy() end
 
 local sg = Instance.new("ScreenGui")
 sg.Name = guiName
+sg.DisplayOrder = 999 -- En üstte görünmesi için
+sg.ResetOnSpawn = false
 sg.Parent = guiParent
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 280, 0, 470) -- GENİŞLİK 210'dan 280'e, YÜKSEKLİK 360'tan 470'e ÇIKARILDI
-main.Position = UDim2.new(0.5, -140, 0.5, -235) -- Tam ortaya ayarlandı
-main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+main.Name = "MainFrame"
+main.Size = UDim2.new(0, 260, 0, 400)
+main.Position = UDim2.new(0.5, -130, 0.5, -200)
+main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 main.BorderSizePixel = 0
 main.Active = true
 main.Draggable = true
+main.Visible = true -- Kesin görünürlük
+main.ZIndex = 5
 main.Parent = sg
 
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
-local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(0, 120, 255); stroke.Thickness = 2
+local stroke = Instance.new("UIStroke", main); stroke.Color = Color3.fromRGB(0, 150, 255); stroke.Thickness = 2
 
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, 0, 0, 45) -- Başlık daha kalın oldu
-title.Text = "rzgr1ks duels"
+title.Size = UDim2.new(1, 0, 0, 45)
+title.Text = "rzgr1ks duels V10"
 title.TextColor3 = Color3.white
-title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-title.Font = "SourceSansBold"
-title.TextSize = 22 -- Yazı boyutu büyütüldü
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 20
+title.ZIndex = 6
 title.Parent = main
 
--- [[ 2. BUTONLARI ELLE YERLEŞTİRME (DAHA BÜYÜK VE ARALIKLI) ]] --
+-- [[ 2. BUTON OLUŞTURUCU (GÖRÜNME GARANTİLİ) ]] --
 local function CreateBtn(name, var, yPos)
     local btn = Instance.new("TextButton", main)
-    btn.Name = name
-    btn.Size = UDim2.new(0, 250, 0, 40) -- Butonlar daha geniş (250) ve daha kalın (40)
+    btn.Name = name .. "_Btn"
+    btn.Size = UDim2.new(0, 230, 0, 40)
     btn.Position = UDim2.new(0, 15, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     btn.Text = name
     btn.TextColor3 = Color3.white
-    btn.Font = "SourceSansBold"
-    btn.TextSize = 18 -- Buton yazıları büyüdü
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
+    btn.ZIndex = 7
+    btn.Visible = true -- Zorunlu
     Instance.new("UICorner", btn)
     
     btn.MouseButton1Click:Connect(function()
         Toggles[var] = not Toggles[var]
-        btn.BackgroundColor3 = Toggles[var] and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(35, 35, 45)
+        btn.BackgroundColor3 = Toggles[var] and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(40, 40, 50)
     end)
 end
 
-local function CreateInp(hint, var, def, yPos)
-    local inp = Instance.new("TextBox", main)
-    inp.Size = UDim2.new(0, 250, 0, 35) -- Kutucuklar daha büyük
-    inp.Position = UDim2.new(0, 15, 0, yPos)
-    inp.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    inp.PlaceholderText = hint
-    inp.Text = ""
-    inp.TextColor3 = Color3.white
-    inp.Font = "SourceSans"
-    inp.TextSize = 16 -- Kutu yazıları büyüdü
-    Instance.new("UICorner", inp)
-    inp.FocusLost:Connect(function() Vars[var] = tonumber(inp.Text) or def end)
-end
+-- Butonları yerleştir
+CreateBtn("👁️ ESP (Parıltı)", "ESP", 60)
+CreateBtn("🎯 Adamlar İçin HB Expander", "HB", 110)
+CreateBtn("⚡ Speed Hack", "Speed", 160)
+CreateBtn("⬆️ Jump Power", "Jump", 210)
+CreateBtn("🌌 Gravity Mode", "Grav", 260)
 
--- Koordinatları büyüyen butonlara göre ayarladık
-CreateBtn("⚡ Speed Hack", "Speed", 55)
-CreateBtn("⬆️ Jump Power", "Jump", 100)
-CreateBtn("🌌 Gravity Mode", "Grav", 145)
-CreateBtn("🔄 Spinbot", "Spin", 190)
-CreateBtn("👁️ ESP (Kırmızı)", "ESP", 235)
-CreateBtn("🎯 Karakter Hitbox", "HB", 280)
-CreateBtn("🏏 Sopa Hitbox", "Bat", 325)
-CreateBtn("🖐️ Auto E (Mobile)", "AutoE", 370)
+-- Hız Girişi
+local inp = Instance.new("TextBox", main)
+inp.Size = UDim2.new(0, 230, 0, 35)
+inp.Position = UDim2.new(0, 15, 0, 310)
+inp.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+inp.PlaceholderText = "Hız Değeri (40)"
+inp.Text = ""
+inp.TextColor3 = Color3.white
+inp.ZIndex = 7
+inp.Parent = main
+inp.FocusLost:Connect(function() Vars.SpeedVal = tonumber(inp.Text) or 40 end)
 
-CreateInp("Hız (Örn: 50)", "SpeedVal", 40, 415)
-
--- [[ 3. ÖZELLİK MOTORLARI ]] --
+-- [[ 3. ÖZELLİK DÖNGÜSÜ ]] --
 RS.RenderStepped:Connect(function()
     pcall(function()
         local char = LP.Character
         local hum = char and char:FindFirstChild("Humanoid")
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
+        
         -- Speed & Jump
         if hum then
             hum.WalkSpeed = Toggles.Speed and Vars.SpeedVal or 16
-            if Toggles.Jump then hum.UseJumpPower = true; hum.JumpPower = Vars.JumpVal else hum.JumpPower = 50 end
+            if Toggles.Jump then hum.UseJumpPower = true; hum.JumpPower = 70 end
         end
 
-        workspace.Gravity = Toggles.Grav and Vars.GravVal or 196.2
+        -- Gravity
+        workspace.Gravity = Toggles.Grav and 50 or 196.2
 
-        if Toggles.Spin and hrp then
-            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(15), 0)
-        end
-
+        -- HB Expander (Adamlar İçin)
         if Toggles.HB then
             for _, p in pairs(Players:GetPlayers()) do
                 if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    p.Character.HumanoidRootPart.Size = Vector3.new(Vars.HBSize, Vars.HBSize, Vars.HBSize)
-                    p.Character.HumanoidRootPart.Transparency = 0.7
-                    p.Character.HumanoidRootPart.CanCollide = false
+                    local hrp = p.Character.HumanoidRootPart
+                    hrp.Size = Vector3.new(Vars.HBSize, Vars.HBSize, Vars.HBSize)
+                    hrp.Transparency = 0.6
+                    hrp.CanCollide = false
                 end
-            end
-        end
-
-        if Toggles.Bat and char then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool and tool:FindFirstChild("Handle") then
-                tool.Handle.Size = Vector3.new(Vars.HBSize, Vars.HBSize, Vars.HBSize)
-                tool.Handle.Transparency = 0.5
             end
         end
     end)
 end)
 
--- Auto E (Mobil Uyumlu)
-task.spawn(function()
-    while task.wait(0.2) do
-        if Toggles.AutoE then
-            pcall(function()
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("ProximityPrompt") and v.Enabled then
-                        local d = (v.Parent.Position - LP.Character.HumanoidRootPart.Position).Magnitude
-                        if d <= 15 then 
-                            if fireproximityprompt then fireproximityprompt(v) else
-                                v.HoldDuration = 0; v:InputHoldBegin(); task.wait(); v:InputHoldEnd()
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
--- ESP
+-- ESP Sistemi
 RS.Heartbeat:Connect(function()
-    if Toggles.ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character and not p.Character:FindFirstChild("ESP_HL") then
-                local hl = Instance.new("Highlight", p.Character)
-                hl.Name = "ESP_HL"; hl.FillColor = Color3.new(1,0,0)
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character then
+            local hl = p.Character:FindFirstChild("rzgr_ESP")
+            if Toggles.ESP then
+                if not hl then
+                    hl = Instance.new("Highlight", p.Character)
+                    hl.Name = "rzgr_ESP"
+                    hl.FillColor = Color3.new(1, 0, 0)
+                    hl.OutlineColor = Color3.new(1, 1, 1)
+                end
+            else
+                if hl then hl:Destroy() end
             end
         end
-    else
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("ESP_HL") then p.Character.ESP_HL:Destroy() end
-        end
     end
 end)
 
-print("✅ rzgr1ks duels (BÜYÜK ARAYÜZ) Yüklendi! İyi oyunlar.")
+print("✅ V10 Force-Render Yüklendi. Butonlar ve ESP/HB aktif!")
