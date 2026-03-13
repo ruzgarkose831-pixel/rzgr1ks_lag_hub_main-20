@@ -1,134 +1,179 @@
 local plr = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local rs = game:GetService("RunService")
-local ws = workspace
+local mouse = plr:GetMouse()
 local cg = game:GetService("CoreGui")
-local rep = game:GetService("ReplicatedStorage")
+local players = game:GetService("Players")
 
 local par = (gethui and gethui()) or cg
-local guiName = "LemonHybrid_V3"
+local guiName = "LemonHybrid_V5"
 
--- Eski GUI'yi temizle
 if par:FindFirstChild(guiName) then par[guiName]:Destroy() end
 
 -- AYARLAR VE DURUMLAR
 local states = {
-    speedOn = false, speedVal = 55,
+    speedOn = false, speedVal = 16,
     jumpPower = 50, gravity = 196.2,
     spinbot = false, antirag = false,
-    autograb = false, xrayon = false,
-    floaton = false, infjump = false
+    xrayon = false, infjump = false,
+    espOn = false, hitboxOn = false, hitboxVal = 2
 }
 
-local xrayCache = {}
 local connections = {}
 
 -----------------------------------
--- TEMEL FONKSİYONLAR
+-- ÖZELLİK MANTIĞI (LOGIC)
 -----------------------------------
 
--- Gelişmiş Hız Mantığı (Ayarlanabilir)
+-- ESP Sistemi (Highlight Modeli)
+local function updateESP()
+    for _, p in pairs(players:GetPlayers()) do
+        if p ~= plr and p.Character then
+            local highlight = p.Character:FindFirstChild("LemonESP")
+            if states.espOn then
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "LemonESP"
+                    highlight.FillColor = Color3.fromRGB(255, 230, 0)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = p.Character
+                end
+            else
+                if highlight then highlight:Destroy() end
+            end
+        end
+    end
+end
+
+-- Hitbox Expander
+rs.RenderStepped:Connect(function()
+    if states.hitboxOn then
+        for _, p in pairs(players:GetPlayers()) do
+            if p ~= plr and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = p.Character.HumanoidRootPart
+                hrp.Size = Vector3.new(states.hitboxVal, states.hitboxVal, states.hitboxVal)
+                hrp.Transparency = 0.7
+                hrp.BrickColor = BrickColor.new("Bright yellow")
+                hrp.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Hız ve Diğer Fizik Döngüleri
 rs.RenderStepped:Connect(function()
     if states.speedOn and plr.Character then
         local hum = plr.Character:FindFirstChildOfClass("Humanoid")
         local root = plr.Character:FindFirstChild("HumanoidRootPart")
         if hum and root and hum.MoveDirection.Magnitude > 0 then
-            root.CFrame = root.CFrame + (hum.MoveDirection * (states.speedVal / 50))
+            root.CFrame = root.CFrame + (hum.MoveDirection * ((states.speedVal - 16) / 45))
         end
     end
+    if states.espOn then updateESP() end
 end)
 
--- Yerçekimi ve Zıplama Güncelleyici
 task.spawn(function()
-    while task.wait(0.5) do
-        ws.Gravity = states.gravity
-        if plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") then
-            plr.Character:FindFirstChildOfClass("Humanoid").JumpPower = states.jumpPower
-            plr.Character:FindFirstChildOfClass("Humanoid").UseJumpPower = true
-        end
+    while task.wait(0.1) do
+        workspace.Gravity = states.gravity
+        local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.JumpPower = states.jumpPower hum.UseJumpPower = true end
     end
 end)
-
--- Spinbot
-local function toggleSpin(b)
-    if b then
-        local function apply(c)
-            local hrp = c:WaitForChild("HumanoidRootPart", 5)
-            if hrp then
-                local bv = Instance.new("BodyAngularVelocity")
-                bv.Name = "LemonSpin"
-                bv.MaxTorque = Vector3.new(0, math.huge, 0)
-                bv.AngularVelocity = Vector3.new(0, 50, 0)
-                bv.Parent = hrp
-            end
-        end
-        if plr.Character then apply(plr.Character) end
-        connections.spin = plr.CharacterAdded:Connect(apply)
-    else
-        if connections.spin then connections.spin:Disconnect() end
-        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local s = plr.Character.HumanoidRootPart:FindFirstChild("LemonSpin")
-            if s then s:Destroy() end
-        end
-    end
-end
-
--- Xray
-local function toggleXray(b)
-    if b then
-        for _, v in pairs(ws:GetDescendants()) do
-            if v:IsA("BasePart") and not v:IsDescendantOf(plr.Character) then
-                xrayCache[v] = v.LocalTransparencyModifier
-                v.LocalTransparencyModifier = 0.6
-            end
-        end
-    else
-        for part, trans in pairs(xrayCache) do
-            if part and part.Parent then part.LocalTransparencyModifier = trans end
-        end
-        xrayCache = {}
-    end
-end
 
 -----------------------------------
--- GUI TASARIMI (Küçülebilir)
+-- GUI TASARIMI
 -----------------------------------
 local ScreenGui = Instance.new("ScreenGui", par)
 ScreenGui.Name = guiName
 
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 220, 0, 320)
-Main.Position = UDim2.new(0.05, 0, 0.4, 0)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Main.BorderSizePixel = 0
+Main.Size = UDim2.new(0, 250, 0, 380)
+Main.Position = UDim2.new(0.05, 0, 0.3, 0)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Main.Active = true
 Main.Draggable = true
+Instance.new("UICorner", Main)
 
-local UICorner = Instance.new("UICorner", Main)
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 35)
+Header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Instance.new("UICorner", Header)
 
--- Küçültme Butonu
-local MinBtn = Instance.new("TextButton", Main)
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "22S x LEMON V5"
+Title.TextColor3 = Color3.fromRGB(255, 230, 0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.BackgroundTransparency = 1
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local MinBtn = Instance.new("TextButton", Header)
 MinBtn.Size = UDim2.new(0, 30, 0, 30)
-MinBtn.Position = UDim2.new(1, -35, 0, 5)
+MinBtn.Position = UDim2.new(1, -35, 0, 2)
 MinBtn.Text = "-"
-MinBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-MinBtn.TextColor3 = Color3.new(1, 1, 1)
+MinBtn.TextColor3 = Color3.new(1,1,1)
+MinBtn.BackgroundTransparency = 1
 
-local Container = Instance.new("ScrollingFrame", Main)
-Container.Size = UDim2.new(1, -20, 1, -50)
-Container.Position = UDim2.new(0, 10, 0, 45)
-Container.BackgroundTransparency = 1
-Container.CanvasSize = UDim2.new(0, 0, 1.8, 0)
-Container.ScrollBarThickness = 2
-
-local UIList = Instance.new("UIListLayout", Container)
+local Content = Instance.new("ScrollingFrame", Main)
+Content.Size = UDim2.new(1, -10, 1, -45)
+Content.Position = UDim2.new(0, 5, 0, 40)
+Content.BackgroundTransparency = 1
+Content.ScrollBarThickness = 2
+local UIList = Instance.new("UIListLayout", Content)
 UIList.Padding = UDim.new(0, 5)
 
--- Arayüz Elemanları
-local function createToggle(name, stateKey, callback)
-    local btn = Instance.new("TextButton", Container)
-    btn.Size = UDim2.new(1, 0, 0, 30)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+-- YARDIMCI FONKSİYONLAR (Slider & Toggle)
+local function createSlider(name, min, max, default, stateKey)
+    local frame = Instance.new("Frame", Content)
+    frame.Size = UDim2.new(1, -5, 0, 45)
+    frame.BackgroundTransparency = 1
+    frame.Visible = false
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.Text = name .. ": " .. default
+    label.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    label.BackgroundTransparency = 1
+
+    local sliderBack = Instance.new("Frame", frame)
+    sliderBack.Size = UDim2.new(1, -10, 0, 6)
+    sliderBack.Position = UDim2.new(0, 5, 0, 25)
+    sliderBack.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+
+    local sliderFill = Instance.new("Frame", sliderBack)
+    sliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    sliderFill.BackgroundColor3 = Color3.fromRGB(255, 230, 0)
+    
+    local knob = Instance.new("TextButton", sliderFill)
+    knob.Size = UDim2.new(0, 12, 0, 12)
+    knob.Position = UDim2.new(1, -6, 0.5, -6)
+    knob.Text = ""
+    knob.BackgroundColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+    local dragging = false
+    local function update()
+        local pos = math.clamp((mouse.X - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
+        sliderFill.Size = UDim2.new(pos, 0, 1, 0)
+        local val = min + (pos * (max - min))
+        states[stateKey] = val
+        label.Text = name .. ": " .. string.format("%.1f", val)
+    end
+
+    knob.MouseButton1Down:Connect(function() dragging = true end)
+    uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+    mouse.Move:Connect(function() if dragging then update() end end)
+    return frame
+end
+
+local function createToggle(name, stateKey)
+    local btn = Instance.new("TextButton", Content)
+    btn.Size = UDim2.new(1, -5, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     btn.Text = name .. ": OFF"
     btn.TextColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", btn)
@@ -136,56 +181,47 @@ local function createToggle(name, stateKey, callback)
     btn.MouseButton1Click:Connect(function()
         states[stateKey] = not states[stateKey]
         btn.Text = name .. (states[stateKey] and ": ON" or ": OFF")
-        btn.BackgroundColor3 = states[stateKey] and Color3.fromRGB(200, 200, 0) or Color3.fromRGB(40, 40, 40)
+        btn.BackgroundColor3 = states[stateKey] and Color3.fromRGB(255, 230, 0) or Color3.fromRGB(30, 30, 30)
         btn.TextColor3 = states[stateKey] and Color3.new(0,0,0) or Color3.new(1,1,1)
-        if callback then callback(states[stateKey]) end
     end)
 end
 
-local function createSlider(name, min, max, stateKey)
-    local label = Instance.new("TextLabel", Container)
-    label.Size = UDim2.new(1, 0, 0, 20)
-    label.Text = name .. ": " .. states[stateKey]
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(0.8, 0.8, 0.8)
-
-    local btn = Instance.new("TextButton", Container)
-    btn.Size = UDim2.new(1, 0, 0, 25)
-    btn.Text = "[ Değiştir ]"
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    
-    btn.MouseButton1Click:Connect(function()
-        local newVal = states[stateKey] + (max/10)
-        if newVal > max then newVal = min end
-        states[stateKey] = math.floor(newVal)
-        label.Text = name .. ": " .. states[stateKey]
-    end)
-end
-
--- Menü İçeriği
-createToggle("Speed Enable", "speedOn")
-createSlider("Speed Multi", 16, 250, "speedVal")
-createSlider("Jump Power", 50, 300, "jumpPower")
-createSlider("Gravity", 0, 196, "gravity")
-createToggle("Spinbot", "spinbot", toggleSpin)
-createToggle("X-Ray", "xrayon", toggleXray)
-createToggle("Anti-Ragdoll", "antirag")
+-- ÖZELLİKLERİ EKLE
+createToggle("ESP Master", "espOn")
+createToggle("Hitbox Expander", "hitboxOn")
+createToggle("Speed Toggle", "speedOn")
 createToggle("Infinite Jump", "infjump")
 
--- Küçültme Mantığı
-local minimized = false
-MinBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    Container.Visible = not minimized
-    Main:TweenSize(minimized and UDim2.new(0, 220, 0, 40) or UDim2.new(0, 220, 0, 320), "Out", "Quart", 0.3, true)
-    MinBtn.Text = minimized and "+" or "-"
+local configBtn = Instance.new("TextButton", Content)
+configBtn.Size = UDim2.new(1, -5, 0, 30)
+configBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+configBtn.Text = "⚙️ Configure (Ayarlar)"
+configBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", configBtn)
+
+local s1 = createSlider("Speed", 16, 300, 16, "speedVal")
+local s2 = createSlider("Hitbox Size", 2, 30, 2, "hitboxVal")
+local s3 = createSlider("Jump Power", 50, 500, 50, "jumpPower")
+local s4 = createSlider("Gravity", 0, 196, 196, "gravity")
+
+configBtn.MouseButton1Click:Connect(function()
+    s1.Visible = not s1.Visible s2.Visible = not s2.Visible
+    s3.Visible = not s3.Visible s4.Visible = not s4.Visible
 end)
 
--- Inf Jump
+-- Küçültme Mantığı
+local min = false
+MinBtn.MouseButton1Click:Connect(function()
+    min = not min
+    Content.Visible = not min
+    Main:TweenSize(min and UDim2.new(0, 250, 0, 35) or UDim2.new(0, 250, 0, 380), "Out", "Quart", 0.3, true)
+    MinBtn.Text = min and "+" or "-"
+end)
+
+-- Inf Jump Logic
 uis.JumpRequest:Connect(function()
     if states.infjump and plr.Character then
-        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+        local h = plr.Character:FindFirstChildOfClass("Humanoid")
+        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
