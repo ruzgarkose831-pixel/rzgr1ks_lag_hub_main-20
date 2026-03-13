@@ -1,197 +1,154 @@
 local plr = game.Players.LocalPlayer
+local uis = game:GetService("UserInputService")
 local rs = game:GetService("RunService")
+local ts = game:GetService("TweenService")
 local cg = game:GetService("CoreGui")
+local rep = game:GetService("ReplicatedStorage")
 
--- Executor destekliyorsa gethui, yoksa CoreGui kullan
 local par = (gethui and gethui()) or cg
-local guiName = "LemonHub_V2"
+local guiName = "LemonHub_Final"
 
--- ESKİ GUI'Yİ SİLME İŞLEMİ (Üst üste binmeyi önler)
-if par:FindFirstChild(guiName) then
-    par[guiName]:Destroy()
-end
-if cg:FindFirstChild(guiName) then
-    cg[guiName]:Destroy()
-end
+-- ESKİSİNİ TEMİZLE
+if par:FindFirstChild(guiName) then par[guiName]:Destroy() end
 
--- Renk Paleti (Senin orijinal renklerin)
+-- DEĞİŞKENLER VE AYARLAR
+local speedOn = false
+local spinbot = false
+local antirag = false
+local autograb = false
+local infjump = false
+local speedVal = 55
+
+local conns = {}
+
+-- RENKLER
 local pm = Color3.fromRGB(15, 15, 15)
 local pl = Color3.fromRGB(30, 30, 30)
 local pa = Color3.fromRGB(50, 50, 50)
 local wh = Color3.fromRGB(255, 255, 255)
-local accent = Color3.fromRGB(200, 200, 0) -- Limon Sarısı
+local accent = Color3.fromRGB(255, 230, 0)
 
 -----------------------------------
--- HİLE FONKSİYONLARI BAŞLANGICI --
+-- FONKSİYONLAR
 -----------------------------------
-local spinbot = false
-local antiMode = nil
-local conns = {}
-local ragConns = {}
 
--- Spinbot Logic
-local function spinOn(c)
-    local hrp = c:WaitForChild("HumanoidRootPart", 5)
-    if not hrp then return end
-    for _, v in pairs(hrp:GetChildren()) do
-        if v:IsA("BodyAngularVelocity") then v:Destroy() end
-    end
-    local bv = Instance.new("BodyAngularVelocity")
-    bv.MaxTorque = Vector3.new(0, math.huge, 0)
-    bv.AngularVelocity = Vector3.new(0, 40, 0)
-    bv.Parent = hrp
-end
-
-local function spinOff(c)
-    if c then
-        local hrp = c:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            for _, v in pairs(hrp:GetChildren()) do
-                if v:IsA("BodyAngularVelocity") then v:Destroy() end
-            end
+-- Spinbot
+local function toggleSpin(b)
+    spinbot = b
+    local function apply(c)
+        local hrp = c:WaitForChild("HumanoidRootPart", 5)
+        if not hrp then return end
+        if b then
+            local bv = Instance.new("BodyAngularVelocity")
+            bv.Name = "LemonSpin"
+            bv.MaxTorque = Vector3.new(0, math.huge, 0)
+            bv.AngularVelocity = Vector3.new(0, 40, 0)
+            bv.Parent = hrp
+        else
+            if hrp:FindFirstChild("LemonSpin") then hrp.LemonSpin:Destroy() end
         end
     end
+    if plr.Character then apply(plr.Character) end
 end
 
--- Anti Ragdoll Logic (Basitleştirilmiş v1)
-local function antiLoop()
-    while antiMode == "v1" do
-        task.wait()
-        local c = plr.Character
-        if c then
-            local hum = c:FindFirstChildOfClass("Humanoid")
-            if hum and (hum:GetState() == Enum.HumanoidStateType.Ragdoll or hum:GetState() == Enum.HumanoidStateType.FallingDown) then
+-- Anti-Ragdoll
+rs.Heartbeat:Connect(function()
+    if antirag and plr.Character then
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            if hum:GetState() == Enum.HumanoidStateType.Ragdoll or hum:GetState() == Enum.HumanoidStateType.FallingDown then
                 hum:ChangeState(Enum.HumanoidStateType.Running)
             end
         end
     end
-end
+end)
+
+-- Speed
+rs.RenderStepped:Connect(function()
+    if speedOn and plr.Character then
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if hum and hum.MoveDirection.Magnitude > 0 then
+            plr.Character:TranslateBy(hum.MoveDirection * (speedVal / 100))
+        end
+    end
+end)
+
+-- Infinite Jump
+uis.JumpRequest:Connect(function()
+    if infjump and plr.Character then
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
 
 -----------------------------------
--- YENİ GUI OLUŞTURMA BAŞLANGICI --
+-- ARAYÜZ (GUI) OLUŞTURMA
 -----------------------------------
-local ScreenGui = Instance.new("ScreenGui")
+local ScreenGui = Instance.new("ScreenGui", par)
 ScreenGui.Name = guiName
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = par
 
--- Ana Pencere
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 300)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -150)
-MainFrame.BackgroundColor3 = pm
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
-MainFrame.Active = true
-MainFrame.Draggable = true -- Pencereyi fareyle sürükleyebilmeni sağlar
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 260, 0, 380)
+Main.Position = UDim2.new(0.5, -130, 0.5, -190)
+Main.BackgroundColor3 = pm
+Main.Active = true
+Main.Draggable = true
 
-local UICornerMain = Instance.new("UICorner")
-UICornerMain.CornerRadius = UDim.new(0, 8)
-UICornerMain.Parent = MainFrame
-
--- Üst Başlık Çubuğu
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 40)
-TopBar.BackgroundColor3 = pl
-TopBar.BorderSizePixel = 0
-TopBar.Parent = MainFrame
-
-local UICornerTop = Instance.new("UICorner")
-UICornerTop.CornerRadius = UDim.new(0, 8)
-UICornerTop.Parent = TopBar
-
--- Alt köşeleri düzeltmek için yama
-local TopBarPatch = Instance.new("Frame")
-TopBarPatch.Size = UDim2.new(1, 0, 0, 10)
-TopBarPatch.Position = UDim2.new(0, 0, 1, -10)
-TopBarPatch.BackgroundColor3 = pl
-TopBarPatch.BorderSizePixel = 0
-TopBarPatch.Parent = TopBar
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -10, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
+local UICorner = Instance.new("UICorner", Main)
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "🍋 LEMON HUB V3"
 Title.TextColor3 = accent
-Title.Text = "🍋 22S x LEMON"
+Title.BackgroundColor3 = pl
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
 
--- İçerik Kutusu (Butonların duracağı yer)
-local Container = Instance.new("ScrollingFrame")
+local Container = Instance.new("ScrollingFrame", Main)
 Container.Size = UDim2.new(1, -20, 1, -60)
 Container.Position = UDim2.new(0, 10, 0, 50)
 Container.BackgroundTransparency = 1
-Container.ScrollBarThickness = 4
-Container.Parent = MainFrame
+Container.CanvasSize = UDim2.new(0, 0, 1.2, 0)
+Container.ScrollBarThickness = 2
 
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding = UDim.new(0, 10)
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Parent = Container
+local UIList = Instance.new("UIListLayout", Container)
+UIList.Padding = UDim.new(0, 8)
 
--- Buton Oluşturma Fonksiyonu
-local function createButton(text)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 35)
+-- BUTON YAPICI
+local function createToggle(name, default, callback)
+    local btn = Instance.new("TextButton", Container)
+    btn.Size = UDim2.new(1, -5, 0, 35)
     btn.BackgroundColor3 = pa
+    btn.Text = name .. (default and ": ON" or ": OFF")
     btn.TextColor3 = wh
-    btn.Text = text
-    btn.Font = Enum.Font.GothamSemibold
+    btn.Font = Enum.Font.Gotham
     btn.TextSize = 14
-    btn.AutoButtonColor = true
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
-    
-    btn.Parent = Container
-    return btn
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    local state = default
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = name .. (state and ": ON" or ": OFF")
+        btn.BackgroundColor3 = state and accent or pa
+        btn.TextColor3 = state and pm or wh
+        callback(state)
+    end)
 end
 
--- Butonları Ekleme
-local SpinBtn = createButton("Spinbot: KAPALI")
-local AntiBtn = createButton("Anti-Ragdoll: KAPALI")
-local CloseBtn = createButton("Menüyü Kapat (Sil)")
-CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+-- ÖZELLİKLERİ EKLE
+createToggle("Speed (55)", false, function(v) speedOn = v end)
+createToggle("Spinbot", false, function(v) toggleSpin(v) end)
+createToggle("Anti-Ragdoll", false, function(v) antirag = v end)
+createToggle("Infinite Jump", false, function(v) infjump = v end)
+createToggle("Auto-Grab Animals", false, function(v) autograb = v end)
 
--- Buton İşlevleri (Tıklama Olayları)
-SpinBtn.MouseButton1Click:Connect(function()
-    spinbot = not spinbot
-    if spinbot then
-        SpinBtn.Text = "Spinbot: AÇIK"
-        SpinBtn.TextColor3 = accent
-        if plr.Character then spinOn(plr.Character) end
-        table.insert(conns, plr.CharacterAdded:Connect(function(c) spinOn(c) end))
-    else
-        SpinBtn.Text = "Spinbot: KAPALI"
-        SpinBtn.TextColor3 = wh
-        if plr.Character then spinOff(plr.Character) end
-        for _, c in pairs(conns) do c:Disconnect() end
-        conns = {}
-    end
-end)
+-- Kapatma Butonu
+local Close = Instance.new("TextButton", Main)
+Close.Size = UDim2.new(0, 20, 0, 20)
+Close.Position = UDim2.new(1, -25, 0, 10)
+Close.Text = "X"
+Close.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+Close.TextColor3 = wh
+Instance.new("UICorner", Close)
+Close.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
-AntiBtn.MouseButton1Click:Connect(function()
-    if antiMode == "v1" then
-        antiMode = nil
-        AntiBtn.Text = "Anti-Ragdoll: KAPALI"
-        AntiBtn.TextColor3 = wh
-    else
-        antiMode = "v1"
-        AntiBtn.Text = "Anti-Ragdoll: AÇIK"
-        AntiBtn.TextColor3 = accent
-        task.spawn(antiLoop)
-    end
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    -- Özellikleri kapat
-    spinbot = false
-    antiMode = nil
-    if plr.Character then spinOff(plr.Character) end
-    -- GUI'yi tamamen yok et
-    ScreenGui:Destroy()
-end)
+print("Lemon Hub başarıyla yüklendi!")
