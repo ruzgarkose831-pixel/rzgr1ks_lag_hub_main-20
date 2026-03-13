@@ -1,10 +1,10 @@
 --[[
-    @title: RZGR1KS V48 - BYPASS
-    @updates: New Spinbot Method, Fixed X-Ray, Mobile Touch Sliders
+    @project: RZGR1KS DUEL V48 - THE TRUE ORIGINAL
+    @fix: 100% Original V23 GUI + Bulletproof Mobile Sliders
 ]]--
 
-if _G.RZGR_FINAL_V48 then return end
-_G.RZGR_FINAL_V48 = true
+if _G.RZGR_TRUE_ORIGINAL then return end
+_G.RZGR_TRUE_ORIGINAL = true
 
 local Services = setmetatable({}, {__index = function(_, k) return game:GetService(k) end})
 local Local = {
@@ -14,15 +14,14 @@ local Local = {
 
 local Registry = {
     States = {
-        Combat = { Silent = false, Hitbox = false, HSize = 25, Spin = false, SpinSpeed = 100 },
+        Combat = { Silent = false, Hitbox = false, HSize = 25, Spin = false, SpinSpeed = 50 },
         Movement = { Speed = false, Vel = 100, Jump = 50, Grav = 196.2 },
         Visuals = { Esp = false, Xray = false },
         Misc = { AntiRagdoll = false }
-    },
-    Social = { Discord = "https://discord.gg/XpbcvVdU", YT = "https://youtube.com/@rzgr1ks" }
+    }
 }
 
--- // X-RAY ENGINE (STABLE VERSION)
+-- // X-RAY TOGGLE
 local function ToggleXray(state)
     for _, v in ipairs(workspace:GetDescendants()) do
         if v:IsA("BasePart") and not v:IsDescendantOf(Local.Player.Character) then
@@ -31,14 +30,41 @@ local function ToggleXray(state)
     end
 end
 
--- // MAIN ENGINE
+-- // CORE LOGIC
+local function GetTarget()
+    local T, D = nil, math.huge
+    for _, p in ipairs(Services.Players:GetPlayers()) do
+        if p ~= Local.Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local Pos, OnScreen = Local.Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if OnScreen then
+                local Mag = (Vector2.new(Pos.X, Pos.Y) - Services.UIS:GetMouseLocation()).Magnitude
+                if Mag < D then D = Mag; T = p.Character.HumanoidRootPart end
+            end
+        end
+    end
+    return T
+end
+
+local OldNC; OldNC = hookmetamethod(game, "__namecall", function(self, ...)
+    local Method = getnamecallmethod()
+    local Args = {...}
+    if not checkcaller() and Registry.States.Combat.Silent and (Method == "Raycast" or Method:find("PartOnRay")) then
+        local T = GetTarget()
+        if T then
+            if Method == "Raycast" then Args[2] = (T.Position - Args[1]).Unit * 1000 end
+            return OldNC(self, unpack(Args))
+        end
+    end
+    return OldNC(self, ...)
+end)
+
 Services.RunService.Heartbeat:Connect(function()
     local Char = Local.Player.Character
     if not Char then return end
     local Root = Char:FindFirstChild("HumanoidRootPart")
     local Hum = Char:FindFirstChildOfClass("Humanoid")
     
-    -- NEW SPINBOT METHOD (Angular Velocity Style)
+    -- SPINBOT
     if Registry.States.Combat.Spin and Root then
         Root.CFrame = Root.CFrame * CFrame.Angles(0, math.rad(Registry.States.Combat.SpinSpeed), 0)
     end
@@ -60,112 +86,127 @@ Services.RunService.Heartbeat:Connect(function()
         for _, p in ipairs(Services.Players:GetPlayers()) do
             if p ~= Local.Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                 p.Character.HumanoidRootPart.Size = Vector3.new(Registry.States.Combat.HSize, Registry.States.Combat.HSize, Registry.States.Combat.HSize)
-                p.Character.HumanoidRootPart.Transparency = 0.7
+                p.Character.HumanoidRootPart.Transparency = 0.7; p.Character.HumanoidRootPart.CanCollide = false
             end
         end
     end
 end)
 
--- // UI ENGINE (SMALLER & COMPACT)
+-- // UI RESTORATION (ORİJİNAL TASARIM - 350 GENİŞLİK)
 local Screen = Instance.new("ScreenGui", (gethui and gethui()) or Services.CoreGui)
 local Main = Instance.new("Frame", Screen)
-Main.Size = UDim2.new(0, 260, 0, 40) -- Daha küçük ve şık başlar
-Main.Position = UDim2.new(0.5, -130, 0.2, 0)
+Main.Size = UDim2.new(0, 350, 0, 45)
+Main.Position = UDim2.new(0.5, -175, 0.2, 0)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.BorderSizePixel = 0
 Main.Active = true
-Main.ClipsDescendants = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
 
--- MOBILE DRAG FIX
-local dragging, dragStart, startPos
-Main.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true; dragStart = input.Position; startPos = Main.Position
+-- // MOBİL SÜRÜKLEME FİKSİ (ESKİSİ GİBİ SORUNSUZ)
+local d, s, p
+Main.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        d = true; s = i.Position; p = Main.Position
     end
 end)
-Services.UIS.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+Services.UIS.InputChanged:Connect(function(i)
+    if d and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local delta = i.Position - s
+        Main.Position = UDim2.new(p.X.Scale, p.X.Offset + delta.X, p.Y.Scale, p.Y.Offset + delta.Y)
     end
 end)
-Services.UIS.InputEnded:Connect(function() dragging = false end)
+Services.UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then d = false end
+end)
 
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, -50, 0, 40); Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "RZGR1KS V23"; Title.TextColor3 = Color3.fromRGB(255, 50, 50); Title.Font = "GothamBold"; Title.TextSize = 13; Title.BackgroundTransparency = 1; Title.TextXAlignment = "Left"
+Title.Size = UDim2.new(0, 250, 0, 45); Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Text = "RZGR1KS DUEL V23"; Title.TextColor3 = Color3.fromRGB(255, 40, 40)
+Title.Font = "GothamBold"; Title.TextSize = 14; Title.BackgroundTransparency = 1; Title.TextXAlignment = "Left"
 
 local MinBtn = Instance.new("TextButton", Main)
-MinBtn.Size = UDim2.new(0, 40, 0, 40); MinBtn.Position = UDim2.new(1, -40, 0, 0)
-MinBtn.Text = "-"; MinBtn.TextColor3 = Color3.new(1,1,1); MinBtn.Font = "GothamBold"; MinBtn.TextSize = 20; MinBtn.BackgroundTransparency = 1
+MinBtn.Size = UDim2.new(0, 45, 0, 45); MinBtn.Position = UDim2.new(1, -50, 0, 0)
+MinBtn.Text = "-"; MinBtn.TextColor3 = Color3.new(1,1,1); MinBtn.Font = "GothamBold"; MinBtn.TextSize = 25; MinBtn.BackgroundTransparency = 1
 
 local Scroll = Instance.new("ScrollingFrame", Main)
-Scroll.Size = UDim2.new(1, -20, 0, 300); Scroll.Position = UDim2.new(0, 10, 0, 45)
-Scroll.Visible = false; Scroll.BackgroundTransparency = 1; Scroll.ScrollBarThickness = 2; Scroll.CanvasSize = UDim2.new(0,0,0,650)
-local Layout = Instance.new("UIListLayout", Scroll); Layout.Padding = UDim.new(0, 8); Layout.HorizontalAlignment = "Center"
+Scroll.Size = UDim2.new(1, -20, 0, 320); Scroll.Position = UDim2.new(0, 10, 0, 50)
+Scroll.Visible = false; Scroll.BackgroundTransparency = 1; Scroll.ScrollBarThickness = 2
+Scroll.BorderSizePixel = 0; Scroll.CanvasSize = UDim2.new(0, 0, 0, 750)
+local Layout = Instance.new("UIListLayout", Scroll); Layout.Padding = UDim.new(0, 10); Layout.HorizontalAlignment = "Center"
 
--- // MOBILE COMPONENT FIX (TOUCH SLIDERS)
+-- // COMPONENT BUILDERS
 local function AddToggle(txt, sub, key)
     local b = Instance.new("TextButton", Scroll)
-    b.Size = UDim2.new(1, 0, 0, 38); b.BackgroundColor3 = Color3.fromRGB(25, 25, 25); b.Text = txt..": OFF"; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; Instance.new("UICorner", b)
+    b.Size = UDim2.new(0, 310, 0, 40); b.BackgroundColor3 = Color3.fromRGB(30, 30, 30); b.Text = txt..": OFF"; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; b.TextSize = 12; Instance.new("UICorner", b)
     b.MouseButton1Click:Connect(function()
         Registry.States[sub][key] = not Registry.States[sub][key]
         b.Text = txt..(Registry.States[sub][key] and ": ON" or ": OFF")
-        b.BackgroundColor3 = Registry.States[sub][key] and Color3.fromRGB(160, 0, 0) or Color3.fromRGB(25, 25, 25)
+        b.BackgroundColor3 = Registry.States[sub][key] and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(30, 30, 30)
         if key == "Xray" and not Registry.States[sub][key] then ToggleXray(false) end
     end)
 end
 
+-- // KUSURSUZ MOBİL SLIDER FİKSİ (YAĞ GİBİ KAYAR)
 local function AddSlider(txt, min, max, sub, key)
-    local f = Instance.new("Frame", Scroll); f.Size = UDim2.new(1, 0, 0, 45); f.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 15); l.Text = txt..": "..Registry.States[sub][key]; l.TextColor3 = Color3.new(0.7,0.7,0.7); l.BackgroundTransparency = 1; l.Font = "Gotham"; l.TextSize = 10
-    local bar = Instance.new("Frame", f); bar.Size = UDim2.new(1, 0, 0, 4); bar.Position = UDim2.new(0, 0, 0, 25); bar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    local fill = Instance.new("Frame", bar); fill.Size = UDim2.new((Registry.States[sub][key]-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50); fill.BorderSizePixel = 0
+    local f = Instance.new("Frame", Scroll); f.Size = UDim2.new(0, 310, 0, 50); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 20); l.Text = txt..": "..Registry.States[sub][key]; l.TextColor3 = Color3.new(0.8,0.8,0.8); l.BackgroundTransparency = 1; l.Font = "Gotham"; l.TextSize = 10
+    local bar = Instance.new("TextButton", f); bar.Size = UDim2.new(1, 0, 0, 6); bar.Position = UDim2.new(0, 0, 0, 30); bar.BackgroundColor3 = Color3.fromRGB(50, 50, 50); bar.Text = ""
+    local fill = Instance.new("Frame", bar); fill.Size = UDim2.new((Registry.States[sub][key]-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(255, 40, 40); fill.BorderSizePixel = 0
     
-    local function Update(input)
-        local sizeX = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        fill.Size = UDim2.new(sizeX, 0, 1, 0)
-        local val = math.floor(min + (sizeX * (max - min)))
+    local draggingSlider = false
+    local function Update(posX)
+        local percent = math.clamp((posX - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        local val = math.floor(min + (percent * (max - min)))
         l.Text = txt..": "..val; Registry.States[sub][key] = val
     end
-
+    
     bar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local move; move = Services.UIS.InputChanged:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then Update(i) end
-            end)
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then move:Disconnect() end end)
+            draggingSlider = true
+            Update(input.Position.X)
+        end
+    end)
+    
+    Services.UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            draggingSlider = false
+        end
+    end)
+    
+    Services.UIS.InputChanged:Connect(function(input)
+        if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            Update(input.Position.X)
         end
     end)
 end
 
--- // MINIMIZE
-local isExp = false
+-- // MINIMIZE / EXPAND
+local isExpanded = false
 MinBtn.MouseButton1Click:Connect(function()
-    isExp = not isExp
-    MinBtn.Text = isExp and "X" or "-"
-    Scroll.Visible = isExp
-    Main:TweenSize(isExp and UDim2.new(0, 260, 0, 360) or UDim2.new(0, 260, 0, 40), "Out", "Quart", 0.3, true)
+    isExpanded = not isExpanded
+    MinBtn.Text = isExpanded and "X" or "-"
+    Scroll.Visible = isExpanded
+    Main:TweenSize(isExpanded and UDim2.new(0, 350, 0, 380) or UDim2.new(0, 350, 0, 45), "Out", "Quart", 0.3, true)
 end)
 
--- // LOAD LIST
+-- // LOAD LIST (TÜM ÖZELLİKLER)
 AddToggle("Silent Aim", "Combat", "Silent")
-AddToggle("Spinbot Mode", "Combat", "Spin")
-AddSlider("Spin Power", 10, 300, "Combat", "SpinSpeed")
+AddToggle("Spinbot", "Combat", "Spin")
+AddSlider("Spin Speed", 10, 200, "Combat", "SpinSpeed")
 AddToggle("Hitbox Expander", "Combat", "Hitbox")
 AddSlider("Hitbox Radius", 2, 200, "Combat", "HSize")
 AddToggle("Speed Bypass", "Movement", "Speed")
 AddSlider("Speed Value", 16, 500, "Movement", "Vel")
 AddSlider("Jump Power", 50, 500, "Movement", "Jump")
 AddSlider("Gravity Control", 0, 196, "Movement", "Grav")
-AddToggle("Wallhack ESP", "Visuals", "Esp")
+AddToggle("ESP Highlight", "Visuals", "Esp")
 AddToggle("Material X-RAY", "Visuals", "Xray")
 AddToggle("Anti Ragdoll", "Misc", "AntiRagdoll")
 
--- SOCIALS
-local dBtn = Instance.new("TextButton", Scroll); dBtn.Size = UDim2.new(1,0,0,35); dBtn.BackgroundColor3 = Color3.fromRGB(88,101,242); dBtn.Text = "JOIN DISCORD"; dBtn.TextColor3 = Color3.new(1,1,1); dBtn.Font = "GothamBold"; Instance.new("UICorner", dBtn)
-dBtn.MouseButton1Click:Connect(function() setclipboard(Registry.Social.Discord) end)
+-- // SOCIALS (SENİN LİNKLERİN)
+local ytBtn = Instance.new("TextButton", Scroll); ytBtn.Size = UDim2.new(0, 310, 0, 40); ytBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0); ytBtn.Text = "SUBSCRIBE YT: rzgr1ks"; ytBtn.TextColor3 = Color3.new(1,1,1); ytBtn.Font = "GothamBold"; Instance.new("UICorner", ytBtn)
+ytBtn.MouseButton1Click:Connect(function() setclipboard("https://youtube.com/@rzgr1ks") end)
 
-local yBtn = Instance.new("TextButton", Scroll); yBtn.Size = UDim2.new(1,0,0,35); yBtn.BackgroundColor3 = Color3.fromRGB(200,0,0); yBtn.Text = "YT: @rzgr1ks"; yBtn.TextColor3 = Color3.new(1,1,1); yBtn.Font = "GothamBold"; Instance.new("UICorner", yBtn)
-yBtn.MouseButton1Click:Connect(function() setclipboard(Registry.Social.YT) end)
+local dcBtn = Instance.new("TextButton", Scroll); dcBtn.Size = UDim2.new(0, 310, 0, 40); dcBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242); dcBtn.Text = "JOIN DISCORD SERVER"; dcBtn.TextColor3 = Color3.new(1,1,1); dcBtn.Font = "GothamBold"; Instance.new("UICorner", dcBtn)
+dcBtn.MouseButton1Click:Connect(function() setclipboard("https://discord.gg/XpbcvVdU") end)
