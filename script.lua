@@ -1,236 +1,156 @@
-local plr = game.Players.LocalPlayer
-local uis = game:GetService("UserInputService")
-local rs = game:GetService("RunService")
-local cg = game:GetService("CoreGui")
-local players = game:GetService("Players")
-local http = game:GetService("HttpService")
+--[[ 
+    RZGR1KS DUEL PROJECT - ULTIMATE FRAMEWORK
+    BRANDED FOR YT: rzgr1ks & DC: discord.gg/XpbcvVdU
+]]--
 
-local par = (gethui and gethui()) or cg
-local guiName = "LemonHybrid_V13"
-local fileName = "LemonConfig_V13.json"
+-- // Framework Sentinel & Services
+if _G.RZGR_LOADED then return end
+_G.RZGR_LOADED = true
 
-if par:FindFirstChild(guiName) then par[guiName]:Destroy() end
-
--- AYARLAR
-local states = {
-    speedOn = false, speedVal = 16,
-    jumpPower = 50, gravity = 196.2,
-    espOn = false, hitboxOn = false, hitboxVal = 2,
-    infjump = false, antirag = false,
-    spinbot = false, xrayon = false
+local Libs = {
+    Players = game:GetService("Players"),
+    Run = game:GetService("RunService"),
+    UIS = game:GetService("UserInputService"),
+    Http = game:GetService("HttpService"),
+    CoreGui = game:GetService("CoreGui")
 }
 
------------------------------------
--- ÇALIŞAN X-RAY MANTIĞI (Material & Trans)
------------------------------------
-local function toggleXray(val)
-    states.xrayon = val
-    task.spawn(function()
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and not v:IsDescendantOf(plr.Character) then
-                if states.xrayon then
-                    if v.Transparency < 0.5 then
-                        v.LocalTransparencyModifier = 0.6 -- En iyi çalışan Xray yöntemi
-                    end
-                else
-                    v.LocalTransparencyModifier = 0
+local Local = {
+    Player = Libs.Players.LocalPlayer,
+    Mouse = Libs.Players.LocalPlayer:GetMouse(),
+    Camera = workspace.CurrentCamera
+}
+
+local Registry = {
+    Social = {
+        YouTube = "https://youtube.com/@rzgr1ks",
+        Discord = "https://discord.gg/XpbcvVdU"
+    },
+    States = {
+        Combat = { Silent = false, Hitbox = false, HSize = 2 },
+        Movement = { Speed = false, Vel = 16 },
+        Visuals = { Esp = false }
+    }
+}
+
+-- // CORE LOGIC (Silent Aim & Hitbox)
+local function GetTarget()
+    local Target = nil
+    local Dist = math.huge
+    for _, p in ipairs(Libs.Players:GetPlayers()) do
+        if p ~= Local.Player and p.Character and p.Character:FindFirstChild("Head") then
+            if p.Team ~= Local.Player.Team then
+                local Pos, OnScreen = Local.Camera:WorldToViewportPoint(p.Character.Head.Position)
+                if OnScreen then
+                    local Mag = (Vector2.new(Pos.X, Pos.Y) - Vector2.new(Local.Mouse.X, Local.Mouse.Y)).Magnitude
+                    if Mag < Dist then Dist = Mag; Target = p.Character.Head end
                 end
             end
         end
-    end)
+    end
+    return Target
 end
 
------------------------------------
--- CORE LOGIC
------------------------------------
-
--- Pürüzsüz Velocity Hız & Spinbot
-rs.Heartbeat:Connect(function()
-    if not plr.Character then return end
-    local root = plr.Character:FindFirstChild("HumanoidRootPart")
-    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-    
-    if root then
-        -- Hız
-        if states.speedOn and hum and hum.MoveDirection.Magnitude > 0 then
-            local targetVelocity = hum.MoveDirection * states.speedVal
-            root.AssemblyLinearVelocity = Vector3.new(targetVelocity.X, root.AssemblyLinearVelocity.Y, targetVelocity.Z)
-        end
-        
-        -- Süper Hızlı Spinbot
-        if states.spinbot then
-            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(60), 0) -- Hız 20'den 60'a çıkarıldı
-        end
+local OldNC; OldNC = hookmetamethod(game, "__namecall", function(self, ...)
+    local Method = getnamecallmethod()
+    if not checkcaller() and Registry.States.Combat.Silent and (Method == "FindPartOnRayWithIgnoreList" or Method == "Raycast") then
+        local T = GetTarget()
+        if T then return T, T.Position, T.CFrame.p, T.Material end
     end
+    return OldNC(self, ...)
 end)
 
--- ESP & Hitbox & Ragdoll
-rs.RenderStepped:Connect(function()
-    if states.antirag and plr.Character then
-        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-        end
+Libs.Run.Heartbeat:Connect(function()
+    local Char = Local.Player.Character
+    if not Char then return end
+    local Root = Char:FindFirstChild("HumanoidRootPart")
+    local Hum = Char:FindFirstChildOfClass("Humanoid")
+    
+    if Root and Hum and Registry.States.Movement.Speed and Hum.MoveDirection.Magnitude > 0 then
+        Root.AssemblyLinearVelocity = Vector3.new(Hum.MoveDirection.X * Registry.States.Movement.Vel, Root.AssemblyLinearVelocity.Y, Hum.MoveDirection.Z * Registry.States.Movement.Vel)
     end
-
-    for _, p in pairs(players:GetPlayers()) do
-        if p ~= plr and p.Character then
+    
+    for _, p in ipairs(Libs.Players:GetPlayers()) do
+        if p ~= Local.Player and p.Character then
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                if states.hitboxOn then
-                    hrp.Size = Vector3.new(states.hitboxVal, states.hitboxVal, states.hitboxVal)
+                if Registry.States.Combat.Hitbox then
+                    hrp.Size = Vector3.new(Registry.States.Combat.HSize, Registry.States.Combat.HSize, Registry.States.Combat.HSize)
                     hrp.Transparency = 0.7
                     hrp.CanCollide = false
                 else
-                    hrp.Size = Vector3.new(2, 2, 1)
-                    hrp.Transparency = 1
+                    hrp.Size = Vector3.new(2, 2, 1); hrp.Transparency = 1; hrp.CanCollide = true
                 end
             end
-            
-            local hl = p.Character:FindFirstChild("LemonESP")
-            if states.espOn then
-                if not hl then
-                    hl = Instance.new("Highlight", p.Character)
-                    hl.Name = "LemonESP"
-                    hl.FillColor = Color3.fromRGB(255, 230, 0)
-                end
-            elseif hl then hl:Destroy() end
         end
     end
 end)
 
------------------------------------
--- MOBİL GUI & SLIDER
------------------------------------
-local ScreenGui = Instance.new("ScreenGui", par)
-ScreenGui.Name = guiName
-
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 280, 0, 420)
-Main.Position = UDim2.new(0.5, -140, 0.5, -210)
+-- // INTERFACE ENGINE
+local Screen = Instance.new("ScreenGui", (gethui and gethui()) or Libs.CoreGui)
+local Main = Instance.new("Frame", Screen)
+Main.Size = UDim2.new(0, 300, 0, 480)
+Main.Position = UDim2.new(0.5, -150, 0.5, -240)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Main.Active = true
-Main.Draggable = true
 Instance.new("UICorner", Main)
 
+local Scroll = Instance.new("ScrollingFrame", Main)
+Scroll.Size = UDim2.new(1, -10, 1, -60)
+Scroll.Position = UDim2.new(0, 5, 0, 50)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 0
+local Layout = Instance.new("UIListLayout", Scroll); Layout.Padding = UDim.new(0, 5); Layout.HorizontalAlignment = "Center"
+
+-- Title & Header
 local Header = Instance.new("Frame", Main)
-Header.Size = UDim2.new(1, 0, 0, 40)
-Header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", Header)
-
+Header.Size = UDim2.new(1, 0, 0, 40); Header.BackgroundColor3 = Color3.fromRGB(25, 25, 25); Instance.new("UICorner", Header)
 local Title = Instance.new("TextLabel", Header)
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.Text = "🍋 LEMON V13 ULTRA"
-Title.TextColor3 = Color3.fromRGB(255, 230, 0)
-Title.Font = Enum.Font.GothamBold
-Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, 0, 1, 0); Title.Text = "RZGR1KS DUEL | YT: rzgr1ks"; Title.TextColor3 = Color3.fromRGB(255, 40, 40); Title.Font = "GothamBold"; Title.BackgroundTransparency = 1
 
-local Content = Instance.new("ScrollingFrame", Main)
-Content.Size = UDim2.new(1, -10, 1, -50)
-Content.Position = UDim2.new(0, 5, 0, 45)
-Content.BackgroundTransparency = 1
-Content.ScrollBarThickness = 2
-local UIList = Instance.new("UIListLayout", Content)
-UIList.Padding = UDim.new(0, 8)
-
--- Slider & Toggle (Mobil Fix)
-local function createSlider(name, min, max, default, stateKey)
-    local frame = Instance.new("Frame", Content)
-    frame.Size = UDim2.new(1, -10, 0, 45)
-    frame.BackgroundTransparency = 1
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, 0, 0, 15)
-    label.Text = name .. ": " .. default
-    label.TextColor3 = Color3.new(1, 1, 1)
-    label.BackgroundTransparency = 1
-    local sliderBack = Instance.new("Frame", frame)
-    sliderBack.Size = UDim2.new(1, -20, 0, 6)
-    sliderBack.Position = UDim2.new(0, 10, 0, 25)
-    sliderBack.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    local sliderFill = Instance.new("Frame", sliderBack)
-    sliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    sliderFill.BackgroundColor3 = Color3.fromRGB(255, 230, 0)
-    local dragging = false
-    local function update(input)
-        local pos = math.clamp((input.Position.X - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
-        sliderFill.Size = UDim2.new(pos, 0, 1, 0)
-        local val = math.floor(min + (pos * (max - min)))
-        states[stateKey] = val
-        label.Text = name .. ": " .. val
-    end
-    sliderBack.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true update(input) end
-    end)
-    uis.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-    end)
-    uis.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end
+-- // BUTTON BUILDERS
+local function AddToggle(txt, sub, key)
+    local b = Instance.new("TextButton", Scroll)
+    b.Size = UDim2.new(0, 280, 0, 40); b.BackgroundColor3 = Color3.fromRGB(30, 30, 30); b.Text = txt .. ": OFF"; b.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", b)
+    b.MouseButton1Click:Connect(function()
+        Registry.States[sub][key] = not Registry.States[sub][key]
+        b.Text = txt .. (Registry.States[sub][key] and ": ON" or ": OFF")
+        b.BackgroundColor3 = Registry.States[sub][key] and Color3.fromRGB(100, 20, 20) or Color3.fromRGB(30, 30, 30)
     end)
 end
 
-local function createToggle(name, stateKey, callback)
-    local btn = Instance.new("TextButton", Content)
-    btn.Size = UDim2.new(1, -10, 0, 35)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    btn.Text = name .. ": OFF"
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", btn)
-    btn.MouseButton1Click:Connect(function()
-        states[stateKey] = not states[stateKey]
-        btn.Text = name .. (states[stateKey] and ": ON" or ": OFF")
-        btn.BackgroundColor3 = states[stateKey] and Color3.fromRGB(255, 230, 0) or Color3.fromRGB(35, 35, 35)
-        btn.TextColor3 = states[stateKey] and Color3.new(0, 0, 0) or Color3.new(1, 1, 1)
-        if callback then callback(states[stateKey]) end
+-- // SOCIAL BUTTONS (WITH AUTO-COPY)
+local function AddSocial(txt, link, color)
+    local b = Instance.new("TextButton", Scroll)
+    b.Size = UDim2.new(0, 280, 0, 45); b.BackgroundColor3 = color; b.Text = txt; b.TextColor3 = Color3.new(1,1,1); b.Font = "GothamBold"; Instance.new("UICorner", b)
+    
+    b.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(link)
+            local oldTxt = b.Text
+            b.Text = "LINK KOPYALANDI!"
+            b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            b.TextColor3 = Color3.new(0, 0, 0)
+            task.wait(1.5)
+            b.Text = oldTxt
+            b.BackgroundColor3 = color
+            b.TextColor3 = Color3.new(1, 1, 1)
+        end
     end)
 end
 
--- ÖZELLİKLER
-createToggle("Modern X-Ray", "xrayon", toggleXray)
-createToggle("ESP Master", "espOn")
-createToggle("Hitbox Master", "hitboxOn")
-createSlider("Hitbox Size", 2, 60, 2, "hitboxVal")
-createToggle("Velocity Speed", "speedOn")
-createSlider("Speed Value", 16, 500, 16, "speedVal")
-createToggle("Super Spinbot", "spinbot")
-createToggle("Anti-Ragdoll", "antirag")
-createToggle("Infinite Jump", "infjump")
-createSlider("Jump Power", 50, 500, 50, "jumpPower")
-createSlider("Gravity", 0, 196, 196, "gravity")
+-- Load Items
+AddToggle("Silent Aim", "Combat", "Silent")
+AddToggle("Ghost Hitbox", "Combat", "Hitbox")
+AddToggle("Velocity Speed", "Movement", "Speed")
 
--- CONFIG
-local SaveBtn = Instance.new("TextButton", Content)
-SaveBtn.Size = UDim2.new(1, -10, 0, 35)
-SaveBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-SaveBtn.Text = "💾 SAVE CONFIG"
-SaveBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", SaveBtn)
-SaveBtn.MouseButton1Click:Connect(function()
-    writefile(fileName, http:JSONEncode(states))
-    SaveBtn.Text = "KAYDEDİLDİ!"
-    task.wait(1)
-    SaveBtn.Text = "💾 SAVE CONFIG"
-end)
+-- Socials
+AddSocial("SUBSCRIBE YOUTUBE", Registry.Social.YouTube, Color3.fromRGB(200, 0, 0))
+AddSocial("JOIN DISCORD", Registry.Social.Discord, Color3.fromRGB(88, 101, 242))
 
--- Küçültme
-local MinBtn = Instance.new("TextButton", Header)
-MinBtn.Size = UDim2.new(0, 35, 0, 35)
-MinBtn.Position = UDim2.new(1, -40, 0, 2)
-MinBtn.Text = "-"
-MinBtn.TextColor3 = Color3.new(1, 1, 1)
-MinBtn.BackgroundTransparency = 1
-local isMin = false
-MinBtn.MouseButton1Click:Connect(function()
-    isMin = not isMin
-    Content.Visible = not isMin
-    Main:TweenSize(isMin and UDim2.new(0, 280, 0, 40) or UDim2.new(0, 280, 0, 420), "Out", "Quart", 0.3, true)
-    MinBtn.Text = isMin and "+" or "-"
-end)
+-- Dragging
+local drag, dStart, sPos; Header.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = true; dStart = i.Position; sPos = Main.Position end end)
+Libs.UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then local delta = i.Position - dStart; Main.Position = UDim2.new(sPos.X.Scale, sPos.X.Offset + delta.X, sPos.Y.Scale, sPos.Y.Offset + delta.Y) end end)
+Libs.UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then drag = false end end)
 
-uis.JumpRequest:Connect(function()
-    if states.infjump and plr.Character then
-        local h = plr.Character:FindFirstChildOfClass("Humanoid")
-        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
+print("RZGR1KS DUEL V20 Loaded. Discord link copied!")
+if setclipboard then setclipboard(Registry.Social.Discord) end
