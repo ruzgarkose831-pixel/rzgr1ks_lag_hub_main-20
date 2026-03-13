@@ -1,411 +1,367 @@
--- rzgr1ks semi TP | Red Edition
+local plr = game.Players.LocalPlayer
+local uis = game:GetService("UserInputService")
+local rs = game:GetService("RunService")
+local ts = game:GetService("TweenService")
+local ws = workspace
+local cg = game:GetService("CoreGui")
+local rep = game:GetService("ReplicatedStorage")
+loadstring(game:HttpGet("https://pastebin.com/raw/kQwnUAh4"))()
 
--- Rebranded with working 0.73 logic + Auto Velocity + Discords
+local par = (gethui and gethui()) or cg
+local cam = ws.CurrentCamera
 
-local Players = game:GetService("Players")
+-- Black color palette
+local pd = Color3.fromRGB(0, 0, 0)
+local pm = Color3.fromRGB(15, 15, 15)
+local pl = Color3.fromRGB(30, 30, 30)
+local pa = Color3.fromRGB(50, 50, 50)
+local pb = Color3.fromRGB(180, 180, 180)
+local pg = Color3.fromRGB(220, 220, 220)
+local bgc = Color3.fromRGB(0, 0, 0)
+local wh = Color3.fromRGB(255, 255, 255)
 
-local TweenService = game:GetService("TweenService")
+local speed55 = false
+local speedSteal = false
+local spinbot = false
+local autograb = false
+local xrayon = false
+local antirag = false
+local floaton = false
+local infjump = false
 
-local RunService = game:GetService("RunService")
+local xrayOg = {}
+local xrayConns = {}
+local conns = {}
 
-local UserInputService = game:GetService("UserInputService")
-
-local ProximityPromptService = game:GetService("ProximityPromptService")
-
-local CoreGui = game:GetService("CoreGui")
-
-local player = Players.LocalPlayer
-
--- Coordinates
-
-local pos1 = Vector3.new(-352.98, -7, 74.30)
-
-local pos2 = Vector3.new(-352.98, -6.49, 45.76)
-
-local standing1 = Vector3.new(-336.36, -4.59, 99.51)
-
-local standing2 = Vector3.new(-334.81, -4.59, 18.90)
-
-local spot1_sequence = {
-
-    CFrame.new(-370.810913, -7.00000334, 41.2687263, 0.99984771, 1.22364419e-09, 0.0174523517, -6.54859778e-10, 1, -3.2596418e-08, -0.0174523517, 3.25800258e-08, 0.99984771),
-
-    CFrame.new(-336.355286, -5.10107088, 17.2327671, -0.999883354, -2.76150569e-08, 0.0152716246, -2.88224964e-08, 1, -7.88441525e-08, -0.0152716246, -7.9275118e-08, -0.999883354)
-
+local blocked = {
+    [Enum.HumanoidStateType.Ragdoll] = true,
+    [Enum.HumanoidStateType.FallingDown] = true,
+    [Enum.HumanoidStateType.Physics] = true,
+    [Enum.HumanoidStateType.Dead] = true
 }
 
-local spot2_sequence = {
+local target = nil
+local floatConn = nil
+local floatSpeed = 56.1
+local vertSpeed = 35
 
-    CFrame.new(-354.782867, -7.00000334, 92.8209305, -0.999997616, -1.11891862e-09, -0.00218066527, -1.11958298e-09, 1, 3.03415071e-10, 0.00218066527, 3.05855785e-10, -0.999997616),
+local movingDots = {}
+local sprintMovingDots = {}
 
-    CFrame.new(-336.942902, -5.10106993, 99.3276443, 0.999914348, -3.63984611e-08, 0.0130875716, 3.67094941e-08, 1, -2.35254749e-08, -0.0130875716, 2.40038975e-08, 0.999914348)
-
-}
-
--- Cleanup existing
-
-if CoreGui:FindFirstChild("VandersGui") then CoreGui["VandersGui"]:Destroy() end
-
-local screenGui = Instance.new("ScreenGui")
-
-screenGui.Name = "rzgr1ks gui"
-
-screenGui.Parent = CoreGui
-
--- Themes
-
-local MAIN_RED = Color3.fromRGB(255, 0, 0)
-
-local DARK_BG = Color3.fromRGB(15, 15, 15)
-
--- ESP Markers
-
-local function createESPBox(position, labelText)
-
-    local espPart = Instance.new("Part", workspace)
-
-    espPart.Size = Vector3.new(5, 0.5, 5)
-
-    espPart.Position = position
-
-    espPart.Anchored = true
-
-    espPart.CanCollide = false
-
-    espPart.Transparency = 0.5
-
-    espPart.Material = Enum.Material.Neon
-
-    espPart.Color = MAIN_RED
-
-    local bill = Instance.new("BillboardGui", espPart)
-
-    bill.Size = UDim2.new(0, 100, 0, 40)
-
-    bill.StudsOffset = Vector3.new(0, 2, 0)
-
-    bill.AlwaysOnTop = true
-
-    local txt = Instance.new("TextLabel", bill)
-
-    txt.Size = UDim2.new(1, 0, 1, 0)
-
-    txt.BackgroundTransparency = 1
-
-    txt.Text = labelText
-
-    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-    txt.Font = Enum.Font.GothamBold
-
-    txt.TextSize = 14
-
+local function spinOn(c)
+    local hrp = c:WaitForChild("HumanoidRootPart", 5)
+    if not hrp then return end
+    for _, v in pairs(hrp:GetChildren()) do
+        if v:IsA("BodyAngularVelocity") then
+            v:Destroy()
+        end
+    end
+    local bv = Instance.new("BodyAngularVelocity")
+    bv.MaxTorque = Vector3.new(0, math.huge, 0)
+    bv.AngularVelocity = Vector3.new(0, 40, 0)
+    bv.Parent = hrp
 end
 
-createESPBox(pos1, "Teleport Here")
+local function spinOff(c)
+    if c then
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, v in pairs(hrp:GetChildren()) do
+                if v:IsA("BodyAngularVelocity") then
+                    v:Destroy()
+                end
+            end
+        end
+    end
+end
 
-createESPBox(pos2, "Teleport Here")
+local function toggleSpin(b)
+    spinbot = b
+    if b then
+        if plr.Character then
+            spinOn(plr.Character)
+        end
+        table.insert(conns, plr.CharacterAdded:Connect(function(c)
+            spinOn(c)
+        end))
+    else
+        if plr.Character then
+            spinOff(plr.Character)
+        end
+    end
+end
 
-createESPBox(standing1, "Standing 1")
+local function createDots(parent)
+    local container = Instance.new("Frame", parent)
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.Position = UDim2.new(0, 0, 0, 0)
+    container.BackgroundTransparency = 1
+    container.ZIndex = 0
+    container.Name = "DotBackground"
+    
+    local dots = {}
+    for i = 1, 40 do
+        local dot = Instance.new("Frame")
+        dot.Size = UDim2.new(0, 3, 0, 3)
+        dot.Position = UDim2.new(math.random(), 0, math.random(), 0)
+        dot.BackgroundColor3 = pa
+        dot.BackgroundTransparency = 0.4
+        dot.BorderSizePixel = 0
+        dot.Parent = container
+        dot.ZIndex = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(1, 0)
+        corner.Parent = dot
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = pb
+        stroke.Thickness = 1
+        stroke.Transparency = 0.7
+        stroke.Parent = dot
+        
+        table.insert(dots, {
+            frame = dot,
+            sx = (math.random() - 0.5) * 0.015,
+            sy = (math.random() - 0.5) * 0.015,
+            pulse = math.random() * 2
+        })
+    end
+    
+    return container, dots
+end
 
-createESPBox(standing2, "Standing 2")
+local anti = {}
+local antiMode = nil
+local ragConns = {}
+local charCache = {}
 
--- Variables for Logic
+local function cacheChar()
+    local c = plr.Character
+    if not c then return false end
+    local h = c:FindFirstChildOfClass("Humanoid")
+    local r = c:FindFirstChild("HumanoidRootPart")
+    if not h or not r then return false end
+    charCache = {
+        char = c,
+        hum = h,
+        root = r
+    }
+    return true
+end
 
-local velocityEnabled = true -- Auto-enabled as requested
+local function killConns()
+    for _, c in pairs(ragConns) do
+        pcall(function() c:Disconnect() end)
+    end
+    ragConns = {}
+end
 
-local IsStealing = false
+local function isRagdoll()
+    if not charCache.hum then return false end
+    local s = charCache.hum:GetState()
+    if s == Enum.HumanoidStateType.Physics or s == Enum.HumanoidStateType.Ragdoll or s == Enum.HumanoidStateType.FallingDown then
+        return true
+    end
+    local et = plr:GetAttribute("RagdollEndTime")
+    if et then
+        local n = workspace:GetServerTimeNow()
+        if (et - n) > 0 then
+            return true
+        end
+    end
+    return false
+end
 
-local StealProgress = 0
+local function removeCons()
+    if not charCache.char then return end
+    for _, d in pairs(charCache.char:GetDescendants()) do
+        if d:IsA("BallSocketConstraint") or (d:IsA("Attachment") and string.find(d.Name, "RagdollAttachment")) then
+            pcall(function() d:Destroy() end)
+        end
+    end
+end
 
--- Desync Logic (ResetToWork)
-
-local function ResetToWork()
-
+local function forceExit()
+    if not charCache.hum or not charCache.root then return end
     pcall(function()
-
-        if setfflag then
-
-            setfflag("S2PhysicsSenderRate", "15000")
-
-            setfflag("ServerMaxBandwith", "52")
-
-        end
-
+        plr:SetAttribute("RagdollEndTime", workspace:GetServerTimeNow())
     end)
-
-    local char = player.Character
-
-    if char then
-
-        char:ClearAllChildren()
-
-        local f = Instance.new("Model", workspace)
-
-        player.Character = f task.wait()
-
-        player.Character = char f:Destroy()
-
+    if charCache.hum.Health > 0 then
+        charCache.hum:ChangeState(Enum.HumanoidStateType.Running)
     end
-
+    charCache.root.Anchored = false
+    charCache.root.AssemblyLinearVelocity = Vector3.zero
 end
 
-task.spawn(function() task.wait(1) ResetToWork() end)
-
--- Main Frame
-
-local mainFrame = Instance.new("Frame", screenGui)
-
-mainFrame.Size = UDim2.new(0, 190, 0, 420)
-
-mainFrame.Position = UDim2.new(1, -210, 0.5, -210)
-
-mainFrame.BackgroundColor3 = DARK_BG
-
-Instance.new("UICorner", mainFrame)
-
-local stroke = Instance.new("UIStroke", mainFrame)
-
-stroke.Color = MAIN_RED
-
-stroke.Thickness = 2
-
-local title = Instance.new("TextLabel", mainFrame)
-
-title.Size = UDim2.new(1, 0, 0, 40)
-
-title.Text = "RZGR1KS SEMI TP"
-
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-title.Font = Enum.Font.GothamBlack
-
-title.BackgroundTransparency = 1
-
--- [[ VELOCITY LABEL ]]
-
-local velocityStatus = Instance.new("TextLabel", mainFrame)
-
-velocityStatus.Size = UDim2.new(1, 0, 0, 20)
-
-velocityStatus.Position = UDim2.new(0, 0, 0, 230)
-
-velocityStatus.BackgroundTransparency = 1
-
-velocityStatus.Text = "VELOCITY: IDLE (29.5)"
-
-velocityStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
-
-velocityStatus.Font = Enum.Font.GothamBold
-
-velocityStatus.TextSize = 10
-
--- Velocity Loop Logic
-
-RunService.Heartbeat:Connect(function()
-
-    if velocityEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-
-        local hrp = player.Character.HumanoidRootPart
-
-        local hum = player.Character:FindFirstChildOfClass("Humanoid")
-
-        if hum.MoveDirection.Magnitude > 0 then
-
-            hrp.AssemblyLinearVelocity = Vector3.new(hum.MoveDirection.X * 29.5, hrp.AssemblyLinearVelocity.Y, hum.MoveDirection.Z * 29.5)
-
-            velocityStatus.Text = "VELOCITY: ACTIVE (29.5)"
-
-            velocityStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
-
-        else
-
-            velocityStatus.Text = "VELOCITY: IDLE (29.5)"
-
-            velocityStatus.TextColor3 = Color3.fromRGB(200, 200, 200)
-
+local function antiLoop()
+    while antiMode == "v1" and charCache.hum do
+        task.wait()
+        if isRagdoll() then
+            removeCons()
+            forceExit()
         end
-
     end
+end
 
-end)
+local function setupCam()
+    if not charCache.hum then return end
+    table.insert(ragConns, rs.RenderStepped:Connect(function()
+        if antiMode ~= "v1" then return end
+        local c = workspace.CurrentCamera
+        if c and charCache.hum and c.CameraSubject ~= charCache.hum then
+            c.CameraSubject = charCache.hum
+        end
+    end))
+end
 
--- Scanner Logic
+local function onChar(c)
+    task.wait(0.5)
+    if not antiMode then return end
+    if cacheChar() then
+        if antiMode == "v1" then
+            setupCam()
+            task.spawn(antiLoop)
+        end
+    end
+end
 
-local function getNearestAnimal()
+function anti.Enable(m)
+    if m ~= "v1" then return end
+    if antiMode == m then return end
+    anti.Disable()
+    if not cacheChar() then return end
+    antiMode = m
+    table.insert(ragConns, plr.CharacterAdded:Connect(onChar))
+    setupCam()
+    task.spawn(antiLoop)
+    print("anti on")
+end
 
-    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+function anti.Disable()
+    if not antiMode then return end
+    antiMode = nil
+    killConns()
+    charCache = {}
+    print("anti off")
+end
 
-    if not hrp then return nil end
+local AnimalsData = require(rep:WaitForChild("Datas"):WaitForChild("Animals"))
 
-    local nearest, dist = nil, 200
+local animalCache = {}
+local promptMem = {}
+local stealMem = {}
+local lastUid = nil
+local lastPos = nil
 
-    for _, plot in ipairs(workspace.Plots:GetChildren()) do
+local radius = 150
+local stealing = false
+local stealProg = 0
+local curTarget = nil
+local stealStart = 0
+local stealConn = nil
+local velConn = nil
 
-        local podiums = plot:FindFirstChild("AnimalPodiums")
+local grabUI = nil
+local progBar = nil
+local dotsFolder = nil
 
-        if podiums then
+local function hrp()
+    local c = plr.Character
+    if not c then return nil end
+    return c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("UpperTorso")
+end
 
-            for _, p in ipairs(podiums:GetChildren()) do
+local function isMyBase(n)
+    local p = workspace.Plots:FindFirstChild(n)
+    if not p then return false end
+    local s = p:FindFirstChild("PlotSign")
+    if s then
+        local y = s:FindFirstChild("YourBase")
+        if y and y:IsA("BillboardGui") then
+            return y.Enabled == true
+        end
+    end
+    return false
+end
 
-                local d = (hrp.Position - p:GetPivot().Position).Magnitude
-
-                if d < dist then dist = d nearest = p end
-
+local function scanPlot(p)
+    if not p or not p:IsA("Model") then return end
+    if isMyBase(p.Name) then return end
+    local pods = p:FindFirstChild("AnimalPodiums")
+    if not pods then return end
+    for _, pod in pairs(pods:GetChildren()) do
+        if pod:IsA("Model") and pod:FindFirstChild("Base") then
+            local name = "Unknown"
+            local spawn = pod.Base:FindFirstChild("Spawn")
+            if spawn then
+                for _, c in pairs(spawn:GetChildren()) do
+                    if c:IsA("Model") and c.Name ~= "PromptAttachment" then
+                        name = c.Name
+                        local info = AnimalsData[name]
+                        if info and info.DisplayName then
+                            name = info.DisplayName
+                        end
+                        break
+                    end
+                end
             end
-
+            table.insert(animalCache, {
+                name = name,
+                plot = p.Name,
+                slot = pod.Name,
+                pos = pod:GetPivot().Position,
+                uid = p.Name .. "_" .. pod.Name,
+            })
         end
-
     end
-
-    return nearest
-
 end
 
--- Working 0.73 Teleport Logic
-
-local function executeInternalSteal(sequence)
-
-    if IsStealing then return end
-
-    local target = getNearestAnimal()
-
-    if not target then return end
-
-    local prompt = target.Base.Spawn.PromptAttachment:FindFirstChildOfClass("ProximityPrompt")
-
-    if not prompt then return end
-
-    IsStealing = true
-
+local function setupScanner()
+    task.wait(2)
+    local plots = workspace:WaitForChild("Plots", 10)
+    if not plots then return end
+    for _, p in pairs(plots:GetChildren()) do
+        if p:IsA("Model") then
+            scanPlot(p)
+        end
+    end
+    plots.ChildAdded:Connect(function(p)
+        if p:IsA("Model") then
+            task.wait(0.5)
+            scanPlot(p)
+        end
+    end)
     task.spawn(function()
-
-        for _, c in ipairs(getconnections(prompt.PromptButtonHoldBegan)) do c:Fire() end
-
-        local startTime = tick()
-
-        local tpDone = false
-
-        while tick() - startTime < 1.3 do
-
-            StealProgress = (tick() - startTime) / 1.3
-
-            if StealProgress >= 0.73 and not tpDone then
-
-                tpDone = true
-
-                local hrp = player.Character.HumanoidRootPart
-
-                local hum = player.Character:FindFirstChildOfClass("Humanoid")
-
-                local carpet = player.Backpack:FindFirstChild("Flying Carpet")
-
-                if carpet then hum:EquipTool(carpet) task.wait(0.05) end
-
-                hrp.CFrame = sequence[1]
-
-                task.wait(0.1)
-
-                hrp.CFrame = sequence[2]
-
-                task.wait(0.2)
-
-                local d1 = (hrp.Position - pos1).Magnitude
-
-                local d2 = (hrp.Position - pos2).Magnitude
-
-                hrp.CFrame = CFrame.new(d1 < d2 and pos1 or pos2)
-
+        while task.wait(5) do
+            if autograb then
+                animalCache = {}
+                for _, p in pairs(plots:GetChildren()) do
+                    if p:IsA("Model") then
+                        scanPlot(p)
+                    end
+                end
             end
-
-            task.wait()
-
         end
-
-        for _, c in ipairs(getconnections(prompt.Triggered)) do c:Fire() end
-
-        IsStealing = false
-
-        StealProgress = 0
-
     end)
-
 end
 
--- Buttons
-
-local function createStyledButton(text, pos, callback, textColor)
-
-    local btn = Instance.new("TextButton", mainFrame)
-
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
-
-    btn.Position = pos
-
-    btn.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
-
-    btn.Text = text
-
-    btn.Font = Enum.Font.GothamBold
-
-    btn.TextColor3 = textColor or Color3.fromRGB(255, 255, 255)
-
-    btn.TextSize = 10
-
-    Instance.new("UICorner", btn)
-
-    local s = Instance.new("UIStroke", btn)
-
-    s.Color = MAIN_RED
-
-    btn.MouseButton1Click:Connect(callback)
-
-    return btn
-
-end
-
-createStyledButton("Auto TP Left", UDim2.new(0.05, 0, 0, 50), function() executeInternalSteal(spot1_sequence) end)
-
-createStyledButton("Auto TP Right", UDim2.new(0.05, 0, 0, 90), function() executeInternalSteal(spot2_sequence) end)
-
-createStyledButton("Force Reset", UDim2.new(0.05, 0, 0, 130), ResetToWork)
-
--- Progress Bar
-
-local bar = Instance.new("Frame", mainFrame)
-
-bar.Size = UDim2.new(0.9, 0, 0, 10)
-
-bar.Position = UDim2.new(0.05, 0, 0, 180)
-
-bar.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-
-local fill = Instance.new("Frame", bar)
-
-fill.Size = UDim2.new(0, 0, 1, 0)
-
-fill.BackgroundColor3 = MAIN_RED
-
-RunService.RenderStepped:Connect(function() fill.Size = UDim2.new(math.clamp(StealProgress, 0, 1), 0, 1, 0) end)
-
--- Discords
-
-createStyledButton("Vanders Discord", UDim2.new(0.05, 0, 0, 340), function() setclipboard("https://discord.gg/VMPaUDS3r") end)
-
-createStyledButton("Solsras Discord", UDim2.new(0.05, 0, 0, 380), function() setclipboard("https://discord.gg/cRbTymkPa") end, Color3.fromRGB(80, 150, 255))
-
--- Draggable Logic
-
-local dragging, dStart, sPos
-
-mainFrame.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true dStart = i.Position sPos = mainFrame.Position end end)
-
-UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-
-    local delta = i.Position - dStart
-
-    mainFrame.Position = UDim2.new(sPos.X.Scale, sPos.X.Offset + delta.X, sPos.Y.Scale, sPos.Y.Offset + delta.Y)
-
-end end)
-
-UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+local function findPrompt(d)
+    if not d then return nil end
+    local cached = promptMem[d.uid]
+    if cached and cached.Parent then
+        return cached
+    end
+    local p = workspace.Plots:FindFirstChild(d.plot)
+    if not p then return nil end
+    local pods = p:FindFirstChild("AnimalPodiums")
+    if not pods then return nil end
+    local pod = pods:FindFirstChild(d.slot)
+    if not pod then return nil end
+    local b = pod:FindFirstChild("Base")
+    if not b then return nil end
+    local s = b:FindFirstChild("Spawn")
+    if not s then return nil end
+    local a = s:FindFirstChild("PromptAttachment")
+    if not a then return nil end
+    for _, pr in
