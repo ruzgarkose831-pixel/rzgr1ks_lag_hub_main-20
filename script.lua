@@ -1,272 +1,168 @@
 --[[
-    ====================================================================================================
-    @project: RZGR1KS DUELS - ENTERPRISE PRIVATE EXECUTIVE
-    @version: 5.0.6 (X-Ray & Multi-Language Update)
-    @status: Ultra-Stable
-    
-    [CHANGELOG V5.0.6]
-    - LANGUAGE SYSTEM: Added TR/EN toggle with persistent saving.
-    - X-RAY MODULE: Restored high-performance structure transparency.
-    - REFINED CONFIG: Optimized JSON structure for language localization.
-    ====================================================================================================
+    rzgr1ks duels - v8 full private
+    yt: rzgr1ks | dc: rzgr1ks
 ]]--
 
-if not game:IsLoaded() then repeat task.wait() until game:IsLoaded() end
+if not game:IsLoaded() then task.wait() end
 
--- // SERVISLER
-local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService("CoreGui")
+local plrs = game:GetService("Players")
+local rs = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local lp = plrs.LocalPlayer
+local cam = workspace.CurrentCamera
 
--- // DEGISKENLER
-local LocalPlayer = Players.LocalPlayer
-local ConfigFileName = "RZGR1KS_V5_FINAL.json"
-
--- // DIL TABLOSU (LANGUAGES)
-local Langs = {
-    ["TR"] = {
-        Open = "AÇ", Close = "KAPAT",
-        ConfigSec = "Konfigürasyon ve Dil",
-        LangToggle = "Dil / Language",
-        Save = "Ayarları Kaydet",
-        Reset = "Sıfırla",
-        CombatSec = "Savaş Operasyonları",
-        HB = "Hitbox Genişletme",
-        HBSize = "Hitbox Boyutu",
-        Spin = "Fiziksel Spinbot",
-        SpinSpd = "Dönüş Hızı",
-        MoveSec = "Fizyoloji / Hareket",
-        Speed = "Yürüme Hızı",
-        Jump = "Zıplama Gücü",
-        Grav = "Yerçekimi",
-        InfJump = "Sınırsız Zıplama",
-        VisualSec = "Görsel Zeka",
-        ESP = "Oyuncu ESP (Highlight)",
-        XRay = "Yapı X-Ray (Duvar Arkası)",
-        SocialSec = "Sosyal",
-        Copied = "KOPYALANDI!"
-    },
-    ["EN"] = {
-        Open = "OPEN", Close = "CLOSE",
-        ConfigSec = "Config & Language",
-        LangToggle = "Language / Dil",
-        Save = "Save Settings",
-        Reset = "Reset Config",
-        CombatSec = "Combat Operations",
-        HB = "Hitbox Expander",
-        HBSize = "Hitbox Size",
-        Spin = "Physical Spinbot",
-        SpinSpd = "Spin Velocity",
-        MoveSec = "Physiology / Movement",
-        Speed = "Walk Speed",
-        Jump = "Jump Power",
-        Grav = "Gravity Control",
-        InfJump = "Infinite Jump",
-        VisualSec = "Visual Intelligence",
-        ESP = "Player ESP (Highlight)",
-        XRay = "Structure X-Ray",
-        SocialSec = "Socials",
-        Copied = "COPIED!"
-    }
+local cfg = {
+    reach = false, reach_dist = 15, classic_hb = false,
+    aim = false, aim_part = "Head", team_chk = true, wall_chk = false,
+    spd = 16, jmp = 50, inf_jmp = false, spin = false, spin_spd = 50,
+    esp = false, xray = false
 }
 
--- // VARSAYILAN AYARLAR
-local Config = {
-    Language = "TR", -- Varsayılan Türkçe
-    Combat = { HitboxEnabled = false, HitboxSize = 25, SpinbotActive = false, SpinRPM = 50 },
-    Movement = { Speed = 16, Jump = 50, Gravity = 196.2, InfiniteJump = false },
-    Visuals = { HighlightESP = false, XRayActive = false, XRayTrans = 0.6 },
-    Misc = { AntiAFK = true }
-}
+local gui = Instance.new("ScreenGui", (gethui and gethui()) or lp.PlayerGui)
+gui.Name = "rz_v8_priv"
 
--- // 💾 CONFIG MOTORU
-local function SaveConfig()
-    pcall(function() if writefile then writefile(ConfigFileName, HttpService:JSONEncode(Config)) end end)
+local bg = Instance.new("Frame", gui)
+bg.Size = UDim2.new(0, 350, 0, 480); bg.Position = UDim2.new(0.5, -175, 0.2, 0)
+bg.BackgroundColor3 = Color3.fromRGB(15, 15, 15); bg.Active = true; bg.Draggable = true
+Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 6)
+
+local top = Instance.new("TextLabel", bg)
+top.Size = UDim2.new(1, 0, 0, 30); top.Text = "rzgr1ks duels v8 | FULL"; top.TextColor3 = Color3.new(1,0,0); top.Font = "Code"; top.BackgroundTransparency = 1; top.TextSize = 16
+
+local scroll = Instance.new("ScrollingFrame", bg)
+scroll.Size = UDim2.new(1, -10, 1, -40); scroll.Position = UDim2.new(0, 5, 0, 35)
+scroll.BackgroundTransparency = 1; scroll.ScrollBarThickness = 2; scroll.AutomaticCanvasSize = "Y"
+local list = Instance.new("UIListLayout", scroll); list.Padding = UDim.new(0, 4)
+
+-- // UI Builder (Kısa ve organik)
+local function btn(txt, state_key, callback)
+    local b = Instance.new("TextButton", scroll)
+    b.Size = UDim2.new(1, -5, 0, 30); b.BackgroundColor3 = Color3.fromRGB(25, 25, 25); b.TextColor3 = Color3.new(1,1,1); b.Font = "Code"; Instance.new("UICorner", b)
+    local function upd() b.Text = txt .. ": " .. tostring(cfg[state_key]) end
+    b.MouseButton1Click:Connect(function() cfg[state_key] = not cfg[state_key]; upd(); if callback then callback(cfg[state_key]) end end)
+    upd(); return b
 end
 
-local function LoadConfig()
-    pcall(function()
-        if isfile and isfile(ConfigFileName) then
-            local data = HttpService:JSONDecode(readfile(ConfigFileName))
-            for cat, sub in pairs(data) do
-                if type(sub) == "table" then
-                    for k, v in pairs(sub) do Config[cat][k] = v end
-                else
-                    Config[cat] = sub
+local function slider(txt, min, max, state_key)
+    local f = Instance.new("Frame", scroll); f.Size = UDim2.new(1, -5, 0, 40); f.BackgroundTransparency = 1
+    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 20); l.Text = txt..": "..cfg[state_key]; l.TextColor3 = Color3.new(1,1,1); l.BackgroundTransparency = 1; l.Font = "Code"
+    local b = Instance.new("TextButton", f); b.Size = UDim2.new(1, 0, 0, 15); b.Position = UDim2.new(0,0,0,20); b.BackgroundColor3 = Color3.fromRGB(40,40,40); b.Text = ""; Instance.new("UICorner", b)
+    local fill = Instance.new("Frame", b); fill.Size = UDim2.new((cfg[state_key]-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.new(1,0,0); Instance.new("UICorner", fill)
+    local drag = false
+    b.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = true end end)
+    uis.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end end)
+    rs.RenderStepped:Connect(function() 
+        if drag then 
+            local p = math.clamp((uis:GetMouseLocation().X - b.AbsolutePosition.X)/b.AbsoluteSize.X, 0, 1)
+            cfg[state_key] = math.floor(min + (p * (max-min))); fill.Size = UDim2.new(p,0,1,0); l.Text = txt..": "..cfg[state_key]
+        end 
+    end)
+end
+
+local function lbl(txt)
+    local l = Instance.new("TextLabel", scroll); l.Size = UDim2.new(1, 0, 0, 20); l.Text = " > " .. txt; l.TextColor3 = Color3.new(1,0,0); l.BackgroundTransparency = 1; l.Font = "Code"; l.TextXAlignment = "Left"
+end
+
+-- // Menüyü Diz
+lbl("COMBAT & REACH")
+btn("Stealth Reach (Bypass)", "reach")
+btn("Classic Hitbox (Size)", "classic_hb", function(v) if not v then for _,p in pairs(plrs:GetPlayers()) do if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then p.Character.HumanoidRootPart.Size = Vector3.new(2,2,1); p.Character.HumanoidRootPart.Transparency = 1 end end end end)
+slider("Hitbox/Reach Size", 5, 50, "reach_dist")
+btn("Spinbot", "spin")
+
+lbl("AIMBOT (Hold E)")
+btn("Aimbot Master", "aim")
+btn("Team Check", "team_chk")
+btn("Wall Check", "wall_chk")
+local pt_btn = Instance.new("TextButton", scroll); pt_btn.Size = UDim2.new(1, -5, 0, 30); pt_btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25); pt_btn.TextColor3 = Color3.new(1,1,1); pt_btn.Font = "Code"; Instance.new("UICorner", pt_btn); pt_btn.Text = "Aim Part: " .. cfg.aim_part
+pt_btn.MouseButton1Click:Connect(function() cfg.aim_part = (cfg.aim_part == "Head") and "Torso" or "Head"; pt_btn.Text = "Aim Part: " .. cfg.aim_part end)
+
+lbl("MOVEMENT")
+slider("Walk Speed", 16, 250, "spd")
+slider("Jump Power", 50, 300, "jmp")
+btn("Infinite Jump", "inf_jmp")
+
+lbl("VISUALS & MISC")
+btn("Player ESP", "esp", function(v) if not v then for _,p in pairs(plrs:GetPlayers()) do if p.Character and p.Character:FindFirstChild("rz_esp") then p.Character.rz_esp:Destroy() end end end end)
+local xray_cache = {}
+btn("X-Ray", "xray", function(v)
+    if v then for _,o in pairs(workspace:GetDescendants()) do if o:IsA("BasePart") and not o:IsDescendantOf(lp.Character) and not o.Parent:FindFirstChild("Humanoid") then xray_cache[o] = o.Transparency; o.Transparency = 0.6 end end
+    else for o, t in pairs(xray_cache) do if o then o.Transparency = t end end; table.clear(xray_cache) end
+end)
+local s_btn = Instance.new("TextButton", scroll); s_btn.Size = UDim2.new(1, -5, 0, 30); s_btn.BackgroundColor3 = Color3.fromRGB(40, 10, 10); s_btn.TextColor3 = Color3.new(1,1,1); s_btn.Font = "Code"; Instance.new("UICorner", s_btn); s_btn.Text = "Copy rzgr1ks YT/DC"
+s_btn.MouseButton1Click:Connect(function() setclipboard("YouTube: rzgr1ks | Discord: rzgr1ks") end)
+
+-- // Aimbot Core
+local is_aiming = false
+uis.InputBegan:Connect(function(k, gp) if not gp and k.KeyCode == Enum.KeyCode.E then is_aiming = true end end)
+uis.InputEnded:Connect(function(k, gp) if not gp and k.KeyCode == Enum.KeyCode.E then is_aiming = false end end)
+
+local function get_aim()
+    local t, d = nil, math.huge
+    local m = uis:GetMouseLocation()
+    for _, p in pairs(plrs:GetPlayers()) do
+        if p ~= lp and p.Character and p.Character:FindFirstChild(cfg.aim_part) and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            if cfg.team_chk and p.Team == lp.Team then continue end
+            local pos, vis = cam:WorldToViewportPoint(p.Character[cfg.aim_part].Position)
+            if vis then
+                if cfg.wall_chk then
+                    local ray = RaycastParams.new(); ray.FilterDescendantsInstances = {lp.Character, p.Character}; ray.FilterType = Enum.RaycastFilterType.Exclude
+                    if workspace:Raycast(cam.CFrame.Position, (p.Character[cfg.aim_part].Position - cam.CFrame.Position).Unit * 1000, ray) then continue end
                 end
+                local dist = (Vector2.new(pos.X, pos.Y) - m).Magnitude
+                if dist < d then t = p.Character[cfg.aim_part]; d = dist end
             end
         end
-    end)
-end
-LoadConfig()
-
--- // 🛠️ X-RAY MODÜLÜ
-local XRayCache = {}
-local function ToggleXRay(state)
-    if state then
-        task.spawn(function()
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character) then
-                    if not obj.Parent:FindFirstChildOfClass("Humanoid") and obj.Transparency < 1 then
-                        XRayCache[obj] = obj.Transparency
-                        obj.Transparency = Config.Visuals.XRayTrans
-                    end
-                end
-            end
-        end)
-    else
-        for part, trans in pairs(XRayCache) do if part and part.Parent then part.Transparency = trans end end
-        table.clear(XRayCache)
     end
+    return t
 end
 
--- // GUI BASLANGIC
-local TargetParent = (gethui and gethui()) or CoreGui or LocalPlayer:WaitForChild("PlayerGui")
-if TargetParent:FindFirstChild("RZGR1KS_V6") then TargetParent:FindFirstChild("RZGR1KS_V6"):Destroy() end
-
-local ScreenUI = Instance.new("ScreenGui", TargetParent)
-ScreenUI.Name = "RZGR1KS_V6"; ScreenUI.ResetOnSpawn = false; ScreenUI.IgnoreGuiInset = true
-
-local MainFrame = Instance.new("Frame", ScreenUI)
-MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12); MainFrame.Size = UDim2.new(0, 380, 0, 52); MainFrame.Position = UDim2.new(0.5, -190, 0.2, 0); MainFrame.Active = true; MainFrame.Draggable = true; MainFrame.ClipsDescendants = true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
-
-local Header = Instance.new("Frame", MainFrame)
-Header.Size = UDim2.new(1, 0, 0, 52); Header.BackgroundTransparency = 1
-
-local Title = Instance.new("TextLabel", Header)
-Title.Text = "RZGR1KS DUELS : ENTERPRISE"; Title.Font = "GothamBold"; Title.TextColor3 = Color3.fromRGB(220, 40, 40); Title.TextSize = 14; Title.Size = UDim2.new(1, -120, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.TextXAlignment = "Left"
-
-local ToggleBtn = Instance.new("TextButton", Header)
-ToggleBtn.Text = Langs[Config.Language].Open; ToggleBtn.Size = UDim2.new(0, 80, 0, 32); ToggleBtn.Position = UDim2.new(1, -95, 0, 10); ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25); ToggleBtn.TextColor3 = Color3.new(1, 1, 1); ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 11
-Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
-
-local Content = Instance.new("ScrollingFrame", MainFrame)
-Content.Position = UDim2.new(0, 10, 0, 65); Content.Size = UDim2.new(1, -20, 0, 435); Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 1; Content.Visible = false; Content.AutomaticCanvasSize = "Y"
-Instance.new("UIListLayout", Content).Padding = UDim.new(0, 8)
-
--- // UI FABRIKASI
-local Components = {}
-local RefreshUI = function() end -- Global yenileme
-
-function Components:Section(langKey)
-    local l = Instance.new("TextLabel", Content)
-    l.Size = UDim2.new(1, 0, 0, 25); l.BackgroundTransparency = 1; l.Font = "GothamBold"; l.TextColor3 = Color3.fromRGB(220, 40, 40); l.TextSize = 10
-    local update = function() l.Text = ">>> " .. Langs[Config.Language][langKey]:upper() .. " <<<" end
-    update(); return update
-end
-
-function Components:Toggle(langKey, dataset, key, callback)
-    local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, -10, 0, 40); b.Font = "GothamBold"; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 11; Instance.new("UICorner", b)
-    local update = function()
-        b.Text = Langs[Config.Language][langKey] .. " : " .. (dataset[key] and "ON" or "OFF")
-        b.BackgroundColor3 = dataset[key] and Color3.fromRGB(180, 40, 40) or Color3.fromRGB(20, 20, 20)
-    end
-    b.MouseButton1Click:Connect(function()
-        dataset[key] = not dataset[key]
-        update(); if callback then callback(dataset[key]) end; SaveConfig()
-    end)
-    update(); return update
-end
-
-function Components:Slider(langKey, min, max, dataset, key, callback)
-    local f = Instance.new("Frame", Content); f.Size = UDim2.new(1, -10, 0, 60); f.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 20); l.BackgroundTransparency = 1; l.Font = "Gotham"; l.TextColor3 = Color3.new(0.8, 0.8, 0.8); l.TextSize = 11; l.TextXAlignment = "Left"
-    local t = Instance.new("TextButton", f); t.Size = UDim2.new(1, 0, 0, 10); t.Position = UDim2.new(0, 0, 0, 25); t.BackgroundColor3 = Color3.fromRGB(30, 30, 30); t.Text = ""
-    local fill = Instance.new("Frame", t); fill.Size = UDim2.new(math.clamp((dataset[key]-min)/(max-min), 0, 1), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
-    Instance.new("UICorner", t); Instance.new("UICorner", fill)
+-- // Main Loop
+rs.RenderStepped:Connect(function()
+    local char = lp.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     
-    local isSliding = false
-    local updateText = function() l.Text = Langs[Config.Language][langKey] .. " : " .. dataset[key] end
-    local function UpdateVal()
-        local scale = math.clamp((UIS:GetMouseLocation().X - t.AbsolutePosition.X) / t.AbsoluteSize.X, 0, 1)
-        local val = math.floor(min + (scale * (max - min)))
-        dataset[key] = val; updateText(); fill.Size = UDim2.new(scale, 0, 1, 0)
-        if callback then callback() end
+    if hum then hum.WalkSpeed = cfg.spd; hum.JumpPower = cfg.jmp end
+    
+    if cfg.aim and is_aiming then
+        local targ = get_aim()
+        if targ then cam.CFrame = CFrame.new(cam.CFrame.Position, targ.Position) end
     end
-    t.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then isSliding = true end end)
-    UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then if isSliding then isSliding = false; SaveConfig() end end end)
-    RunService.RenderStepped:Connect(function() if isSliding then UpdateVal() end end)
-    updateText(); return updateText
-end
-
-function Components:Button(langKey, callback)
-    local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, -10, 0, 35); b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.Font = "GothamBold"; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 11; Instance.new("UICorner", b)
-    local update = function() b.Text = Langs[Config.Language][langKey] or langKey end
-    b.MouseButton1Click:Connect(callback); update(); return update
-end
-
--- // 🟢 UI OLUŞTURMA VE GÜNCELLEME LİSTESİ
-local UIElements = {}
-
-table.insert(UIElements, Components:Section("ConfigSec"))
-table.insert(UIElements, Components:Button("LangToggle", function()
-    Config.Language = (Config.Language == "TR") and "EN" or "TR"
-    for _, updateFunc in pairs(UIElements) do updateFunc() end
-    ToggleBtn.Text = Content.Visible and Langs[Config.Language].Close or Langs[Config.Language].Open
-    SaveConfig()
-end))
-table.insert(UIElements, Components:Button("Save", SaveConfig))
-
-table.insert(UIElements, Components:Section("CombatSec"))
-table.insert(UIElements, Components:Toggle("HB", Config.Combat, "HitboxEnabled"))
-table.insert(UIElements, Components:Slider("HBSize", 2, 250, Config.Combat, "HitboxSize"))
-table.insert(UIElements, Components:Toggle("Spin", Config.Combat, "SpinbotActive"))
-
-table.insert(UIElements, Components:Section("MoveSec"))
-table.insert(UIElements, Components:Slider("Speed", 16, 500, Config.Movement, "Speed"))
-table.insert(UIElements, Components:Slider("Jump", 50, 1000, Config.Movement, "Jump"))
-table.insert(UIElements, Components:Slider("Grav", 0, 1000, Config.Movement, "Gravity"))
-table.insert(UIElements, Components:Toggle("InfJump", Config.Movement, "InfiniteJump"))
-
-table.insert(UIElements, Components:Section("VisualSec"))
-table.insert(UIElements, Components:Toggle("ESP", Config.Visuals, "HighlightESP", function(v)
-    if not v then for _,p in pairs(Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("RZ_HL") then p.Character.RZ_HL:Destroy() end end end
-end))
-table.insert(UIElements, Components:Toggle("XRay", Config.Visuals, "XRayActive", ToggleXRay))
-
--- // DİNAMİK DÖNGÜLER
-RunService.Heartbeat:Connect(function()
-    if Config.Combat.HitboxEnabled then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                p.Character.HumanoidRootPart.Size = Vector3.new(Config.Combat.HitboxSize, Config.Combat.HitboxSize, Config.Combat.HitboxSize)
-                p.Character.HumanoidRootPart.Transparency = 0.7; p.Character.HumanoidRootPart.CanCollide = false
+    
+    for _, p in pairs(plrs:GetPlayers()) do
+        if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            local e_hrp = p.Character.HumanoidRootPart
+            
+            if cfg.classic_hb then
+                e_hrp.Size = Vector3.new(cfg.reach_dist, cfg.reach_dist, cfg.reach_dist)
+                e_hrp.Transparency = 0.7; e_hrp.CanCollide = false
+            end
+            
+            if cfg.reach then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("Handle") and hrp and (hrp.Position - e_hrp.Position).Magnitude <= cfg.reach_dist then
+                    firetouchinterest(e_hrp, tool.Handle, 0); firetouchinterest(e_hrp, tool.Handle, 1)
+                end
+            end
+            
+            if cfg.esp and not p.Character:FindFirstChild("rz_esp") then
+                local hl = Instance.new("Highlight", p.Character); hl.Name = "rz_esp"; hl.FillColor = Color3.new(1,0,0)
             end
         end
     end
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = Config.Movement.Speed; hum.JumpPower = Config.Movement.Jump; workspace.Gravity = Config.Movement.Gravity
-    end
-    if Config.Combat.SpinbotActive and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, Config.Combat.SpinRPM, 0)
-    end
+    
+    if cfg.spin and hrp then hrp.AssemblyAngularVelocity = Vector3.new(0, cfg.spin_spd, 0) end
 end)
 
--- ESP Karakter Takibi
-local function ApplyESP(p)
-    p.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
-        if Config.Visuals.HighlightESP then
-            local hl = Instance.new("Highlight", char); hl.Name = "RZ_HL"; hl.FillTransparency = 0.7
+-- Mobile Auto Proximity (E)
+rs.Heartbeat:Connect(function()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") and lp.Character and lp.Character.PrimaryPart and (lp.Character.PrimaryPart.Position - obj.Parent.Position).Magnitude < obj.MaxActivationDistance then
+            fireproximityprompt(obj)
         end
-    end)
-end
-Players.PlayerAdded:Connect(ApplyESP); for _,p in pairs(Players:GetPlayers()) do ApplyESP(p) end
-
--- Menu Aç/Kapat
-ToggleBtn.MouseButton1Click:Connect(function()
-    Content.Visible = not Content.Visible
-    ToggleBtn.Text = Content.Visible and Langs[Config.Language].Close or Langs[Config.Language].Open
-    TweenService:Create(MainFrame, TweenInfo.new(0.4), {Size = Content.Visible and UDim2.new(0, 380, 0, 510) or UDim2.new(0, 380, 0, 52)}):Play()
+    end
 end)
 
-UIS.JumpRequest:Connect(function() if Config.Movement.InfiniteJump then LocalPlayer.Character.Humanoid:ChangeState(3) end end)
-
-print("RZGR1KS DUELS ENTERPRISE V5.0.6 LOADED")
+uis.JumpRequest:Connect(function() if cfg.inf_jmp and lp.Character then lp.Character:FindFirstChild("Humanoid"):ChangeState(3) end end)
