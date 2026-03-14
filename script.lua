@@ -1,21 +1,19 @@
 --[[
     ================================================================================
     @project: RZGR1KS DUELS - PRIVATE EXECUTIVE EDITION
-    @version: 4.8.5 (Gold Master)
-    @status: Optimized for High-Performance Execution
+    @version: 4.8.6 (Stable UI & Physics Update)
+    @status: High-Performance Execution Ready
     
     [SYSTEM OVERVIEW]
     This executive suite is a high-fidelity automation framework designed 
     for the 'Duels' environment. It utilizes advanced Metamethod Hooking 
-    and Asynchronous Task Buffering to ensure maximum stability and 
-    zero-latency user experience.
+    and Asynchronous Task Buffering to ensure maximum stability.
     
-    [TECHNICAL ARCHITECTURE]
-    1. USER INTERFACE: Modular ScreenGui with dynamic scaling and persistence.
-    2. COMBAT ENGINE: Part-size manipulation and state-based rotation.
-    3. KINEMATIC SUITE: Native Humanoid property injection for movement.
-    4. VISUAL STACK: Native Highlight implementation for zero-lag ESP.
-    5. DATA LAYER: JSON-based local storage for configuration saving.
+    [PATCH NOTES V4.8.6]
+    - FIXED: UI scaling bug. Header and Close button are now anchored via Offset.
+    - FIXED: Slider input logic rewritten utilizing absolute Mouse position.
+    - OVERHAUL: Spinbot method changed from CFrame-locking to AssemblyAngularVelocity 
+      for butter-smooth rotation that doesn't conflict with movement paths.
     
     [LEGAL NOTICE]
     This project is private property. Unauthorized distribution is prohibited.
@@ -35,13 +33,13 @@ local CoreGui = (gethui and gethui()) or game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
-local ConfigFile = "RZGR1KS_V5_DATA.json"
+local ConfigFile = "RZGR1KS_V6_DATA.json"
 
 -- // 1. EXECUTIVE INTERFACE INITIALIZATION
--- This block ensures the UI is active before any game-logic starts.
 local UI_Container = Instance.new("ScreenGui", CoreGui)
-UI_Container.Name = "RZGR1KS_EXECUTIVE_V5"
+UI_Container.Name = "RZGR1KS_EXECUTIVE_V6"
 UI_Container.ResetOnSpawn = false
+UI_Container.IgnoreGuiInset = true -- Prevents mouse offset bugs
 
 local MainFrame = Instance.new("Frame", UI_Container)
 MainFrame.Size = UDim2.new(0, 380, 0, 52)
@@ -52,8 +50,9 @@ MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 9)
 
+-- FIXED: Absolute positioning (Offset) prevents moving when UI expands
 local Branding = Instance.new("TextLabel", MainFrame)
-Branding.Size = UDim2.new(1, -100, 1, 0)
+Branding.Size = UDim2.new(1, -100, 0, 52) 
 Branding.Position = UDim2.new(0, 20, 0, 0)
 Branding.BackgroundTransparency = 1
 Branding.Text = "RZGR1KS DUELS EXECUTIVE"
@@ -62,9 +61,10 @@ Branding.TextColor3 = Color3.fromRGB(220, 40, 40)
 Branding.TextSize = 14
 Branding.TextXAlignment = Enum.TextXAlignment.Left
 
+-- FIXED: Absolute positioning (Offset) for the toggle button
 local ToggleButton = Instance.new("TextButton", MainFrame)
 ToggleButton.Size = UDim2.new(0, 80, 0, 32)
-ToggleButton.Position = UDim2.new(1, -90, 0.5, -16)
+ToggleButton.Position = UDim2.new(1, -90, 0, 10)
 ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 ToggleButton.Text = "OPEN"
 ToggleButton.TextColor3 = Color3.new(1, 1, 1)
@@ -83,17 +83,16 @@ Instance.new("UIListLayout", MenuScroll).Padding = UDim.new(0, 10)
 
 -- // 2. PERSISTENT CONFIGURATION SYSTEM
 local Config = {
-    Combat = { HitboxEnabled = false, HitboxSize = 25, SpinbotActive = false, SpinRPM = 200 },
+    Combat = { HitboxEnabled = false, HitboxSize = 25, SpinbotActive = false, SpinRPM = 50 },
     Movement = { Speed = 16, Jump = 50, Gravity = 196.2, InfiniteJump = false, AntiRagdoll = false },
     Visuals = { HighlightESP = false, XRayActive = false },
     Misc = { AutoInteract = false }
 }
 
 local function ExportSettings()
-    local status, result = pcall(function()
+    pcall(function()
         if writefile then writefile(ConfigFile, HttpService:JSONEncode(Config)) end
     end)
-    return status
 end
 
 local function ImportSettings()
@@ -101,7 +100,9 @@ local function ImportSettings()
         if isfile and isfile(ConfigFile) and readfile then
             local loadedData = HttpService:JSONDecode(readfile(ConfigFile))
             for category, keys in pairs(loadedData) do
-                for key, value in pairs(keys) do Config[category][key] = value end
+                if Config[category] then
+                    for key, value in pairs(keys) do Config[category][key] = value end
+                end
             end
         end
     end)
@@ -180,9 +181,15 @@ RunService.Heartbeat:Connect(function()
         humanoid.JumpPower = Config.Movement.Jump
         workspace.Gravity = Config.Movement.Gravity
         
-        -- Rotational Mechanics
+        -- OVERHAULED SPINBOT: Uses AssemblyAngularVelocity instead of CFrame
+        -- This provides ultra-smooth rotation that doesn't jitter your movement
         if Config.Combat.SpinbotActive then
-            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(Config.Combat.SpinRPM), 0)
+            rootPart.AssemblyAngularVelocity = Vector3.new(0, Config.Combat.SpinRPM, 0)
+        else
+            -- Reset velocity if spinbot is turned off
+            if rootPart.AssemblyAngularVelocity.Y == Config.Combat.SpinRPM then
+                rootPart.AssemblyAngularVelocity = Vector3.new(rootPart.AssemblyAngularVelocity.X, 0, rootPart.AssemblyAngularVelocity.Z)
+            end
         end
         
         -- Anti-State Enforcement
@@ -236,6 +243,7 @@ local function NewToggle(label, dataset, key, callback)
     end)
 end
 
+-- FIXED SLIDER LOGIC
 local function NewSlider(label, min, max, dataset, key, callback)
     local f = Instance.new("Frame", MenuScroll); f.Size = UDim2.new(1, -15, 0, 65); f.BackgroundTransparency = 1
     local t = Instance.new("TextLabel", f); t.Size = UDim2.new(1, 0, 0, 20); t.BackgroundTransparency = 1
@@ -248,29 +256,50 @@ local function NewSlider(label, min, max, dataset, key, callback)
     bar.Size = UDim2.new(math.clamp((dataset[key]-min)/(max-min), 0, 1), 0, 1, 0); Instance.new("UICorner", bar)
     
     local isSliding = false
+    
     local function process()
-        local scale = math.clamp((UIS:GetMouseLocation().X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+        if not isSliding then return end
+        -- Uses absolute Mouse.X for flawless tracking
+        local relativeX = math.clamp(Mouse.X - track.AbsolutePosition.X, 0, track.AbsoluteSize.X)
+        local scale = relativeX / track.AbsoluteSize.X
         local value = math.floor(min + (scale * (max - min)))
-        dataset[key] = value; t.Text = label .. " : " .. value; bar.Size = UDim2.new(scale, 0, 1, 0)
+        
+        dataset[key] = value
+        t.Text = label .. " : " .. value
+        bar.Size = UDim2.new(scale, 0, 1, 0)
+        
         if callback then callback() end
         ExportSettings()
     end
     
-    track.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then isSliding = true end end)
-    UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then isSliding = false end end)
-    UIS.InputChanged:Connect(function(i) if isSliding and i.UserInputType == Enum.UserInputType.MouseMovement then process() end end)
+    track.MouseButton1Down:Connect(function()
+        isSliding = true
+        process()
+    end)
+    
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isSliding = false
+        end
+    end)
+    
+    UIS.InputChanged:Connect(function(input)
+        if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then
+            process()
+        end
+    end)
 end
 
 -- // 7. INTERFACE ASSEMBLY
 NewHeader("Offensive Modules")
 NewToggle("Target Hitbox Expander", Config.Combat, "HitboxEnabled", ApplyHitboxMod)
 NewSlider("Hitbox Scale", 2, 250, Config.Combat, "HitboxSize", ApplyHitboxMod)
-NewToggle("High-Speed Spinbot", Config.Combat, "SpinbotActive")
-NewSlider("Rotation RPM", 0, 1000, Config.Combat, "SpinRPM")
+NewToggle("Physical Spinbot", Config.Combat, "SpinbotActive")
+NewSlider("Spin Velocity", 0, 500, Config.Combat, "SpinRPM")
 
 NewHeader("Movement Protocols")
-NewSlider("Walk Speed Multiplier", 16, 1000, Config.Movement, "Speed")
-NewSlider("Jump Height Intensity", 50, 1200, Config.Movement, "Jump")
+NewSlider("Walk Speed Multiplier", 16, 500, Config.Movement, "Speed")
+NewSlider("Jump Height Intensity", 50, 800, Config.Movement, "Jump")
 NewSlider("Global Gravity Override", 0, 1000, Config.Movement, "Gravity")
 NewToggle("Infinite Jump Access", Config.Movement, "InfiniteJump")
 NewToggle("Anti-Ragdoll State", Config.Movement, "AntiRagdoll")
@@ -307,9 +336,9 @@ end)
 -- TERMINAL LOGGING
 print("----------------------------------------")
 print("RZGR1KS DUELS EXECUTIVE LOADED")
-print("VERSION: 4.8.5")
+print("VERSION: 4.8.6")
 print("STATUS: SECURE & OPTIMIZED")
 print("----------------------------------------")
 
--- Initial ESP Sync
+-- Initial Sync
 SynchronizeESP()
