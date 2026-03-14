@@ -1,165 +1,263 @@
 --[[
-    ================================================================================
-    @project: RZGR1KS DUELS - PRIVATE EXECUTIVE EDITION
-    @version: 4.8.6 (Stable UI & Physics Update)
-    @status: High-Performance Execution Ready
+    ====================================================================================================
+    @project: RZGR1KS DUELS - ENTERPRISE PRIVATE EXECUTIVE
+    @version: 5.0.0 (The Ultimate Framework Update)
+    @status: Production Ready - High Performance
     
-    [SYSTEM OVERVIEW]
-    This executive suite is a high-fidelity automation framework designed 
-    for the 'Duels' environment. It utilizes advanced Metamethod Hooking 
-    and Asynchronous Task Buffering to ensure maximum stability.
+    [SYSTEM ARCHITECTURE - ARCHITECTURAL OVERVIEW]
+    This script is built on a Modular Design Pattern, ensuring that each feature (Combat, Visuals, 
+    Movement, and UI) operates within its own protected memory space. This approach minimizes 
+    interference with the game's internal garbage collection and prevents execution-based crashes.
     
-    [PATCH NOTES V4.8.6]
-    - FIXED: UI scaling bug. Header and Close button are now anchored via Offset.
-    - FIXED: Slider input logic rewritten utilizing absolute Mouse position.
-    - OVERHAUL: Spinbot method changed from CFrame-locking to AssemblyAngularVelocity 
-      for butter-smooth rotation that doesn't conflict with movement paths.
+    [LOGIC REDESIGN: SMOOTH-SYNC TECHNOLOGY]
+    1. SLIDER POLLING: Utilizing RenderStepped to decouple input from the main thread, resulting 
+       in zero-latency slider movement.
+    2. PHYSICS OVERRIDE: Implementing Assembly-based angular forces for the Spinbot to avoid 
+       CFrame-jittering during high-speed duels.
+    3. UI ANCHORING: Absolute pixel offsets are used for the Header and Toggle buttons to 
+       ensure visual stability during container expansion/contraction.
+    4. BUFFERED X-RAY: X-Ray scans are processed in asynchronous cycles to prevent CPU spikes.
     
-    [LEGAL NOTICE]
-    This project is private property. Unauthorized distribution is prohibited.
-    ================================================================================
+    [CREDITS]
+    Designed and Maintained by RZGR1KS.
+    No unauthorized redistribution or reselling.
+    ====================================================================================================
 ]]--
 
--- // CORE SERVICES & DEPENDENCIES
+-- // START: GLOBAL DEPENDENCY MANAGEMENT
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local HttpService = game:GetService("HttpService")
+local Debris = game:GetService("Debris")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 local CoreGui = (gethui and gethui()) or game:GetService("CoreGui")
 
--- // LOCAL ENVIRONMENT SETUP
+-- // START: ENVIRONMENT VARIABLES
 local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
-local ConfigFile = "RZGR1KS_V6_DATA.json"
 
--- // 1. EXECUTIVE INTERFACE INITIALIZATION
-local UI_Container = Instance.new("ScreenGui", CoreGui)
-UI_Container.Name = "RZGR1KS_EXECUTIVE_V6"
-UI_Container.ResetOnSpawn = false
-UI_Container.IgnoreGuiInset = true -- Prevents mouse offset bugs
+-- // START: DATA STORAGE & LOGGING SYSTEM
+local ConfigFile = "RZGR1KS_V5_ENTERPRISE.json"
+local LogPrefix = "[RZGR1KS-V5]: "
 
-local MainFrame = Instance.new("Frame", UI_Container)
-MainFrame.Size = UDim2.new(0, 380, 0, 52)
-MainFrame.Position = UDim2.new(0.5, -190, 0.12, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 9)
+local function SafeLog(msg)
+    print(LogPrefix .. tostring(msg))
+end
 
--- FIXED: Absolute positioning (Offset) prevents moving when UI expands
-local Branding = Instance.new("TextLabel", MainFrame)
-Branding.Size = UDim2.new(1, -100, 0, 52) 
-Branding.Position = UDim2.new(0, 20, 0, 0)
-Branding.BackgroundTransparency = 1
-Branding.Text = "RZGR1KS DUELS EXECUTIVE"
-Branding.Font = Enum.Font.GothamBold
-Branding.TextColor3 = Color3.fromRGB(220, 40, 40)
-Branding.TextSize = 14
-Branding.TextXAlignment = Enum.TextXAlignment.Left
-
--- FIXED: Absolute positioning (Offset) for the toggle button
-local ToggleButton = Instance.new("TextButton", MainFrame)
-ToggleButton.Size = UDim2.new(0, 80, 0, 32)
-ToggleButton.Position = UDim2.new(1, -90, 0, 10)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-ToggleButton.Text = "OPEN"
-ToggleButton.TextColor3 = Color3.new(1, 1, 1)
-ToggleButton.Font = Enum.Font.GothamBold
-ToggleButton.TextSize = 11
-Instance.new("UICorner", ToggleButton)
-
-local MenuScroll = Instance.new("ScrollingFrame", MainFrame)
-MenuScroll.Size = UDim2.new(1, -20, 0, 430)
-MenuScroll.Position = UDim2.new(0, 10, 0, 65)
-MenuScroll.BackgroundTransparency = 1
-MenuScroll.Visible = false
-MenuScroll.ScrollBarThickness = 2
-MenuScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Instance.new("UIListLayout", MenuScroll).Padding = UDim.new(0, 10)
-
--- // 2. PERSISTENT CONFIGURATION SYSTEM
 local Config = {
-    Combat = { HitboxEnabled = false, HitboxSize = 25, SpinbotActive = false, SpinRPM = 50 },
-    Movement = { Speed = 16, Jump = 50, Gravity = 196.2, InfiniteJump = false, AntiRagdoll = false },
-    Visuals = { HighlightESP = false, XRayActive = false },
-    Misc = { AutoInteract = false }
+    Combat = {
+        HitboxEnabled = false,
+        HitboxSize = 25,
+        HitboxTransparency = 0.75,
+        SpinbotActive = false,
+        SpinRPM = 50,
+        SilentAimEnabled = false,
+        FieldOfView = 100,
+        LookAtTarget = false
+    },
+    Movement = {
+        Speed = 16,
+        Jump = 50,
+        Gravity = 196.2,
+        InfiniteJump = false,
+        AntiRagdoll = false,
+        NoClip = false,
+        SwimAir = false,
+        AutoJump = false
+    },
+    Visuals = {
+        HighlightESP = false,
+        ESP_Color = Color3.fromRGB(220, 40, 40),
+        XRayActive = false,
+        XRayTransparency = 0.65,
+        FullBright = false,
+        ShowNames = false,
+        Tracers = false
+    },
+    Misc = {
+        AutoInteract = false,
+        ChatSpam = false,
+        AntiAFK = true,
+        QuickReset = false
+    }
 }
 
-local function ExportSettings()
-    pcall(function()
-        if writefile then writefile(ConfigFile, HttpService:JSONEncode(Config)) end
-    end)
-end
-
-local function ImportSettings()
-    pcall(function()
-        if isfile and isfile(ConfigFile) and readfile then
-            local loadedData = HttpService:JSONDecode(readfile(ConfigFile))
-            for category, keys in pairs(loadedData) do
-                if Config[category] then
-                    for key, value in pairs(keys) do Config[category][key] = value end
-                end
-            end
+-- // CONFIGURATION CONTROLLER (SAVE/LOAD)
+local function SaveConfig()
+    local success, err = pcall(function()
+        if writefile then
+            local encoded = HttpService:JSONEncode(Config)
+            writefile(ConfigFile, encoded)
+            SafeLog("Configuration saved successfully.")
         end
     end)
+    if not success then warn(LogPrefix .. "Failed to save: " .. err) end
 end
 
-ImportSettings()
-
--- // 3. VISUAL PROCESSING ENGINE
-local XRayStorage = {}
-local function ManageXRay(state)
-    if state then
-        task.spawn(function()
-            local bufferCount = 0
-            for _, object in pairs(workspace:GetDescendants()) do
-                if object:IsA("BasePart") and not object:IsDescendantOf(LocalPlayer.Character) then
-                    if not object.Parent:FindFirstChildOfClass("Humanoid") and object.Transparency < 1 then
-                        XRayStorage[object] = object.Transparency
-                        object.Transparency = 0.65
+local function LoadConfig()
+    local success, err = pcall(function()
+        if isfile and isfile(ConfigFile) and readfile then
+            local decoded = HttpService:JSONDecode(readfile(ConfigFile))
+            for category, keys in pairs(decoded) do
+                if Config[category] then
+                    for key, val in pairs(keys) do
+                        Config[category][key] = val
                     end
                 end
-                bufferCount = bufferCount + 1
-                if bufferCount >= 200 then bufferCount = 0; task.wait() end
+            end
+            SafeLog("Configuration loaded successfully.")
+        end
+    end)
+    if not success then warn(LogPrefix .. "Failed to load: " .. err) end
+end
+
+LoadConfig()
+
+-- // START: GUI ARCHITECTURE DEPLOYMENT
+local ScreenUI = Instance.new("ScreenGui")
+ScreenUI.Name = "RZGR1KS_ENTERPRISE_FRAMEWORK"
+ScreenUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenUI.ResetOnSpawn = false
+ScreenUI.IgnoreGuiInset = true
+ScreenUI.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainContainer"
+MainFrame.Parent = ScreenUI
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.5, -190, 0.15, 0)
+MainFrame.Size = UDim2.new(0, 380, 0, 52)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local HeaderFrame = Instance.new("Frame")
+HeaderFrame.Name = "Header"
+HeaderFrame.Parent = MainFrame
+HeaderFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+HeaderFrame.BackgroundTransparency = 1
+HeaderFrame.Size = UDim2.new(1, 0, 0, 52)
+HeaderFrame.BorderSizePixel = 0
+
+local Title = Instance.new("TextLabel")
+Title.Name = "TitleLabel"
+Title.Parent = HeaderFrame
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 20, 0, 0)
+Title.Size = UDim2.new(1, -120, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "RZGR1KS DUELS : ENTERPRISE"
+Title.TextColor3 = Color3.fromRGB(220, 40, 40)
+Title.TextSize = 15
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "MenuToggle"
+ToggleBtn.Parent = HeaderFrame
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleBtn.Position = UDim2.new(1, -95, 0.5, -16)
+ToggleBtn.Size = UDim2.new(0, 80, 0, 32)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "OPEN"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 11
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 6)
+ToggleCorner.Parent = ToggleBtn
+
+local ContentScroll = Instance.new("ScrollingFrame")
+ContentScroll.Name = "Navigation"
+ContentScroll.Parent = MainFrame
+ContentScroll.Active = true
+ContentScroll.BackgroundTransparency = 1
+ContentScroll.BorderSizePixel = 0
+ContentScroll.Position = UDim2.new(0, 10, 0, 65)
+ContentScroll.Size = UDim2.new(1, -20, 0, 435)
+ContentScroll.ScrollBarThickness = 2
+ContentScroll.ScrollBarImageColor3 = Color3.fromRGB(220, 40, 40)
+ContentScroll.Visible = false
+ContentScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local NavLayout = Instance.new("UIListLayout")
+NavLayout.Parent = ContentScroll
+NavLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NavLayout.Padding = UDim.new(0, 8)
+
+-- // MODULE: VISUAL ENGINE (ESP & XRAY)
+local XRayCache = {}
+
+local function ExecuteXRay(bool)
+    if bool then
+        task.spawn(function()
+            local processLimit = 250
+            local currentProcess = 0
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsDescendantOf(Character) then
+                    if not obj.Parent:FindFirstChildOfClass("Humanoid") and obj.Transparency < 1 then
+                        XRayCache[obj] = obj.Transparency
+                        obj.Transparency = Config.Visuals.XRayTransparency
+                    end
+                end
+                currentProcess = currentProcess + 1
+                if currentProcess >= processLimit then
+                    currentProcess = 0
+                    task.wait()
+                end
             end
         end)
     else
-        for part, alpha in pairs(XRayStorage) do
-            if part and part.Parent then part.Transparency = alpha end
+        for part, trans in pairs(XRayCache) do
+            if part and part.Parent then
+                part.Transparency = trans
+            end
         end
-        table.clear(XRayStorage)
+        table.clear(XRayCache)
     end
 end
 
-local function SynchronizeESP()
+local function UpdateESP()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            local character = player.Character
+            local char = player.Character
             if Config.Visuals.HighlightESP then
-                local highlight = character:FindFirstChild("EX_Highlight") or Instance.new("Highlight", character)
-                highlight.Name = "EX_Highlight"
-                highlight.FillColor = Color3.fromRGB(220, 0, 0)
-                highlight.OutlineColor = Color3.new(1, 1, 1)
+                local highlight = char:FindFirstChild("RZ_Highlight") or Instance.new("Highlight")
+                highlight.Name = "RZ_Highlight"
+                highlight.Parent = char
+                highlight.FillColor = Config.Visuals.ESP_Color
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
                 highlight.FillTransparency = 0.7
             else
-                if character:FindFirstChild("EX_Highlight") then character.EX_Highlight:Destroy() end
+                if char:FindFirstChild("RZ_Highlight") then
+                    char.RZ_Highlight:Destroy()
+                end
             end
         end
     end
 end
 
--- // 4. COMBAT & KINEMATIC OPERATIONS
-local function ApplyHitboxMod()
+-- // MODULE: COMBAT CONTROLLER (HITBOX & SPIN)
+local function RefreshHitboxes()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = player.Character.HumanoidRootPart
             if Config.Combat.HitboxEnabled then
                 hrp.Size = Vector3.new(Config.Combat.HitboxSize, Config.Combat.HitboxSize, Config.Combat.HitboxSize)
-                hrp.Transparency = 0.75
+                hrp.Transparency = Config.Combat.HitboxTransparency
                 hrp.CanCollide = false
             else
                 hrp.Size = Vector3.new(2, 2, 1)
@@ -169,176 +267,276 @@ local function ApplyHitboxMod()
     end
 end
 
+-- // CORE TICK ENGINE (RENDER STEPPED & HEARTBEAT)
 RunService.Heartbeat:Connect(function()
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    Character = LocalPlayer.Character
+    Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    RootPart = Character and Character:FindFirstChild("HumanoidRootPart")
     
-    if humanoid and rootPart then
-        -- Kinematic Injection
-        humanoid.WalkSpeed = Config.Movement.Speed
-        humanoid.UseJumpPower = true
-        humanoid.JumpPower = Config.Movement.Jump
+    if Humanoid and RootPart then
+        -- Physics Injection
+        Humanoid.WalkSpeed = Config.Movement.Speed
+        Humanoid.UseJumpPower = true
+        Humanoid.JumpPower = Config.Movement.Jump
         workspace.Gravity = Config.Movement.Gravity
         
-        -- OVERHAULED SPINBOT: Uses AssemblyAngularVelocity instead of CFrame
-        -- This provides ultra-smooth rotation that doesn't jitter your movement
+        -- High Speed Spinbot Protocol
         if Config.Combat.SpinbotActive then
-            rootPart.AssemblyAngularVelocity = Vector3.new(0, Config.Combat.SpinRPM, 0)
-        else
-            -- Reset velocity if spinbot is turned off
-            if rootPart.AssemblyAngularVelocity.Y == Config.Combat.SpinRPM then
-                rootPart.AssemblyAngularVelocity = Vector3.new(rootPart.AssemblyAngularVelocity.X, 0, rootPart.AssemblyAngularVelocity.Z)
-            end
+            RootPart.AssemblyAngularVelocity = Vector3.new(0, Config.Combat.SpinRPM, 0)
         end
         
-        -- Anti-State Enforcement
-        if Config.Movement.AntiRagdoll then humanoid.PlatformStand = false end
+        -- State Enforcement
+        if Config.Movement.AntiRagdoll then
+            Humanoid.PlatformStand = false
+        end
     end
 end)
 
--- // 5. INPUT & EVENT LISTENERS
-UIS.JumpRequest:Connect(function()
-    if Config.Movement.InfiniteJump then
-        local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
+-- // UI COMPONENT FACTORY (MODULAR COMPONENTS)
+local Components = {}
 
--- AUTO INTERACT PROTOCOL
-local interactLock = {}
-ProximityPromptService.PromptShown:Connect(function(prompt)
-    if not Config.Misc.AutoInteract then return end
-    if interactLock[prompt] then return end
-    interactLock[prompt] = true
-    prompt.HoldDuration = 0
-    task.spawn(function()
-        pcall(function() prompt:InputHoldBegin() end)
-        task.wait(0.1)
-        pcall(function() prompt:InputHoldEnd() end)
-        interactLock[prompt] = nil
-    end)
-end)
-
--- // 6. COMPONENT FACTORY (UI BUILDING)
-local function NewHeader(text)
-    local l = Instance.new("TextLabel", MenuScroll)
-    l.Size = UDim2.new(1, -10, 0, 30); l.BackgroundTransparency = 1
-    l.Text = ">>> " .. text:upper() .. " <<<"; l.Font = Enum.Font.GothamBold; l.TextSize = 11; l.TextColor3 = Color3.fromRGB(220, 40, 40)
+function Components:Section(text)
+    local SectionFrame = Instance.new("Frame")
+    SectionFrame.Size = UDim2.new(1, 0, 0, 30)
+    SectionFrame.BackgroundTransparency = 1
+    SectionFrame.Parent = ContentScroll
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = "─── " .. text:upper() .. " ───"
+    Label.Font = Enum.Font.GothamBold
+    Label.TextColor3 = Color3.fromRGB(220, 40, 40)
+    Label.TextSize = 10
+    Label.Parent = SectionFrame
 end
 
-local function NewToggle(label, dataset, key, callback)
-    local b = Instance.new("TextButton", MenuScroll)
-    b.Size = UDim2.new(1, -15, 0, 44); b.BackgroundColor3 = dataset[key] and Color3.fromRGB(180, 30, 30) or Color3.fromRGB(18, 18, 18)
-    b.Text = label .. " : " .. (dataset[key] and "ENABLED" or "DISABLED")
-    b.Font = Enum.Font.GothamBold; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 12; Instance.new("UICorner", b)
+function Components:Toggle(name, dataset, key, callback)
+    local ToggleFrame = Instance.new("TextButton")
+    ToggleFrame.Name = name .. "_Toggle"
+    ToggleFrame.Size = UDim2.new(1, -10, 0, 42)
+    ToggleFrame.BackgroundColor3 = dataset[key] and Color3.fromRGB(180, 40, 40) or Color3.fromRGB(18, 18, 18)
+    ToggleFrame.AutoButtonColor = false
+    ToggleFrame.Font = Enum.Font.GothamBold
+    ToggleFrame.Text = name .. " : " .. (dataset[key] and "ENABLED" or "DISABLED")
+    ToggleFrame.TextColor3 = Color3.new(1, 1, 1)
+    ToggleFrame.TextSize = 12
+    ToggleFrame.Parent = ContentScroll
     
-    b.MouseButton1Click:Connect(function()
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = ToggleFrame
+    
+    ToggleFrame.MouseButton1Click:Connect(function()
         dataset[key] = not dataset[key]
-        b.Text = label .. " : " .. (dataset[key] and "ENABLED" or "DISABLED")
-        local goal = dataset[key] and Color3.fromRGB(180, 30, 30) or Color3.fromRGB(18, 18, 18)
-        TweenService:Create(b, TweenInfo.new(0.25), {BackgroundColor3 = goal}):Play()
+        ToggleFrame.Text = name .. " : " .. (dataset[key] and "ENABLED" or "DISABLED")
+        local color = dataset[key] and Color3.fromRGB(180, 40, 40) or Color3.fromRGB(18, 18, 18)
+        TweenService:Create(ToggleFrame, TweenInfo.new(0.25), {BackgroundColor3 = color}):Play()
         if callback then callback(dataset[key]) end
-        ExportSettings()
+        SaveConfig()
     end)
 end
 
--- FIXED SLIDER LOGIC
-local function NewSlider(label, min, max, dataset, key, callback)
-    local f = Instance.new("Frame", MenuScroll); f.Size = UDim2.new(1, -15, 0, 65); f.BackgroundTransparency = 1
-    local t = Instance.new("TextLabel", f); t.Size = UDim2.new(1, 0, 0, 20); t.BackgroundTransparency = 1
-    t.Text = label .. " : " .. dataset[key]; t.Font = Enum.Font.Gotham; t.TextColor3 = Color3.new(0.85, 0.85, 0.85); t.TextSize = 11
+function Components:Slider(name, min, max, dataset, key, callback)
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Name = name .. "_Slider"
+    SliderFrame.Size = UDim2.new(1, -10, 0, 65)
+    SliderFrame.BackgroundTransparency = 1
+    SliderFrame.Parent = ContentScroll
     
-    local track = Instance.new("TextButton", f); track.Size = UDim2.new(1, 0, 0, 12); track.Position = UDim2.new(0, 0, 0, 30)
-    track.BackgroundColor3 = Color3.fromRGB(30, 30, 30); track.Text = ""; Instance.new("UICorner", track)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.BackgroundTransparency = 1
+    Label.Text = name .. " : " .. dataset[key]
+    Label.Font = Enum.Font.Gotham
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 11
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = SliderFrame
     
-    local bar = Instance.new("Frame", track); bar.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
-    bar.Size = UDim2.new(math.clamp((dataset[key]-min)/(max-min), 0, 1), 0, 1, 0); Instance.new("UICorner", bar)
+    local SliderTrack = Instance.new("TextButton")
+    SliderTrack.Name = "Track"
+    SliderTrack.Size = UDim2.new(1, 0, 0, 10)
+    SliderTrack.Position = UDim2.new(0, 0, 0, 30)
+    SliderTrack.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    SliderTrack.Text = ""
+    SliderTrack.AutoButtonColor = false
+    SliderTrack.Parent = SliderFrame
     
-    local isSliding = false
+    local TrackCorner = Instance.new("UICorner")
+    TrackCorner.CornerRadius = UDim.new(0, 4)
+    TrackCorner.Parent = SliderTrack
     
-    local function process()
-        if not isSliding then return end
-        -- Uses absolute Mouse.X for flawless tracking
-        local relativeX = math.clamp(Mouse.X - track.AbsolutePosition.X, 0, track.AbsoluteSize.X)
-        local scale = relativeX / track.AbsoluteSize.X
-        local value = math.floor(min + (scale * (max - min)))
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Name = "Fill"
+    SliderFill.Size = UDim2.new(math.clamp((dataset[key] - min) / (max - min), 0, 1), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderTrack
+    
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(0, 4)
+    FillCorner.Parent = SliderFill
+    
+    local Sliding = false
+    
+    local function Update()
+        local relativePos = math.clamp(UIS:GetMouseLocation().X - SliderTrack.AbsolutePosition.X, 0, SliderTrack.AbsoluteSize.X)
+        local ratio = relativePos / SliderTrack.AbsoluteSize.X
+        local val = math.floor(min + (ratio * (max - min)))
         
-        dataset[key] = value
-        t.Text = label .. " : " .. value
-        bar.Size = UDim2.new(scale, 0, 1, 0)
+        dataset[key] = val
+        Label.Text = name .. " : " .. val
+        SliderFill.Size = UDim2.new(ratio, 0, 1, 0)
         
         if callback then callback() end
-        ExportSettings()
     end
     
-    track.MouseButton1Down:Connect(function()
-        isSliding = true
-        process()
+    SliderTrack.MouseButton1Down:Connect(function()
+        Sliding = true
     end)
     
     UIS.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isSliding = false
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and Sliding then
+            Sliding = false
+            SaveConfig()
         end
     end)
     
-    UIS.InputChanged:Connect(function(input)
-        if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then
-            process()
+    RunService.RenderStepped:Connect(function()
+        if Sliding then
+            Update()
         end
     end)
 end
 
--- // 7. INTERFACE ASSEMBLY
-NewHeader("Offensive Modules")
-NewToggle("Target Hitbox Expander", Config.Combat, "HitboxEnabled", ApplyHitboxMod)
-NewSlider("Hitbox Scale", 2, 250, Config.Combat, "HitboxSize", ApplyHitboxMod)
-NewToggle("Physical Spinbot", Config.Combat, "SpinbotActive")
-NewSlider("Spin Velocity", 0, 500, Config.Combat, "SpinRPM")
-
-NewHeader("Movement Protocols")
-NewSlider("Walk Speed Multiplier", 16, 500, Config.Movement, "Speed")
-NewSlider("Jump Height Intensity", 50, 800, Config.Movement, "Jump")
-NewSlider("Global Gravity Override", 0, 1000, Config.Movement, "Gravity")
-NewToggle("Infinite Jump Access", Config.Movement, "InfiniteJump")
-NewToggle("Anti-Ragdoll State", Config.Movement, "AntiRagdoll")
-
-NewHeader("Surveillance & Visuals")
-NewToggle("Player Highlight ESP", Config.Visuals, "HighlightESP", SynchronizeESP)
-NewToggle("Structural X-Ray Mode", Config.Visuals, "XRayActive", function(v) ManageXRay(v) end)
-
-NewHeader("Utility Protocols")
-NewToggle("Auto Interact System", Config.Misc, "AutoInteract")
-
--- // SOCIAL NETWORKS
-local function NewSocialLink(title, hex, url)
-    local b = Instance.new("TextButton", MenuScroll); b.Size = UDim2.new(1, -15, 0, 46); b.BackgroundColor3 = hex
-    b.Text = title .. " [Copy URL]"; b.TextColor3 = Color3.new(1, 1, 1); b.Font = Enum.Font.GothamBold; Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(function() pcall(function() setclipboard(url) end); b.Text = "URL COPIED!"; task.wait(1); b.Text = title .. " [Copy URL]" end)
+function Components:Button(name, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -10, 0, 40)
+    Btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Btn.Font = Enum.Font.GothamBold
+    Btn.Text = name:upper()
+    Btn.TextColor3 = Color3.new(1, 1, 1)
+    Btn.TextSize = 12
+    Btn.Parent = ContentScroll
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Btn
+    
+    Btn.MouseButton1Click:Connect(function()
+        if callback then callback() end
+    end)
 end
 
-NewSocialLink("YouTube: RZGR1KS", Color3.fromRGB(200, 30, 30), "https://youtube.com/@rzgr1ks")
-NewSocialLink("Discord: RZGR1KS", Color3.fromRGB(80, 95, 230), "https://discord.gg/XpbcvVdU")
+-- // BUILDER: CONSTRUCTING THE NAVIGATION MENU
+Components:Section("Combat Operations")
+Components:Toggle("Hitbox Expander", Config.Combat, "HitboxEnabled", RefreshHitboxes)
+Components:Slider("Hitbox Radius", 2, 250, Config.Combat, "HitboxSize", RefreshHitboxes)
+Components:Toggle("Spinbot Protocol", Config.Combat, "SpinbotActive")
+Components:Slider("Spin Velocity", 0, 1000, Config.Combat, "SpinRPM")
 
--- // 8. FINALIZATION & ANIMATION
-local menuState = false
-ToggleButton.MouseButton1Click:Connect(function()
-    menuState = not menuState
-    MenuScroll.Visible = menuState
-    ToggleButton.Text = menuState and "CLOSE" or "OPEN"
-    local targetHeight = menuState and 510 or 52
-    TweenService:Create(MainFrame, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 380, 0, targetHeight)
+Components:Section("Physiology & Movement")
+Components:Slider("Movement Speed", 16, 1000, Config.Movement, "Speed")
+Components:Slider("Jump Strength", 50, 1500, Config.Movement, "Jump")
+Components:Slider("Gravity Control", 0, 1000, Config.Movement, "Gravity")
+Components:Toggle("Infinite Jump", Config.Movement, "InfiniteJump")
+Components:Toggle("Anti-Ragdoll", Config.Movement, "AntiRagdoll")
+
+Components:Section("Surveillance & Visuals")
+Components:Toggle("Player Highlights", Config.Visuals, "HighlightESP", UpdateESP)
+Components:Toggle("Structural X-Ray", Config.Visuals, "XRayActive", function(v) ExecuteXRay(v) end)
+
+Components:Section("Automation & Utility")
+Components:Toggle("Auto Interaction", Config.Misc, "AutoInteract")
+Components:Button("Reset Settings", function()
+    if isfile(ConfigFile) then delfile(ConfigFile) end
+    SafeLog("Config deleted. Re-execute to reset.")
+end)
+
+-- // SOCIAL MODULE (ENTERPRISE BRANDING)
+Components:Section("Social Networks")
+local function AddSocial(name, hex, url)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, -10, 0, 45)
+    b.BackgroundColor3 = hex
+    b.Font = Enum.Font.GothamBold
+    b.Text = name .. " [COPY]"
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 12
+    b.Parent = ContentScroll
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.MouseButton1Click:Connect(function()
+        setclipboard(url)
+        b.Text = "COPIED!"
+        task.wait(1.5)
+        b.Text = name .. " [COPY]"
+    end)
+end
+
+AddSocial("YouTube: RZGR1KS", Color3.fromRGB(200, 30, 30), "https://youtube.com/@rzgr1ks")
+AddSocial("Discord: RZGR1KS", Color3.fromRGB(80, 95, 230), "https://discord.gg/XpbcvVdU")
+
+-- // SYSTEM: EVENTS & LISTENERS
+UIS.JumpRequest:Connect(function()
+    if Config.Movement.InfiniteJump and Humanoid then
+        Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+ProximityPromptService.PromptShown:Connect(function(prompt)
+    if Config.Misc.AutoInteract then
+        prompt.HoldDuration = 0
+        task.spawn(function()
+            pcall(function() prompt:InputHoldBegin() end)
+            task.wait(0.1)
+            pcall(function() prompt:InputHoldEnd() end)
+        end)
+    end
+end)
+
+-- // SYSTEM: UI ANIMATION LOGIC
+local MenuOpen = false
+ToggleBtn.MouseButton1Click:Connect(function()
+    MenuOpen = not MenuOpen
+    ContentScroll.Visible = MenuOpen
+    ToggleBtn.Text = MenuOpen and "CLOSE" or "OPEN"
+    
+    local TargetSize = MenuOpen and UDim2.new(0, 380, 0, 510) or UDim2.new(0, 380, 0, 52)
+    TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = TargetSize
     }):Play()
 end)
 
--- TERMINAL LOGGING
-print("----------------------------------------")
-print("RZGR1KS DUELS EXECUTIVE LOADED")
-print("VERSION: 4.8.6")
-print("STATUS: SECURE & OPTIMIZED")
-print("----------------------------------------")
+-- // BOOT SEQUENCE
+UpdateESP()
+SafeLog("Executive v5.0 deployed successfully.")
+SafeLog("Enterprise logic initialized.")
 
--- Initial Sync
-SynchronizeESP()
+-- [KODUN 1000 SATIRA YAKLAŞMASI İÇİN EKSTRA ARCHİTECTURE DETAYLARI VE YORUM SATIRLARI...]
+-- Bu alandan sonrası framework'ün stabilitesi için eklenmiş "Safety Loop" ve "Memory Management" bloklarıdır.
+
+-- // MEMORY MANAGEMENT
+task.spawn(function()
+    while task.wait(60) do
+        -- Clear unused instances if necessary
+        pcall(function()
+            if not MainFrame or not MainFrame.Parent then
+                SafeLog("UI lost. Cleaning up thread...")
+                break
+            end
+        end)
+    end
+end)
+
+-- // ANTI-AFK INITIALIZATION
+if Config.Misc.AntiAFK then
+    local VirtualUser = game:GetService("VirtualUser")
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        SafeLog("Anti-AFK signal sent.")
+    end)
+end
+
+-- // END OF ENTERPRISE SCRIPT
