@@ -1,13 +1,13 @@
 --[[
     ====================================================================================================
     @project: RZGR1KS DUELS - ENTERPRISE PRIVATE EXECUTIVE
-    @version: 5.0.5 (JSON Configuration System Update)
-    @status: High-Performance Execution
+    @version: 5.0.6 (X-Ray & Multi-Language Update)
+    @status: Ultra-Stable
     
-    [SYSTEM NOTES]
-    - PERSISTENCE: All settings are now stored in "RZGR1KS_CONFIG.json".
-    - AUTO-LOAD: Script restores your last used settings upon execution.
-    - REFRESH RATE: 60Hz polling for Hitbox and ESP dynamics.
+    [CHANGELOG V5.0.6]
+    - LANGUAGE SYSTEM: Added TR/EN toggle with persistent saving.
+    - X-RAY MODULE: Restored high-performance structure transparency.
+    - REFINED CONFIG: Optimized JSON structure for language localization.
     ====================================================================================================
 ]]--
 
@@ -23,56 +23,112 @@ local CoreGui = game:GetService("CoreGui")
 
 -- // DEGISKENLER
 local LocalPlayer = Players.LocalPlayer
-local ConfigFileName = "RZGR1KS_CONFIG.json"
+local ConfigFileName = "RZGR1KS_V5_FINAL.json"
+
+-- // DIL TABLOSU (LANGUAGES)
+local Langs = {
+    ["TR"] = {
+        Open = "AÇ", Close = "KAPAT",
+        ConfigSec = "Konfigürasyon ve Dil",
+        LangToggle = "Dil / Language",
+        Save = "Ayarları Kaydet",
+        Reset = "Sıfırla",
+        CombatSec = "Savaş Operasyonları",
+        HB = "Hitbox Genişletme",
+        HBSize = "Hitbox Boyutu",
+        Spin = "Fiziksel Spinbot",
+        SpinSpd = "Dönüş Hızı",
+        MoveSec = "Fizyoloji / Hareket",
+        Speed = "Yürüme Hızı",
+        Jump = "Zıplama Gücü",
+        Grav = "Yerçekimi",
+        InfJump = "Sınırsız Zıplama",
+        VisualSec = "Görsel Zeka",
+        ESP = "Oyuncu ESP (Highlight)",
+        XRay = "Yapı X-Ray (Duvar Arkası)",
+        SocialSec = "Sosyal",
+        Copied = "KOPYALANDI!"
+    },
+    ["EN"] = {
+        Open = "OPEN", Close = "CLOSE",
+        ConfigSec = "Config & Language",
+        LangToggle = "Language / Dil",
+        Save = "Save Settings",
+        Reset = "Reset Config",
+        CombatSec = "Combat Operations",
+        HB = "Hitbox Expander",
+        HBSize = "Hitbox Size",
+        Spin = "Physical Spinbot",
+        SpinSpd = "Spin Velocity",
+        MoveSec = "Physiology / Movement",
+        Speed = "Walk Speed",
+        Jump = "Jump Power",
+        Grav = "Gravity Control",
+        InfJump = "Infinite Jump",
+        VisualSec = "Visual Intelligence",
+        ESP = "Player ESP (Highlight)",
+        XRay = "Structure X-Ray",
+        SocialSec = "Socials",
+        Copied = "COPIED!"
+    }
+}
 
 -- // VARSAYILAN AYARLAR
 local Config = {
-    Combat = { HitboxEnabled = false, HitboxSize = 25, HitboxTransparency = 0.7, SpinbotActive = false, SpinRPM = 50 },
-    Movement = { Speed = 16, Jump = 50, Gravity = 196.2, InfiniteJump = false, AntiRagdoll = false },
-    Visuals = { HighlightESP = false, ESP_Color = {220, 40, 40}, XRayActive = false },
-    Misc = { AutoInteract = false, AntiAFK = true }
+    Language = "TR", -- Varsayılan Türkçe
+    Combat = { HitboxEnabled = false, HitboxSize = 25, SpinbotActive = false, SpinRPM = 50 },
+    Movement = { Speed = 16, Jump = 50, Gravity = 196.2, InfiniteJump = false },
+    Visuals = { HighlightESP = false, XRayActive = false, XRayTrans = 0.6 },
+    Misc = { AntiAFK = true }
 }
 
--- // 💾 CONFIG FONKSIYONLARI
+-- // 💾 CONFIG MOTORU
 local function SaveConfig()
-    local success, err = pcall(function()
-        if writefile then
-            writefile(ConfigFileName, HttpService:JSONEncode(Config))
-        end
-    end)
-    return success
+    pcall(function() if writefile then writefile(ConfigFileName, HttpService:JSONEncode(Config)) end end)
 end
 
 local function LoadConfig()
-    local success, err = pcall(function()
+    pcall(function()
         if isfile and isfile(ConfigFileName) then
             local data = HttpService:JSONDecode(readfile(ConfigFileName))
             for cat, sub in pairs(data) do
-                for k, v in pairs(sub) do
-                    Config[cat][k] = v
+                if type(sub) == "table" then
+                    for k, v in pairs(sub) do Config[cat][k] = v end
+                else
+                    Config[cat] = sub
                 end
             end
         end
     end)
-    return success
 end
+LoadConfig()
 
-local function ResetConfig()
-    if isfile and isfile(ConfigFileName) then
-        delfile(ConfigFileName)
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "RZGR1KS", Text = "Ayarlar sıfırlandı! Scripti yeniden açın."})
+-- // 🛠️ X-RAY MODÜLÜ
+local XRayCache = {}
+local function ToggleXRay(state)
+    if state then
+        task.spawn(function()
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and not obj:IsDescendantOf(LocalPlayer.Character) then
+                    if not obj.Parent:FindFirstChildOfClass("Humanoid") and obj.Transparency < 1 then
+                        XRayCache[obj] = obj.Transparency
+                        obj.Transparency = Config.Visuals.XRayTrans
+                    end
+                end
+            end
+        end)
+    else
+        for part, trans in pairs(XRayCache) do if part and part.Parent then part.Transparency = trans end end
+        table.clear(XRayCache)
     end
 end
 
--- İlk çalıştırmada ayarları yükle
-LoadConfig()
-
 -- // GUI BASLANGIC
 local TargetParent = (gethui and gethui()) or CoreGui or LocalPlayer:WaitForChild("PlayerGui")
-if TargetParent:FindFirstChild("RZGR1KS_V5") then TargetParent:FindFirstChild("RZGR1KS_V5"):Destroy() end
+if TargetParent:FindFirstChild("RZGR1KS_V6") then TargetParent:FindFirstChild("RZGR1KS_V6"):Destroy() end
 
 local ScreenUI = Instance.new("ScreenGui", TargetParent)
-ScreenUI.Name = "RZGR1KS_V5"; ScreenUI.ResetOnSpawn = false; ScreenUI.IgnoreGuiInset = true
+ScreenUI.Name = "RZGR1KS_V6"; ScreenUI.ResetOnSpawn = false; ScreenUI.IgnoreGuiInset = true
 
 local MainFrame = Instance.new("Frame", ScreenUI)
 MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12); MainFrame.Size = UDim2.new(0, 380, 0, 52); MainFrame.Position = UDim2.new(0.5, -190, 0.2, 0); MainFrame.Active = true; MainFrame.Draggable = true; MainFrame.ClipsDescendants = true
@@ -82,134 +138,135 @@ local Header = Instance.new("Frame", MainFrame)
 Header.Size = UDim2.new(1, 0, 0, 52); Header.BackgroundTransparency = 1
 
 local Title = Instance.new("TextLabel", Header)
-Title.Text = "RZGR1KS DUELS : V5.0.5"; Title.Font = "GothamBold"; Title.TextColor3 = Color3.fromRGB(220, 40, 40); Title.TextSize = 14; Title.Size = UDim2.new(1, -120, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.TextXAlignment = "Left"
+Title.Text = "RZGR1KS DUELS : ENTERPRISE"; Title.Font = "GothamBold"; Title.TextColor3 = Color3.fromRGB(220, 40, 40); Title.TextSize = 14; Title.Size = UDim2.new(1, -120, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.TextXAlignment = "Left"
 
 local ToggleBtn = Instance.new("TextButton", Header)
-ToggleBtn.Text = "OPEN"; ToggleBtn.Size = UDim2.new(0, 80, 0, 32); ToggleBtn.Position = UDim2.new(1, -95, 0, 10); ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25); ToggleBtn.TextColor3 = Color3.new(1, 1, 1); ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 11
+ToggleBtn.Text = Langs[Config.Language].Open; ToggleBtn.Size = UDim2.new(0, 80, 0, 32); ToggleBtn.Position = UDim2.new(1, -95, 0, 10); ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25); ToggleBtn.TextColor3 = Color3.new(1, 1, 1); ToggleBtn.Font = "GothamBold"; ToggleBtn.TextSize = 11
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
 local Content = Instance.new("ScrollingFrame", MainFrame)
 Content.Position = UDim2.new(0, 10, 0, 65); Content.Size = UDim2.new(1, -20, 0, 435); Content.BackgroundTransparency = 1; Content.ScrollBarThickness = 1; Content.Visible = false; Content.AutomaticCanvasSize = "Y"
 Instance.new("UIListLayout", Content).Padding = UDim.new(0, 8)
 
--- // MODÜL MOTORLARI (ESP & HITBOX)
-local function ApplyESP(p)
-    if p == LocalPlayer then return end
-    p.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
-        if Config.Visuals.HighlightESP then
-            local hl = Instance.new("Highlight", char)
-            hl.Name = "RZ_HL"; hl.FillColor = Color3.fromRGB(unpack(Config.Visuals.ESP_Color)); hl.FillTransparency = 0.7
-        end
-    end)
-end
-Players.PlayerAdded:Connect(ApplyESP)
-for _, p in pairs(Players:GetPlayers()) do ApplyESP(p) end
-
-RunService.Heartbeat:Connect(function()
-    -- Hitbox Logic
-    if Config.Combat.HitboxEnabled then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                p.Character.HumanoidRootPart.Size = Vector3.new(Config.Combat.HitboxSize, Config.Combat.HitboxSize, Config.Combat.HitboxSize)
-                p.Character.HumanoidRootPart.Transparency = Config.Combat.HitboxTransparency
-                p.Character.HumanoidRootPart.CanCollide = false
-            end
-        end
-    end
-    -- Movement Logic
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = Config.Movement.Speed
-        hum.JumpPower = Config.Movement.Jump
-        workspace.Gravity = Config.Movement.Gravity
-    end
-end)
-
 -- // UI FABRIKASI
 local Components = {}
+local RefreshUI = function() end -- Global yenileme
 
-function Components:Section(txt)
+function Components:Section(langKey)
     local l = Instance.new("TextLabel", Content)
-    l.Size = UDim2.new(1, 0, 0, 25); l.BackgroundTransparency = 1; l.Font = "GothamBold"; l.Text = ">>> " .. txt:upper() .. " <<<"; l.TextColor3 = Color3.fromRGB(220, 40, 40); l.TextSize = 10
+    l.Size = UDim2.new(1, 0, 0, 25); l.BackgroundTransparency = 1; l.Font = "GothamBold"; l.TextColor3 = Color3.fromRGB(220, 40, 40); l.TextSize = 10
+    local update = function() l.Text = ">>> " .. Langs[Config.Language][langKey]:upper() .. " <<<" end
+    update(); return update
 end
 
-function Components:Toggle(name, dataset, key, callback)
+function Components:Toggle(langKey, dataset, key, callback)
     local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, -10, 0, 40); b.BackgroundColor3 = dataset[key] and Color3.fromRGB(180, 40, 40) or Color3.fromRGB(20, 20, 20)
-    b.Text = name .. " : " .. (dataset[key] and "AKTİF" or "PASİF"); b.Font = "GothamBold"; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 11; Instance.new("UICorner", b)
+    b.Size = UDim2.new(1, -10, 0, 40); b.Font = "GothamBold"; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 11; Instance.new("UICorner", b)
+    local update = function()
+        b.Text = Langs[Config.Language][langKey] .. " : " .. (dataset[key] and "ON" or "OFF")
+        b.BackgroundColor3 = dataset[key] and Color3.fromRGB(180, 40, 40) or Color3.fromRGB(20, 20, 20)
+    end
     b.MouseButton1Click:Connect(function()
         dataset[key] = not dataset[key]
-        b.Text = name .. " : " .. (dataset[key] and "AKTİF" or "PASİF")
-        TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = dataset[key] and Color3.fromRGB(180, 40, 40) or Color3.fromRGB(20, 20, 20)}):Play()
-        if callback then callback(dataset[key]) end
-        SaveConfig() -- Her değişimde kaydet
+        update(); if callback then callback(dataset[key]) end; SaveConfig()
     end)
+    update(); return update
 end
 
-function Components:Slider(name, min, max, dataset, key)
+function Components:Slider(langKey, min, max, dataset, key, callback)
     local f = Instance.new("Frame", Content); f.Size = UDim2.new(1, -10, 0, 60); f.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 20); l.BackgroundTransparency = 1; l.Text = name .. " : " .. dataset[key]; l.Font = "Gotham"; l.TextColor3 = Color3.new(0.8, 0.8, 0.8); l.TextSize = 11; l.TextXAlignment = "Left"
+    local l = Instance.new("TextLabel", f); l.Size = UDim2.new(1, 0, 0, 20); l.BackgroundTransparency = 1; l.Font = "Gotham"; l.TextColor3 = Color3.new(0.8, 0.8, 0.8); l.TextSize = 11; l.TextXAlignment = "Left"
     local t = Instance.new("TextButton", f); t.Size = UDim2.new(1, 0, 0, 10); t.Position = UDim2.new(0, 0, 0, 25); t.BackgroundColor3 = Color3.fromRGB(30, 30, 30); t.Text = ""
     local fill = Instance.new("Frame", t); fill.Size = UDim2.new(math.clamp((dataset[key]-min)/(max-min), 0, 1), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
     Instance.new("UICorner", t); Instance.new("UICorner", fill)
     
     local isSliding = false
-    local function Update()
+    local updateText = function() l.Text = Langs[Config.Language][langKey] .. " : " .. dataset[key] end
+    local function UpdateVal()
         local scale = math.clamp((UIS:GetMouseLocation().X - t.AbsolutePosition.X) / t.AbsoluteSize.X, 0, 1)
         local val = math.floor(min + (scale * (max - min)))
-        dataset[key] = val; l.Text = name .. " : " .. val; fill.Size = UDim2.new(scale, 0, 1, 0)
+        dataset[key] = val; updateText(); fill.Size = UDim2.new(scale, 0, 1, 0)
+        if callback then callback() end
     end
     t.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then isSliding = true end end)
     UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then if isSliding then isSliding = false; SaveConfig() end end end)
-    RunService.RenderStepped:Connect(function() if isSliding then Update() end end)
+    RunService.RenderStepped:Connect(function() if isSliding then UpdateVal() end end)
+    updateText(); return updateText
 end
 
-function Components:Button(name, callback)
+function Components:Button(langKey, callback)
     local b = Instance.new("TextButton", Content)
-    b.Size = UDim2.new(1, -10, 0, 35); b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.Text = name; b.Font = "GothamBold"; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 11; Instance.new("UICorner", b)
-    b.MouseButton1Click:Connect(callback)
+    b.Size = UDim2.new(1, -10, 0, 35); b.BackgroundColor3 = Color3.fromRGB(35, 35, 35); b.Font = "GothamBold"; b.TextColor3 = Color3.new(1, 1, 1); b.TextSize = 11; Instance.new("UICorner", b)
+    local update = function() b.Text = Langs[Config.Language][langKey] or langKey end
+    b.MouseButton1Click:Connect(callback); update(); return update
 end
 
--- // INTERFACE KURULUMU
-Components:Section("Konfigürasyon Yönetimi")
-Components:Button("Ayarları Şimdi Kaydet", function() 
-    if SaveConfig() then 
-        game:GetService("StarterGui"):SetCore("SendNotification", {Title = "RZGR1KS", Text = "Ayarlar başarıyla kaydedildi!"}) 
-    end 
-end)
-Components:Button("Varsayılan Ayarlara Dön", ResetConfig)
+-- // 🟢 UI OLUŞTURMA VE GÜNCELLEME LİSTESİ
+local UIElements = {}
 
-Components:Section("Savaş Ayarları")
-Components:Toggle("Hitbox Expander", Config.Combat, "HitboxEnabled")
-Components:Slider("Hitbox Boyutu", 2, 250, Config.Combat, "HitboxSize")
+table.insert(UIElements, Components:Section("ConfigSec"))
+table.insert(UIElements, Components:Button("LangToggle", function()
+    Config.Language = (Config.Language == "TR") and "EN" or "TR"
+    for _, updateFunc in pairs(UIElements) do updateFunc() end
+    ToggleBtn.Text = Content.Visible and Langs[Config.Language].Close or Langs[Config.Language].Open
+    SaveConfig()
+end))
+table.insert(UIElements, Components:Button("Save", SaveConfig))
 
-Components:Section("Hareket Ayarları")
-Components:Slider("Yürüme Hızı", 16, 500, Config.Movement, "Speed")
-Components:Slider("Zıplama Gücü", 50, 1000, Config.Movement, "Jump")
-Components:Slider("Yerçekimi", 0, 1000, Config.Movement, "Gravity")
-Components:Toggle("Sınırsız Zıplama", Config.Movement, "InfiniteJump")
+table.insert(UIElements, Components:Section("CombatSec"))
+table.insert(UIElements, Components:Toggle("HB", Config.Combat, "HitboxEnabled"))
+table.insert(UIElements, Components:Slider("HBSize", 2, 250, Config.Combat, "HitboxSize"))
+table.insert(UIElements, Components:Toggle("Spin", Config.Combat, "SpinbotActive"))
 
-Components:Section("Görsel Ayarlar")
-Components:Toggle("Oyuncu ESP (Highlight)", Config.Visuals, "HighlightESP", function(v)
-    if not v then
-        for _, p in pairs(Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("RZ_HL") then p.Character.RZ_HL:Destroy() end end
+table.insert(UIElements, Components:Section("MoveSec"))
+table.insert(UIElements, Components:Slider("Speed", 16, 500, Config.Movement, "Speed"))
+table.insert(UIElements, Components:Slider("Jump", 50, 1000, Config.Movement, "Jump"))
+table.insert(UIElements, Components:Slider("Grav", 0, 1000, Config.Movement, "Gravity"))
+table.insert(UIElements, Components:Toggle("InfJump", Config.Movement, "InfiniteJump"))
+
+table.insert(UIElements, Components:Section("VisualSec"))
+table.insert(UIElements, Components:Toggle("ESP", Config.Visuals, "HighlightESP", function(v)
+    if not v then for _,p in pairs(Players:GetPlayers()) do if p.Character and p.Character:FindFirstChild("RZ_HL") then p.Character.RZ_HL:Destroy() end end end
+end))
+table.insert(UIElements, Components:Toggle("XRay", Config.Visuals, "XRayActive", ToggleXRay))
+
+-- // DİNAMİK DÖNGÜLER
+RunService.Heartbeat:Connect(function()
+    if Config.Combat.HitboxEnabled then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                p.Character.HumanoidRootPart.Size = Vector3.new(Config.Combat.HitboxSize, Config.Combat.HitboxSize, Config.Combat.HitboxSize)
+                p.Character.HumanoidRootPart.Transparency = 0.7; p.Character.HumanoidRootPart.CanCollide = false
+            end
+        end
+    end
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = Config.Movement.Speed; hum.JumpPower = Config.Movement.Jump; workspace.Gravity = Config.Movement.Gravity
+    end
+    if Config.Combat.SpinbotActive and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, Config.Combat.SpinRPM, 0)
     end
 end)
 
-Components:Section("Destek")
-Components:Button("Discord Sunucumuz (Kopyala)", function() setclipboard("https://discord.gg/XpbcvVdU") end)
+-- ESP Karakter Takibi
+local function ApplyESP(p)
+    p.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        if Config.Visuals.HighlightESP then
+            local hl = Instance.new("Highlight", char); hl.Name = "RZ_HL"; hl.FillTransparency = 0.7
+        end
+    end)
+end
+Players.PlayerAdded:Connect(ApplyESP); for _,p in pairs(Players:GetPlayers()) do ApplyESP(p) end
 
--- // MENU AC/KAPAT
-local State = false
+-- Menu Aç/Kapat
 ToggleBtn.MouseButton1Click:Connect(function()
-    State = not State
-    Content.Visible = State
-    ToggleBtn.Text = State and "CLOSE" or "OPEN"
-    TweenService:Create(MainFrame, TweenInfo.new(0.4), {Size = State and UDim2.new(0, 380, 0, 510) or UDim2.new(0, 380, 0, 52)}):Play()
+    Content.Visible = not Content.Visible
+    ToggleBtn.Text = Content.Visible and Langs[Config.Language].Close or Langs[Config.Language].Open
+    TweenService:Create(MainFrame, TweenInfo.new(0.4), {Size = Content.Visible and UDim2.new(0, 380, 0, 510) or UDim2.new(0, 380, 0, 52)}):Play()
 end)
 
--- Sınırsız Zıplama Event
 UIS.JumpRequest:Connect(function() if Config.Movement.InfiniteJump then LocalPlayer.Character.Humanoid:ChangeState(3) end end)
 
-print("RZGR1KS DUELS V5.0.5 LOADED WITH CONFIG SYSTEM")
+print("RZGR1KS DUELS ENTERPRISE V5.0.6 LOADED")
