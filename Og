@@ -1,0 +1,84 @@
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- ==========================================
+-- ⚙️ AYARLAR
+-- ==========================================
+
+local YENI_METIN = "OG" -- İstediğin yeni yazı
+
+-- Renkler: Koyu Sarı ve Siyah
+local renk1 = Color3.fromRGB(204, 163, 0) -- Koyu Sarı (Goldish)
+local renk2 = Color3.fromRGB(0, 0, 0)      -- Siyah
+
+local PARLAMA_HIZI = 4 -- Renk geçiş hızı
+local isEnabled = true
+
+-- ==========================================
+-- 📱 MOBİL GUI (Sürüklenebilir)
+-- ==========================================
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "OG_Rarity_Spoofer"
+sg.ResetOnSpawn = false
+sg.Parent = CoreGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 160, 0, 40)
+frame.Position = UDim2.new(0.5, -80, 0.1, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 2
+frame.BorderColor3 = renk1
+frame.Active = true
+frame.Draggable = true 
+frame.Parent = sg
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(1, 0, 1, 0)
+toggleBtn.Text = "OG Visual: AÇIK"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextSize = 14
+toggleBtn.Parent = frame
+
+-- ==========================================
+-- 🔧 ÇALIŞTIRMA MANTIĞI
+-- ==========================================
+
+local function updateText(currentColor)
+    if not isEnabled then return end
+    
+    -- Ekrandaki UI ve Dünyadaki metinleri tara
+    local targets = {LocalPlayer.PlayerGui, workspace}
+    
+    for _, container in pairs(targets) do
+        for _, obj in pairs(container:GetDescendants()) do
+            if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                -- Sadece "Secret" yazısını veya benzerlerini hedefle
+                if obj.Text:find("Secret") or obj.Text:find("1 in") then
+                    obj.Text = YENI_METIN
+                    obj.TextColor3 = currentColor
+                end
+            end
+        end
+    end
+end
+
+-- Buton Kontrolü
+toggleBtn.MouseButton1Click:Connect(function()
+    isEnabled = not isEnabled
+    toggleBtn.Text = isEnabled and "OG Visual: AÇIK" or "OG Visual: KAPALI"
+    toggleBtn.BackgroundColor3 = isEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(120, 0, 0)
+end)
+
+-- Renk Döngüsü
+RunService.RenderStepped:Connect(function()
+    local lerpVal = 0.5 + 0.5 * math.sin(tick() * PARLAMA_HIZI)
+    local currentColor = renk1:lerp(renk2, lerpVal)
+    updateText(currentColor)
+end)
+
+print("OG Visual Script Aktif!")
