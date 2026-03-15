@@ -1,8 +1,8 @@
 --[[ 
-    rzgr1ks duels v16 - TABBED UI & NEW CAMLOCK
-    - Old Aimbot/Silent Aim Deleted.
-    - Added Universal Mobile Camlock (from web sources).
-    - Features separated into Tabs (Combat, Movement, Visuals, Config).
+    rzgr1ks duels v17 - MAGIC BULLET (MOUSE HOOK)
+    - Camlock Target locked.
+    - Added hookmetamethod to redirect Mouse.Hit to the target.
+    - Bullets/Magic will now go directly to the locked target regardless of where you tap.
 ]]--
 
 if not game:IsLoaded() then task.wait() end
@@ -22,15 +22,15 @@ local cfg = {
     esp = false, xray = false, menu_open = true
 }
 
-local locked_target = nil -- Yeni Aimbot için kilitlenen hedef
+local locked_target = nil
 local file_name = "rzgr1ks_config.json"
 local updaters = {}
 
 -- // UI SETUP
 local gui = Instance.new("ScreenGui", (gethui and gethui()) or lp.PlayerGui)
-gui.Name = "rz_v16_tabs"
+gui.Name = "rz_v17_tabs"
 
--- // NEW MOBILE CAMLOCK BUTTON (Toggle Mode)
+-- // MOBILE CAMLOCK BUTTON
 local lockBtn = Instance.new("TextButton", gui)
 lockBtn.Size = UDim2.new(0, 65, 0, 65); lockBtn.Position = UDim2.new(0.7, 0, 0.4, 0)
 lockBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0); lockBtn.BackgroundTransparency = 0.4
@@ -45,7 +45,7 @@ bg.BackgroundColor3 = Color3.fromRGB(15, 15, 15); bg.Active = true; bg.Draggable
 Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
 
 local top = Instance.new("TextLabel", bg)
-top.Size = UDim2.new(1, -40, 0, 35); top.Text = " rzgr1ks v16 | TABS"; top.TextColor3 = Color3.new(1,0,0); top.Font = "Code"; top.TextXAlignment = Enum.TextXAlignment.Left; top.BackgroundTransparency = 1
+top.Size = UDim2.new(1, -40, 0, 35); top.Text = " rzgr1ks v17 | MAGIC BULLET"; top.TextColor3 = Color3.new(1,0,0); top.Font = "Code"; top.TextXAlignment = Enum.TextXAlignment.Left; top.BackgroundTransparency = 1
 
 local minBtn = Instance.new("TextButton", bg)
 minBtn.Size = UDim2.new(0, 30, 0, 30); minBtn.Position = UDim2.new(1, -35, 0, 2)
@@ -64,8 +64,7 @@ tabContainer.BackgroundTransparency = 1
 local tabLayout = Instance.new("UIListLayout", tabContainer)
 tabLayout.FillDirection = Enum.FillDirection.Horizontal; tabLayout.Padding = UDim.new(0, 5)
 
-local pages = {}
-local tabBtns = {}
+local pages, tabBtns = {}, {}
 
 local function createTab(name, isFirst)
     local btn = Instance.new("TextButton", tabContainer)
@@ -79,8 +78,7 @@ local function createTab(name, isFirst)
     page.Visible = isFirst
     Instance.new("UIListLayout", page).Padding = UDim.new(0, 5)
     
-    pages[name] = page
-    tabBtns[name] = btn
+    pages[name] = page; tabBtns[name] = btn
     
     btn.MouseButton1Click:Connect(function()
         for k, v in pairs(pages) do v.Visible = (k == name) end
@@ -130,13 +128,11 @@ local function createSlider(parent, txt, min, max, state_key)
 end
 
 -- // POPULATE TABS
--- Combat Tab
 createToggle(tabCombat, "Camlock Aimbot", "aim")
 createToggle(tabCombat, "Hitbox Expander", "hb_expander")
 createToggle(tabCombat, "Stealth Reach", "reach")
 createSlider(tabCombat, "Hitbox/Reach Size", 5, 100, "reach_dist")
 
--- Movement Tab
 createSlider(tabMove, "Walk Speed", 16, 300, "spd")
 createSlider(tabMove, "Jump Power", 50, 400, "jmp")
 createSlider(tabMove, "Gravity", 0, 500, "grav")
@@ -144,7 +140,6 @@ createToggle(tabMove, "Infinite Jump", "inf_jmp")
 createToggle(tabMove, "Spinbot", "spin")
 createSlider(tabMove, "Spin Speed", 0, 500, "spin_spd")
 
--- Visuals Tab
 createToggle(tabVisual, "Player ESP", "esp", function(v) if not v then for _,p in pairs(plrs:GetPlayers()) do if p.Character and p.Character:FindFirstChild("rz_esp") then p.Character.rz_esp:Destroy() end end end end)
 local xray_cache = {}
 createToggle(tabVisual, "X-Ray", "xray", function(v)
@@ -160,7 +155,6 @@ createToggle(tabVisual, "X-Ray", "xray", function(v)
     end
 end)
 
--- Config Tab
 local saveBtn = Instance.new("TextButton", tabCfg); saveBtn.Size = UDim2.new(1, -5, 0, 35); saveBtn.BackgroundColor3 = Color3.new(0, 0.6, 0); saveBtn.TextColor3 = Color3.new(1,1,1); saveBtn.Text = "Save Config"; saveBtn.Font = "Code"; Instance.new("UICorner", saveBtn)
 local loadBtn = Instance.new("TextButton", tabCfg); loadBtn.Size = UDim2.new(1, -5, 0, 35); loadBtn.BackgroundColor3 = Color3.new(0.6, 0.4, 0); loadBtn.TextColor3 = Color3.new(1,1,1); loadBtn.Text = "Load Config"; loadBtn.Font = "Code"; Instance.new("UICorner", loadBtn)
 
@@ -172,7 +166,22 @@ loadBtn.MouseButton1Click:Connect(function()
     end 
 end)
 
--- // NEW AIMBOT LOGIC (CAMLOCK)
+-- // MAGIC BULLET (MOUSE HOOK METAMETHOD)
+if hookmetamethod then
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", function(self, key)
+        if cfg.aim and locked_target and not checkcaller() then
+            if key == "Hit" and self:IsA("Mouse") then
+                return locked_target.CFrame
+            elseif key == "Target" and self:IsA("Mouse") then
+                return locked_target
+            end
+        end
+        return oldIndex(self, key)
+    end)
+end
+
+-- // AIMBOT TARGETING
 local function get_closest_to_center()
     local t, d = nil, math.huge
     for _, p in pairs(plrs:GetPlayers()) do
@@ -187,14 +196,13 @@ local function get_closest_to_center()
     return t
 end
 
--- Aimbot Butonuna Tıklayınca Kilitle / Çöz
 lockBtn.MouseButton1Click:Connect(function()
     if locked_target then
-        locked_target = nil -- Kilidi aç
+        locked_target = nil
         lockBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
         lockBtn.Text = "LOCK"
     else
-        locked_target = get_closest_to_center() -- Ekranın ortasına en yakın olanı bul ve kilitle
+        locked_target = get_closest_to_center()
         if locked_target then
             lockBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
             lockBtn.Text = "UNLK"
@@ -214,25 +222,20 @@ rs.RenderStepped:Connect(function()
         hum.JumpPower = cfg.jmp
         workspace.Gravity = cfg.grav
         
-        -- CAMLOCK EXECUTION
         if cfg.aim and locked_target then
             if locked_target.Parent and locked_target.Parent:FindFirstChild("Humanoid") and locked_target.Parent.Humanoid.Health > 0 then
-                -- Kamerayı pürüzsüz bir şekilde hedefe kilitler
                 cam.CFrame = CFrame.lookAt(cam.CFrame.Position, locked_target.Position)
             else
-                -- Adam ölürse veya oyundan çıkarsa kilidi otomatik bırak
                 locked_target = nil
                 lockBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
                 lockBtn.Text = "LOCK"
             end
         end
         
-        -- Hitbox, Reach & ESP Loop
         for _, p in pairs(plrs:GetPlayers()) do
             if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                 local e_hrp = p.Character.HumanoidRootPart
                 
-                -- Hitbox Expander
                 if cfg.hb_expander then
                     e_hrp.Size = Vector3.new(cfg.reach_dist, cfg.reach_dist, cfg.reach_dist)
                     e_hrp.Transparency = 0.7; e_hrp.CanCollide = false
@@ -240,7 +243,6 @@ rs.RenderStepped:Connect(function()
                     if e_hrp.Size.X > 5 then e_hrp.Size = Vector3.new(2, 2, 1); e_hrp.Transparency = 1; e_hrp.CanCollide = true end
                 end
                 
-                -- Reach
                 if cfg.reach then
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool and tool:FindFirstChild("Handle") and (hrp.Position - e_hrp.Position).Magnitude <= cfg.reach_dist then
@@ -248,7 +250,6 @@ rs.RenderStepped:Connect(function()
                     end
                 end
                 
-                -- ESP
                 if cfg.esp and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
                     if not p.Character:FindFirstChild("rz_esp") then Instance.new("Highlight", p.Character).Name = "rz_esp" end
                 end
