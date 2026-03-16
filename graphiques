@@ -1,0 +1,45 @@
+-- [[ RZGR1KS AYDINLIK AKŞAM & NET GÖRÜŞ V6 ]] --
+
+local Lighting = game:GetService("Lighting")
+
+-- 1. Önceki Efektleri Temizle
+for _, v in pairs(Lighting:GetChildren()) do
+    if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+        v:Destroy()
+    end
+end
+
+-- 2. Aydınlık Ayarları (Görüşü Artırıldı)
+Lighting.ClockTime = 18.5 -- Akşamüstü, gökyüzü hala renkli ve aydınlık
+Lighting.Brightness = 2.8 -- Genel ışık gücü artırıldı
+Lighting.ExposureCompensation = 0.7 -- Ekranın genel parlaklığı bir tık yükseltildi
+Lighting.GlobalShadows = true
+
+-- Ortam Işığı (Gölgeleri daha gri/mavi yaparak aydınlatır)
+Lighting.Ambient = Color3.fromRGB(80, 80, 100) 
+Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 95)
+
+-- 3. Yansımalar ve Cam Etkisi
+Lighting.EnvironmentSpecularScale = 1 
+Lighting.EnvironmentDiffuseScale = 0.8 -- Objelerin üzerindeki karanlık baskısı azaltıldı
+
+-- 4. Parlak Renkler (Canlı Bloom)
+local Bloom = Instance.new("BloomEffect", Lighting)
+Bloom.Intensity = 0.9 -- Parlama hala var ama daha doğal
+Bloom.Size = 20
+Bloom.Threshold = 0.85
+
+-- 5. Renk Netliği
+local ColorCorrection = Instance.new("ColorCorrectionEffect", Lighting)
+ColorCorrection.Brightness = 0.05 -- Hafif bir parlaklık katmanı daha
+ColorCorrection.Contrast = 0.2
+ColorCorrection.Saturation = 0.4 -- Renkler hala canlı
+
+-- 6. Berrak Atmosfer
+local Atmosphere = Instance.new("Atmosphere", Lighting)
+Atmosphere.Density = 0.15 -- Sis iyice azaltıldı, görüş alanı çok net
+Atmosphere.Color = Color3.fromRGB(40, 40, 60)
+Atmosphere.Glare = 1
+Atmosphere.Haze = 0.8
+
+print("Hafif Aydınlık & Estetik Mod Aktif!")
