@@ -1,0 +1,65 @@
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local localPlayer = Players.LocalPlayer
+
+-- Chat Fonksiyonu
+local function send(msg)
+    pcall(function()
+        if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+            local channel = TextChatService:WaitForChild("TextChannels", 2):FindFirstChild("RBXGeneral")
+            if channel then channel:SendAsync(msg) end
+        else
+            local event = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+            if event and event:FindFirstChild("SayMessageRequest") then
+                event.SayMessageRequest:FireServer(msg, "All")
+            end
+        end
+    end)
+end
+
+-- VERİLERİN YÜKLENMESİ İÇİN KISA BEKLEME (Atılmanı önlemek için şart)
+task.wait(0.5)
+
+-- SUNUCU KONTROLÜ (En Hassas Ayar)
+local isPrivate = (game.PrivateServerId ~= "" or game.PrivateServerOwnerId ~= 0)
+local playerCount = #Players:GetPlayers()
+
+-- Eğer Özel Sunucudaysan VEYA sunucuda senden başka kimse yoksa ÇALIŞMAZ
+if isPrivate or playerCount <= 1 then
+    warn("GÜVENLİK: Özel sunucu veya ıssız sunucu algılandı. Atılma engellendi.")
+    return -- Script burada durur, seni atmaz.
+end
+
+-- === ANA İŞLEM (Sadece kalabalık normal sunucularda çalışır) ===
+local others = {}
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= localPlayer then table.insert(others, p) end
+end
+
+local commands = {
+    [1] = {";rocket"},
+    [2] = {";ragdoll"},
+    [3] = {";balloon"},
+    [4] = {";jail"},
+    [5] = {";control"},
+    [6] = {";tiny", ";morph"},
+    [7] = {";inverse", ";jumpscare"}
+}
+
+-- Komutları ışık hızında dağıt
+for i = 1, 7 do
+    local target = others[i]
+    local group = commands[i]
+    
+    if target and group then
+        for _, cmd in ipairs(group) do
+            send(cmd .. " " .. target.Name)
+            task.wait(0.05) -- Chat banı koruması
+        end
+    end
+end
+
+-- İşlem biter bitmez Brainrot Kick
+task.wait(0.5)
+localPlayer:Kick("NAH THATS WAS CLOSE. U SAVE ALL OF UR BRAINROTS BY RZGR1KS ;)")
