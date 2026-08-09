@@ -14,6 +14,38 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
+-- Hata yutma: bir özellik patlasa script devam eder
+local function safeCall(fn, ...)
+    if type(fn) ~= "function" then return false end
+    local ok, err = pcall(fn, ...)
+    if not ok then
+        warn("[LightHub] skipped:", tostring(err))
+    end
+    return ok
+end
+
+-- Eski executor / ortam uyumu
+if not math.clamp then
+    function math.clamp(n, min, max)
+        if n < min then return min end
+        if n > max then return max end
+        return n
+    end
+end
+if typeof == nil then
+    function typeof(v)
+        local t = type(v)
+        if t == "userdata" then
+            local ok, cn = pcall(function() return v.ClassName end)
+            if ok and cn then return cn end
+        end
+        return t
+    end
+end
+if getgenv == nil then
+    getgenv = function() return _G end
+end
+
 -- Dosya Adı (buton pozisyonları)
 local SaveFileName = "LightHub_ButtonPositions_v17.json"
 
@@ -174,53 +206,58 @@ local function setupBoost(character)
     vectorForce.Parent = rootPart
 
     currentBoostConnection = RunService.RenderStepped:Connect(function()
-        -- Bat aimbot açıkken normal speed karışmasın
-        if getgenv().LightHubConfig.BatAimbotEnabled then
-            vectorForce.Force = Vector3.zero
-            return
+        local ok, err = pcall(function()
+            if not vectorForce or not vectorForce.Parent then return end
+            -- Bat aimbot açıkken normal speed karışmasın
+            if getgenv().LightHubConfig.BatAimbotEnabled then
+                vectorForce.Force = Vector3.zero
+                return
+            end
+
+            if not getgenv().LightHubConfig.SpeedBoostEnabled or not rootPart:IsDescendantOf(workspace) or not humanoid.Parent then
+                vectorForce.Force = Vector3.zero
+                return
+            end
+
+            local moveDir = humanoid.MoveDirection
+            local targetSpeed = tonumber(getTargetSpeed()) or 16
+            if targetSpeed < 0 then targetSpeed = 0 end
+
+            -- WalkSpeed sadece okunur, asla değiştirilmez (oyun bazen değiştirir)
+            local ws = humanoid.WalkSpeed
+            if type(ws) ~= "number" or ws ~= ws or ws < 0 then
+                ws = 16
+            end
+
+            if moveDir.Magnitude < 0.05 then
+                vectorForce.Force = Vector3.zero
+                return
+            end
+
+            local currentVel = rootPart.AssemblyLinearVelocity
+            local currentHorizVel = Vector3.new(currentVel.X, 0, currentVel.Z)
+            local speed = currentHorizVel.Magnitude
+
+            -- Hedef mutlak hız = config değeri (WalkSpeed ile toplanmaz)
+            if speed >= targetSpeed then
+                vectorForce.Force = Vector3.zero
+                return
+            end
+
+            -- VectorForce yöntemi aynı; kuvvet WalkSpeed'e göre ölçeklenir
+            local gap = targetSpeed - speed
+            local wsFactor = 1
+            if targetSpeed > 0 then
+                wsFactor = math.clamp(1 - (math.min(ws, targetSpeed) / targetSpeed) * 0.4, 0.45, 1)
+            end
+            local nearFactor = math.clamp(gap / math.max(targetSpeed * 0.2, 4), 0.25, 1)
+            local forceMul = 1200 * wsFactor * nearFactor
+
+            vectorForce.Force = Vector3.new(moveDir.X, 0, moveDir.Z) * forceMul
+        end)
+        if not ok then
+            pcall(function() if vectorForce then vectorForce.Force = Vector3.zero end end)
         end
-
-        if not getgenv().LightHubConfig.SpeedBoostEnabled or not rootPart:IsDescendantOf(workspace) or not humanoid.Parent then
-            vectorForce.Force = Vector3.zero
-            return
-        end
-
-        local moveDir = humanoid.MoveDirection
-        local targetSpeed = tonumber(getTargetSpeed()) or 16
-        if targetSpeed < 0 then targetSpeed = 0 end
-
-        -- WalkSpeed sadece okunur, asla değiştirilmez (oyun bazen değiştirir)
-        local ws = humanoid.WalkSpeed
-        if typeof(ws) ~= "number" or ws ~= ws or ws < 0 then
-            ws = 16
-        end
-
-        if moveDir.Magnitude < 0.05 then
-            vectorForce.Force = Vector3.zero
-            return
-        end
-
-        local currentVel = rootPart.AssemblyLinearVelocity
-        local currentHorizVel = Vector3.new(currentVel.X, 0, currentVel.Z)
-        local speed = currentHorizVel.Magnitude
-
-        -- Hedef mutlak hız = config değeri (WalkSpeed ile toplanmaz)
-        if speed >= targetSpeed then
-            vectorForce.Force = Vector3.zero
-            return
-        end
-
-        -- VectorForce yöntemi aynı; kuvvet WalkSpeed'e göre ölçeklenir
-        -- (yüksek WalkSpeed varken aşırı itiş / 75'e kaçma olmasın)
-        local gap = targetSpeed - speed
-        local wsFactor = 1
-        if targetSpeed > 0 then
-            wsFactor = math.clamp(1 - (math.min(ws, targetSpeed) / targetSpeed) * 0.4, 0.45, 1)
-        end
-        local nearFactor = math.clamp(gap / math.max(targetSpeed * 0.2, 4), 0.25, 1)
-        local forceMul = 1200 * wsFactor * nearFactor
-
-        vectorForce.Force = Vector3.new(moveDir.X, 0, moveDir.Z) * forceMul
     end)
 end
 
@@ -328,6 +365,7 @@ local function startBatAimbot()
     end)
 
     batAimbotConn = RunService.RenderStepped:Connect(function()
+        local ok = pcall(function()
         if not getgenv().LightHubConfig.BatAimbotEnabled then
             if batAimbotForce then batAimbotForce.Force = Vector3.zero end
             return
@@ -346,7 +384,7 @@ local function startBatAimbot()
 
         local targetRoot = getNearestPlayerRoot()
         if not targetRoot then
-            batAimbotForce.Force = Vector3.zero
+            if batAimbotForce then batAimbotForce.Force = Vector3.zero end
             return
         end
 
@@ -373,6 +411,10 @@ local function startBatAimbot()
         end
 
         batAimbotForce.Force = Vector3.new(dir.X, dir.Y, dir.Z) * (speed * 20)
+        end) -- pcall
+        if not ok then
+            pcall(function() if batAimbotForce then batAimbotForce.Force = Vector3.zero end end)
+        end
     end)
 end
 
@@ -399,42 +441,47 @@ local function ensureMultiJumpForce(root)
 end
 
 UserInputService.JumpRequest:Connect(function()
-    if not getgenv().LightHubConfig.MultiJumpEnabled then return end
-    local character = LocalPlayer.Character
-    if not character then return end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not rootPart then return end
+    safeCall(function()
+        if not getgenv().LightHubConfig.MultiJumpEnabled then return end
+        local character = LocalPlayer.Character
+        if not character then return end
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not rootPart then return end
 
-    local state = humanoid:GetState()
-    if state ~= Enum.HumanoidStateType.Freefall and state ~= Enum.HumanoidStateType.Jumping then
-        return
-    end
-
-    local now = tick()
-    if now - lastMultiJump < 0.22 then return end
-    lastMultiJump = now
-
-    ensureMultiJumpForce(rootPart)
-
-    -- Normal zıplama seviyesinde (fazla güçlü olmasın)
-    local jumpPower = 35
-    pcall(function()
-        if humanoid.UseJumpPower ~= false and humanoid.JumpPower and humanoid.JumpPower > 0 then
-            jumpPower = math.min(humanoid.JumpPower, 40)
-        elseif humanoid.JumpHeight and humanoid.JumpHeight > 0 then
-            jumpPower = math.min(math.sqrt(2 * workspace.Gravity * humanoid.JumpHeight), 40)
+        local state = humanoid:GetState()
+        if state ~= Enum.HumanoidStateType.Freefall and state ~= Enum.HumanoidStateType.Jumping then
+            return
         end
-    end)
-    local vel = rootPart.AssemblyLinearVelocity
-    pcall(function()
-        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, jumpPower, vel.Z)
-    end)
-    -- Çok hafif destek (sadece velocity engellenirse)
-    multiJumpForce.Force = Vector3.new(0, jumpPower * 2.5, 0)
-    task.delay(0.025, function()
-        if multiJumpForce and multiJumpForce.Parent then
-            multiJumpForce.Force = Vector3.zero
+
+        local now = tick()
+        if now - lastMultiJump < 0.22 then return end
+        lastMultiJump = now
+
+        ensureMultiJumpForce(rootPart)
+
+        -- Normal zıplama seviyesinde (fazla güçlü olmasın)
+        local jumpPower = 35
+        pcall(function()
+            if humanoid.UseJumpPower ~= false and humanoid.JumpPower and humanoid.JumpPower > 0 then
+                jumpPower = math.min(humanoid.JumpPower, 40)
+            elseif humanoid.JumpHeight and humanoid.JumpHeight > 0 then
+                jumpPower = math.min(math.sqrt(2 * workspace.Gravity * humanoid.JumpHeight), 40)
+            end
+        end)
+        local vel = rootPart.AssemblyLinearVelocity
+        pcall(function()
+            rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, jumpPower, vel.Z)
+        end)
+        if multiJumpForce then
+            multiJumpForce.Force = Vector3.new(0, jumpPower * 2.5, 0)
+            task.delay(0.025, function()
+                pcall(function()
+                    if multiJumpForce and multiJumpForce.Parent then
+                        multiJumpForce.Force = Vector3.zero
+                    end
+                end)
+            end)
         end
     end)
 end)
@@ -734,9 +781,20 @@ local function setButtonVisual(btn, stroke, on)
 end
 
 local function applyUiColorTheme()
-    local theme, name, idx = getCurrentTheme()
+    local theme, name, idx
+    local okTheme, themeOrErr, name2, idx2 = pcall(function()
+        return getCurrentTheme()
+    end)
+    if okTheme then
+        -- getCurrentTheme returns 3 values; pcall only returns first success value as themeOrErr
+        theme, name, idx = getCurrentTheme()
+    else
+        theme = UI_THEMES.Black
+        name = "Black"
+        idx = 1
+    end
     getgenv().LightHubConfig.UiColorIndex = idx
-    SaveConfig()
+    pcall(SaveConfig)
 
     -- Feature buttons
     for text, btn in pairs(Buttons) do
@@ -1768,29 +1826,33 @@ local function createAutoStealBar()
 
     local StatsService = game:GetService("Stats")
     autoStealBarConn = RunService.Heartbeat:Connect(function(dt)
-        if not autoStealBarGui or not autoStealBarGui.Parent then return end
-        tryHoldNearestSteal()
-        fill.Size = UDim2.new(autoStealProgress, 0, 1, 0)
-        pctLabel.Text = string.format("%d%%", math.floor(autoStealProgress * 100 + 0.5))
-        local ping, fps = "--", "--"
         pcall(function()
-            ping = tostring(math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue()))
-            fps = tostring(math.floor(1 / math.max(dt, 0.001)))
+            if not autoStealBarGui or not autoStealBarGui.Parent then return end
+            tryHoldNearestSteal()
+            if fill then fill.Size = UDim2.new(autoStealProgress, 0, 1, 0) end
+            if pctLabel then pctLabel.Text = string.format("%d%%", math.floor(autoStealProgress * 100 + 0.5)) end
+            local ping, fps = "--", "--"
+            pcall(function()
+                ping = tostring(math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue()))
+                fps = tostring(math.floor(1 / math.max(dt, 0.001)))
+            end)
+            if statsLabel then statsLabel.Text = "PING " .. ping .. "  FPS " .. fps end
         end)
-        statsLabel.Text = "PING " .. ping .. "  FPS " .. fps
     end)
 end
 
 local GetAutoSteal = MakeToggle("Auto Steal", 8, false, function(state)
-    if state then
-        createAutoStealBar()
-    else
-        if holdingPrompt then
-            pcall(function() holdingPrompt:InputHoldEnd() end)
-            holdingPrompt = nil
+    safeCall(function()
+        if state then
+            createAutoStealBar()
+        else
+            if holdingPrompt then
+                pcall(function() holdingPrompt:InputHoldEnd() end)
+                holdingPrompt = nil
+            end
+            destroyAutoStealBar()
         end
-        destroyAutoStealBar()
-    end
+    end)
 end)
 
 
@@ -2369,9 +2431,12 @@ local function startAntiLag()
 
     local function applyUltraAntiLag()
         pcall(function()
-            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-            settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level04
-            if setfpscap then setfpscap(360) end
+            local s = settings()
+            if s and s.Rendering then
+                pcall(function() s.Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+                pcall(function() s.Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level04 end)
+            end
+            if setfpscap then pcall(function() setfpscap(360) end) end
             Lighting.GlobalShadows = false
             Lighting.FogEnd = 9e9
             Lighting.Brightness = 1
@@ -2720,6 +2785,7 @@ end
 
 -- Console (Gamepad) input
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    safeCall(function()
     local isPad = input.UserInputType == Enum.UserInputType.Gamepad1
         or input.UserInputType == Enum.UserInputType.Gamepad2
         or input.UserInputType == Enum.UserInputType.Gamepad3
@@ -2759,7 +2825,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         local binds = getgenv().LightHubConfig.Keybinds or {}
         for action, bindName in pairs(binds) do
             if bindName == codeName then
-                triggerScreenButton(action)
+                safeCall(function() triggerScreenButton(action) end)
                 return
             end
         end
@@ -2770,11 +2836,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         local binds = getgenv().LightHubConfig.PCKeybinds or {}
         for action, bindName in pairs(binds) do
             if bindName == codeName then
-                triggerScreenButton(action)
+                safeCall(function() triggerScreenButton(action) end)
                 return
             end
         end
     end
+    end) -- safeCall InputBegan
 end)
 
 MakeSectionTitle("Keybinds", 18)
@@ -3449,6 +3516,7 @@ end)
 ----------------------------------------------------------------
 local function runCinematicIntro()
     local introEnabledNow = getgenv().LightHubConfig.IntroEnabled ~= false
+    local SkipText = nil
 
     local IntroGui = Instance.new("Frame")
     IntroGui.Name = "CinematicIntro"
@@ -3469,22 +3537,26 @@ local function runCinematicIntro()
     if introEnabledNow then
         -- Önce şarkıyı yükle, sonra intro + müzik başlat
         task.spawn(function()
-            local idx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
-            preloadAllSongs(idx)
-            if playIntroSong then playIntroSong() end
-            if IntroGui and IntroGui.Parent then
-                TweenService:Create(IntroGui, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0.35}):Play()
-            end
-            if CinematicBlur and CinematicBlur.Parent then
-                TweenService:Create(CinematicBlur, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = 24}):Play()
-            end
+            safeCall(function()
+                local idx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
+                if preloadAllSongs then preloadAllSongs(idx) end
+                if playIntroSong then playIntroSong() end
+                if IntroGui and IntroGui.Parent then
+                    TweenService:Create(IntroGui, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0.35}):Play()
+                end
+                if CinematicBlur and CinematicBlur.Parent then
+                    TweenService:Create(CinematicBlur, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = 24}):Play()
+                end
+            end)
         end)
     else
         IntroGui.Visible = false
         pcall(function() CinematicBlur:Destroy() end)
         task.defer(function()
-            if IntroGui and IntroGui.Parent then IntroGui:Destroy() end
-            if SkipText and SkipText.Parent then SkipText:Destroy() end
+            pcall(function()
+                if IntroGui and IntroGui.Parent then IntroGui:Destroy() end
+                if SkipText and SkipText.Parent then SkipText:Destroy() end
+            end)
         end)
     end
 
@@ -3569,7 +3641,7 @@ local function runCinematicIntro()
         cards[idx] = {Wrapper = wrapper}
     end
 
-    local SkipText = Instance.new("TextLabel")
+    SkipText = Instance.new("TextLabel")
     SkipText.Name = "SkipHint"
     SkipText.Parent = ScreenGui
     SkipText.AnchorPoint = Vector2.new(0.5, 1)
@@ -3731,44 +3803,56 @@ local function runCinematicIntro()
     end)
 
 end
-task.spawn(runCinematicIntro)
+safeCall(function()
+    task.spawn(function()
+        safeCall(runCinematicIntro)
+    end)
+end)
 
 --========================================================================
 -- Initialize
 --========================================================================
-if LocalPlayer.Character then
-    setupBoost(LocalPlayer.Character)
-end
-LocalPlayer.CharacterAdded:Connect(function(char)
-    setupBoost(char)
-    task.wait(0.3)
-    if getgenv().LightHubConfig.BatAimbotEnabled then
-        startBatAimbot()
+safeCall(function()
+    if LocalPlayer.Character then
+        setupBoost(LocalPlayer.Character)
     end
+end)
+LocalPlayer.CharacterAdded:Connect(function(char)
+    safeCall(function()
+        setupBoost(char)
+        task.wait(0.3)
+        if getgenv().LightHubConfig and getgenv().LightHubConfig.BatAimbotEnabled then
+            startBatAimbot()
+        end
+    end)
 end)
 
 -- Script açılışında her şey kapalı
-getgenv().LightHubConfig.BatAimbotEnabled = false
-getgenv().LightHubConfig.SpeedBoostEnabled = true
-getgenv().LightHubConfig.MultiJumpEnabled = false
-getgenv().LightHubConfig.SpeedMode = "normal"
-getgenv().LightHubConfig.ConsoleMode = false
-getgenv().LightHubConfig.PCKeybindsEnabled = false
-if Buttons then
-    for name, btn in pairs(Buttons) do
-        ButtonToggled[name] = false
-        if ButtonStrokes[name] then
-            setButtonVisual(btn, ButtonStrokes[name], false)
-        end
-        if name == "Lagger Speed" then
-            btn.Text = "Lagger Mode"
+safeCall(function()
+    getgenv().LightHubConfig.BatAimbotEnabled = false
+    getgenv().LightHubConfig.SpeedBoostEnabled = true
+    getgenv().LightHubConfig.MultiJumpEnabled = false
+    getgenv().LightHubConfig.SpeedMode = "normal"
+    getgenv().LightHubConfig.ConsoleMode = false
+    getgenv().LightHubConfig.PCKeybindsEnabled = false
+end)
+safeCall(function()
+    if Buttons then
+        for name, btn in pairs(Buttons) do
+            ButtonToggled[name] = false
+            if ButtonStrokes[name] then
+                setButtonVisual(btn, ButtonStrokes[name], false)
+            end
+            if name == "Lagger Speed" and btn then
+                btn.Text = "Lagger Mode"
+            end
         end
     end
-end
-updateSpeedMode("normal")
-stopBatAimbot()
-if SetMultiJumpVisual then SetMultiJumpVisual(false) end
-if SetConsoleModeVisual then SetConsoleModeVisual(false) end
-if SetPCKeybindsVisual then SetPCKeybindsVisual(false) end
+end)
+safeCall(function() updateSpeedMode("normal") end)
+safeCall(function() stopBatAimbot() end)
+safeCall(function() if SetMultiJumpVisual then SetMultiJumpVisual(false) end end)
+safeCall(function() if SetConsoleModeVisual then SetConsoleModeVisual(false) end end)
+safeCall(function() if SetPCKeybindsVisual then SetPCKeybindsVisual(false) end end)
 
-print("[Light Hub] Combined script loaded. Speed Boost: VectorForce stabil yöntem. All features start OFF.")
+print("[Light Hub] Combined script loaded. Errors are skipped; features continue. All features start OFF.")
