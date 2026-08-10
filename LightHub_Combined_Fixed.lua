@@ -656,7 +656,7 @@ local function startAutoPath(points)
     if not points or #points == 0 then return end
     autoPathPoints = points
     autoPathIndex = 1
-    -- Mevcut speed boost aynen; ekstra speed yok
+    -- Mevcut speed boost hedef hızı (Normal/Carry/Lagger) — başka speed yok
     autoPathConn = RunService.Heartbeat:Connect(function()
         pcall(function()
             if not autoPathPoints then return end
@@ -675,18 +675,41 @@ local function startAutoPath(points)
             local flat = Vector3.new(target.X - pos.X, 0, target.Z - pos.Z)
             local dist = flat.Magnitude
 
-            if dist < 4 then
+            if dist < 5 then
                 autoPathIndex = autoPathIndex % #autoPathPoints + 1
                 return
             end
 
             local dir = flat.Unit
-            pcall(function()
-                hum:MoveTo(Vector3.new(target.X, pos.Y, target.Z))
-            end)
+            -- MoveDirection set → VectorForce speed boost devreye girer
             pcall(function()
                 hum:Move(dir, false)
             end)
+            pcall(function()
+                hum:MoveTo(Vector3.new(target.X, pos.Y, target.Z))
+            end)
+            -- Yedek: hedef hızla doğrudan yatay velocity (boost ile aynı hedef)
+            local targetSpeed = 16
+            pcall(function()
+                if type(getTargetSpeed) == "function" then
+                    targetSpeed = tonumber(getTargetSpeed()) or 16
+                else
+                    local cfg = getgenv().LightHubConfig
+                    local mode = cfg.SpeedMode or "normal"
+                    if mode == "carry" then
+                        targetSpeed = tonumber(cfg.StealSpeed) or 30
+                    elseif mode == "lagger" then
+                        targetSpeed = tonumber(cfg.LaggerSpeed) or 15
+                    elseif mode == "lagger_carry" then
+                        targetSpeed = tonumber(cfg.LaggerSteal) or 10
+                    else
+                        targetSpeed = tonumber(cfg.NormalSpeed) or 60
+                    end
+                end
+            end)
+            if targetSpeed < 1 then targetSpeed = 16 end
+            local vel = root.AssemblyLinearVelocity
+            root.AssemblyLinearVelocity = Vector3.new(dir.X * targetSpeed, vel.Y, dir.Z * targetSpeed)
         end)
     end)
 end
@@ -1248,14 +1271,38 @@ for text, defaultPos in pairs(defaultLayout) do
                         end
                     end)
                 elseif currentDropType == "high jump" then
-                    -- Daha yüksek/hızlı zıplama, sonra spawn Y-3 TP
+                    -- Yüksek zıpla; 30 blok çıkınca yere TP
                     doStrongJumpOnce()
-                    task.delay(0.45, function()
+                    task.spawn(function()
+                        local t0 = tick()
+                        while tick() - t0 < 6 do
+                            local char = LocalPlayer.Character
+                            local root = char and char:FindFirstChild("HumanoidRootPart")
+                            if not root then return end
+                            local baseY = savedSpawnY
+                            if baseY == nil then baseY = root.Position.Y - 5 end
+                            if root.Position.Y >= baseY + 30 then
+                                local y = baseY - 2
+                                pcall(function()
+                                    root.AssemblyLinearVelocity = Vector3.zero
+                                    root.AssemblyAngularVelocity = Vector3.zero
+                                    root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
+                                    root.AssemblyLinearVelocity = Vector3.zero
+                                end)
+                                return
+                            end
+                            task.wait()
+                        end
+                        -- Timeout: yine de yere indir
                         local char = LocalPlayer.Character
                         local root = char and char:FindFirstChild("HumanoidRootPart")
-                        if not root then return end
-                        local y = (savedSpawnY or root.Position.Y) - 3
-                        root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
+                        if root then
+                            local baseY = savedSpawnY or root.Position.Y
+                            pcall(function()
+                                root.AssemblyLinearVelocity = Vector3.zero
+                                root.CFrame = CFrame.new(root.Position.X, baseY - 2, root.Position.Z)
+                            end)
+                        end
                     end)
                 end
             end
@@ -2967,12 +3014,35 @@ local function fireDropBrainrot()
         end)
     elseif currentDropType == "high jump" then
         doStrongJumpOnce()
-        task.delay(0.45, function()
+        task.spawn(function()
+            local t0 = tick()
+            while tick() - t0 < 6 do
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if not root then return end
+                local baseY = savedSpawnY
+                if baseY == nil then baseY = root.Position.Y - 5 end
+                if root.Position.Y >= baseY + 30 then
+                    local y = baseY - 2
+                    pcall(function()
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        root.AssemblyAngularVelocity = Vector3.zero
+                        root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
+                        root.AssemblyLinearVelocity = Vector3.zero
+                    end)
+                    return
+                end
+                task.wait()
+            end
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            local y = (savedSpawnY or root.Position.Y) - 3
-            root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
+            if root then
+                local baseY = savedSpawnY or root.Position.Y
+                pcall(function()
+                    root.AssemblyLinearVelocity = Vector3.zero
+                    root.CFrame = CFrame.new(root.Position.X, baseY - 2, root.Position.Z)
+                end)
+            end
         end)
     end
 end
