@@ -2617,6 +2617,13 @@ end)
     _LH.HubStroke = HubStroke
     _LH.HubPanel = HubPanel
     _LH.PanelBg = PanelBg
+    _LH.UI_COLOR_NAMES = UI_COLOR_NAMES
+    _LH.UI_THEMES = UI_THEMES
+    _LH.getCurrentTheme = getCurrentTheme
+    _LH.applyUiColorTheme = applyUiColorTheme
+    _LH.MakeDraggable = MakeDraggable
+    _LH.hubWasDragged = hubWasDragged
+    _LH.defaultLayout = defaultLayout
     if SetMultiJumpVisual then _LH.SetMultiJumpVisual = SetMultiJumpVisual end
 end
 safeCall(__LH_BuildGUI1)
@@ -2640,6 +2647,13 @@ local function __LH_BuildGUI2()
     local PanelBg = _LH.PanelBg
     local keybindOrder = _LH.keybindOrder or 20
     local SetMultiJumpVisual = _LH.SetMultiJumpVisual
+    local UI_COLOR_NAMES = _LH.UI_COLOR_NAMES or { "Black", "Blue", "Green", "Pink", "White" }
+    local UI_THEMES = _LH.UI_THEMES
+    local getCurrentTheme = _LH.getCurrentTheme
+    local applyUiColorTheme = _LH.applyUiColorTheme
+    local MakeDraggable = _LH.MakeDraggable
+    local hubWasDragged = _LH.hubWasDragged
+    local defaultLayout = _LH.defaultLayout or {}
 local KEYBIND_DISPLAY = {
     DPadLeft = "←", DPadRight = "→", DPadUp = "↑", DPadDown = "↓",
     ButtonA = "✕", ButtonB = "○", ButtonX = "□", ButtonY = "△",
@@ -3373,6 +3387,7 @@ UiColorLabel.TextXAlignment = Enum.TextXAlignment.Left
 UiColorLabel.ZIndex = 63
 
 local colorIdx = tonumber(getgenv().LightHubConfig.UiColorIndex) or 1
+if not UI_COLOR_NAMES then UI_COLOR_NAMES = { "Black", "Blue", "Green", "Pink", "White" } end
 if colorIdx < 1 or colorIdx > #UI_COLOR_NAMES then colorIdx = 1 end
 getgenv().LightHubConfig.UiColorIndex = colorIdx
 
@@ -3396,18 +3411,25 @@ UiColorStroke.Thickness = 1.5
 UiColorStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 UiColorBtn.MouseButton1Click:Connect(function()
+    if not UI_COLOR_NAMES or #UI_COLOR_NAMES == 0 then return end
     colorIdx = colorIdx % #UI_COLOR_NAMES + 1
     getgenv().LightHubConfig.UiColorIndex = colorIdx
-    local name = applyUiColorTheme()
-    UiColorBtn.Text = name
+    local name = UI_COLOR_NAMES[colorIdx]
+    if type(applyUiColorTheme) == "function" then
+        local ok, n = pcall(applyUiColorTheme)
+        if ok and n then name = n end
+    end
+    UiColorBtn.Text = name or "Black"
 end)
 
 -- Kaydedilmiş rengi başlangıçta uygula
 task.defer(function()
-    applyUiColorTheme()
-    if UiColorBtn then
-        UiColorBtn.Text = UI_COLOR_NAMES[tonumber(getgenv().LightHubConfig.UiColorIndex) or 1]
-    end
+    pcall(function()
+        if type(applyUiColorTheme) == "function" then applyUiColorTheme() end
+        if UiColorBtn and UI_COLOR_NAMES then
+            UiColorBtn.Text = UI_COLOR_NAMES[tonumber(getgenv().LightHubConfig.UiColorIndex) or 1] or "Black"
+        end
+    end)
 end)
 
 ----------------------------------------------------------------
@@ -3538,22 +3560,31 @@ ResetPosBtn.MouseButton1Click:Connect(function()
     showResetConfirm()
 end)
 
-MakeDraggable(HubPanel)
-
+if MakeDraggable and HubPanel then
+    pcall(function() MakeDraggable(HubPanel) end)
+end
 
 local panelOpen = false
-HubBtn.MouseButton1Click:Connect(function()
-    if hubWasDragged() then return end
-    panelOpen = not panelOpen
-    HubPanel.Visible = panelOpen
-    HubStroke.Color = Color3.fromRGB(255, 255, 255)
-    HubStroke.Thickness = 3
-    task.delay(0.2, function()
-        if HubStroke and HubStroke.Parent then
-            HubStroke.Thickness = 1.5
+if HubBtn then
+    HubBtn.MouseButton1Click:Connect(function()
+        -- Sürüklediyse tıklama sayma
+        if type(hubWasDragged) == "function" and hubWasDragged() then
+            return
+        end
+        if not HubPanel then return end
+        panelOpen = not panelOpen
+        HubPanel.Visible = panelOpen
+        if HubStroke then
+            HubStroke.Color = Color3.fromRGB(255, 255, 255)
+            HubStroke.Thickness = 3
+            task.delay(0.2, function()
+                if HubStroke and HubStroke.Parent then
+                    HubStroke.Thickness = 1.5
+                end
+            end)
         end
     end)
-end)
+end
 
 ----------------------------------------------------------------
 ----------------------------------------------------------------
