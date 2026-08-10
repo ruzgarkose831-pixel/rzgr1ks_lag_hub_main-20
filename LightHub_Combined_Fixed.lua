@@ -440,53 +440,71 @@ local function ensureMultiJumpForce(root)
     multiJumpForce.Parent = root
 end
 
+local function applyMultiJumpImpulse()
+    if not getgenv().LightHubConfig.MultiJumpEnabled then return end
+    local character = LocalPlayer.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not rootPart then return end
+
+    local state = humanoid:GetState()
+    if state ~= Enum.HumanoidStateType.Freefall and state ~= Enum.HumanoidStateType.Jumping then
+        return
+    end
+
+    -- Cooldown yok — anında tekrar
+    ensureMultiJumpForce(rootPart)
+
+    local jumpPower = 35
+    pcall(function()
+        if humanoid.UseJumpPower ~= false and humanoid.JumpPower and humanoid.JumpPower > 0 then
+            jumpPower = math.min(humanoid.JumpPower, 40)
+        elseif humanoid.JumpHeight and humanoid.JumpHeight > 0 then
+            jumpPower = math.min(math.sqrt(2 * workspace.Gravity * humanoid.JumpHeight), 40)
+        end
+    end)
+    local vel = rootPart.AssemblyLinearVelocity
+    pcall(function()
+        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, jumpPower, vel.Z)
+    end)
+    if multiJumpForce then
+        multiJumpForce.Force = Vector3.new(0, jumpPower * 2.5, 0)
+        task.delay(0.02, function()
+            pcall(function()
+                if multiJumpForce and multiJumpForce.Parent then
+                    multiJumpForce.Force = Vector3.zero
+                end
+            end)
+        end)
+    end
+end
+
 UserInputService.JumpRequest:Connect(function()
+    safeCall(applyMultiJumpImpulse)
+end)
+
+-- Basılı tutunca da multi jump (Space / gamepad A)
+local multiJumpHoldAcc = 0
+RunService.Heartbeat:Connect(function(dt)
     safeCall(function()
         if not getgenv().LightHubConfig.MultiJumpEnabled then return end
-        local character = LocalPlayer.Character
-        if not character then return end
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if not humanoid or not rootPart then return end
-
-        local state = humanoid:GetState()
-        if state ~= Enum.HumanoidStateType.Freefall and state ~= Enum.HumanoidStateType.Jumping then
+        local holding = UserInputService:IsKeyDown(Enum.KeyCode.Space)
+            or UserInputService:IsKeyDown(Enum.KeyCode.ButtonA)
+        if not holding then
+            multiJumpHoldAcc = 0
             return
         end
-
-        local now = tick()
-        if now - lastMultiJump < 0.22 then return end
-        lastMultiJump = now
-
-        ensureMultiJumpForce(rootPart)
-
-        -- Normal zıplama seviyesinde (fazla güçlü olmasın)
-        local jumpPower = 35
-        pcall(function()
-            if humanoid.UseJumpPower ~= false and humanoid.JumpPower and humanoid.JumpPower > 0 then
-                jumpPower = math.min(humanoid.JumpPower, 40)
-            elseif humanoid.JumpHeight and humanoid.JumpHeight > 0 then
-                jumpPower = math.min(math.sqrt(2 * workspace.Gravity * humanoid.JumpHeight), 40)
-            end
-        end)
-        local vel = rootPart.AssemblyLinearVelocity
-        pcall(function()
-            rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, jumpPower, vel.Z)
-        end)
-        if multiJumpForce then
-            multiJumpForce.Force = Vector3.new(0, jumpPower * 2.5, 0)
-            task.delay(0.025, function()
-                pcall(function()
-                    if multiJumpForce and multiJumpForce.Parent then
-                        multiJumpForce.Force = Vector3.zero
-                    end
-                end)
-            end)
+        multiJumpHoldAcc = multiJumpHoldAcc + dt
+        -- Her frame yakınında (çok hafif throttle sadece spam fizik patlamasın)
+        if multiJumpHoldAcc >= 0.05 then
+            multiJumpHoldAcc = 0
+            applyMultiJumpImpulse()
         end
     end)
 end)
 
--- High jump için tek seferlik güçlü zıplama (eski multi jump gücü)
+-- High jump (Drop Brainrot): daha yükseğe + daha hızlı
 local function doStrongJumpOnce()
     local character = LocalPlayer.Character
     if not character then return end
@@ -496,15 +514,54 @@ local function doStrongJumpOnce()
     ensureMultiJumpForce(rootPart)
     local vel = rootPart.AssemblyLinearVelocity
     pcall(function()
-        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, 50, vel.Z)
+        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, 160, vel.Z)
     end)
-    multiJumpForce.Force = Vector3.new(0, 6500, 0)
-    task.delay(0.08, function()
+    multiJumpForce.Force = Vector3.new(0, 28000, 0)
+    task.delay(0.14, function()
         if multiJumpForce and multiJumpForce.Parent then
             multiJumpForce.Force = Vector3.zero
         end
     end)
 end
+
+-- Reset spin: dev güç, yeniden doğana kadar
+local RESET_SPIN_POWER = 9999999999999999999999999999999999
+local resetSpinConn = nil
+local resetSpinChar = nil
+local function stopResetSpin()
+    if resetSpinConn then
+        pcall(function() resetSpinConn:Disconnect() end)
+        resetSpinConn = nil
+    end
+    resetSpinChar = nil
+end
+local function startResetSpin()
+    stopResetSpin()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    resetSpinChar = char
+    resetSpinConn = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            local c = LocalPlayer.Character
+            if c ~= resetSpinChar then
+                stopResetSpin()
+                return
+            end
+            local r = c:FindFirstChild("HumanoidRootPart")
+            local hum = c:FindFirstChildOfClass("Humanoid")
+            if not r or not hum or hum.Health <= 0 then
+                stopResetSpin()
+                return
+            end
+            r.AssemblyAngularVelocity = Vector3.new(0, RESET_SPIN_POWER, 0)
+            pcall(function() r.RotVelocity = Vector3.new(0, RESET_SPIN_POWER, 0) end)
+        end)
+    end)
+end
+LocalPlayer.CharacterAdded:Connect(function()
+    stopResetSpin()
+end)
 
 -- Spawn Y kaydı (high jump / Tp down / Auto Tp Down için)
 local savedSpawnY = nil
@@ -991,28 +1048,7 @@ for text, defaultPos in pairs(defaultLayout) do
             end)
 
             if text == "Reset" then
-                -- 1 sn boyunca aşırı AngularVelocity ile dön
-                task.spawn(function()
-                    local char = LocalPlayer.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                    if not root then return end
-                    local start = tick()
-                    local spinConn
-                    spinConn = RunService.Heartbeat:Connect(function()
-                        if tick() - start > 3 then
-                            if spinConn then spinConn:Disconnect() end
-                            pcall(function()
-                                root.AssemblyAngularVelocity = Vector3.zero
-                                root.RotVelocity = Vector3.zero
-                            end)
-                            return
-                        end
-                        pcall(function()
-                            root.AssemblyAngularVelocity = Vector3.new(0, 999999999999999999999, 0)
-                            root.RotVelocity = Vector3.new(0, 999999999999999999999, 0)
-                        end)
-                    end)
-                end)
+                startResetSpin()
             elseif text == "Tp down" then
                 doTpDown()
             elseif text == "Drop Brainrot" then
@@ -1042,9 +1078,9 @@ for text, defaultPos in pairs(defaultLayout) do
                         end
                     end)
                 elseif currentDropType == "high jump" then
-                    -- Anında güçlü zıplama, 0.6sn sonra spawn Y-3 TP
+                    -- Daha yüksek/hızlı zıplama, sonra spawn Y-3 TP
                     doStrongJumpOnce()
-                    task.delay(0.6, function()
+                    task.delay(0.45, function()
                         local char = LocalPlayer.Character
                         local root = char and char:FindFirstChild("HumanoidRootPart")
                         if not root then return end
@@ -2748,7 +2784,7 @@ local function fireDropBrainrot()
         end)
     elseif currentDropType == "high jump" then
         doStrongJumpOnce()
-        task.delay(0.6, function()
+        task.delay(0.45, function()
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if not root then return end
@@ -2809,31 +2845,11 @@ local function triggerScreenButton(actionName)
         doTpDown()
     elseif actionName == "Reset" then
         local b, s = Buttons[actionName], ButtonStrokes[actionName]
-        if b then
+        if b and setButtonVisual then
             setButtonVisual(b, s, true)
             task.delay(0.2, function() setButtonVisual(b, s, false) end)
         end
-        task.spawn(function()
-            local char = LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            local start = tick()
-            local spinConn
-            spinConn = RunService.Heartbeat:Connect(function()
-                if tick() - start > 3 then
-                    if spinConn then spinConn:Disconnect() end
-                    pcall(function()
-                        root.AssemblyAngularVelocity = Vector3.zero
-                        root.RotVelocity = Vector3.zero
-                    end)
-                    return
-                end
-                pcall(function()
-                    root.AssemblyAngularVelocity = Vector3.new(0, 999999999999999999999, 0)
-                    root.RotVelocity = Vector3.new(0, 999999999999999999999, 0)
-                end)
-            end)
-        end)
+        startResetSpin()
     else
         ButtonToggled[actionName] = not ButtonToggled[actionName]
         if Buttons[actionName] then
@@ -3473,9 +3489,7 @@ ResetPosBtn.Font = Enum.Font.GothamBold
 ResetPosBtn.AutoButtonColor = false
 ResetPosBtn.ZIndex = 63
 Instance.new("UICorner", ResetPosBtn).CornerRadius = UDim.new(0, 6)
-local ResetPosStroke = Instance.new("UIStroke", ResetPosBtn)
-ResetPosStroke.Color = Color3.fromRGB(255, 255, 255)
-ResetPosStroke.Thickness = 1.5
+-- Beyaz stroke yok (yazı okunaklı kalsın)
 
 local function showResetConfirm()
     local confirmGui = Instance.new("Frame")
@@ -3650,18 +3664,18 @@ local function runCinematicIntro()
     CinematicBlur.Parent = Lighting
 
     if introEnabledNow then
-        -- Önce şarkıyı yükle, sonra intro + müzik başlat
+        -- Hemen görsel başlasın; şarkı arka planda
+        if IntroGui and IntroGui.Parent then
+            TweenService:Create(IntroGui, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0.35}):Play()
+        end
+        if CinematicBlur and CinematicBlur.Parent then
+            TweenService:Create(CinematicBlur, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = 24}):Play()
+        end
         task.spawn(function()
             safeCall(function()
                 local idx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
                 if preloadAllSongs then preloadAllSongs(idx) end
                 if playIntroSong then playIntroSong() end
-                if IntroGui and IntroGui.Parent then
-                    TweenService:Create(IntroGui, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0.35}):Play()
-                end
-                if CinematicBlur and CinematicBlur.Parent then
-                    TweenService:Create(CinematicBlur, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = 24}):Play()
-                end
             end)
         end)
     else
@@ -3854,58 +3868,54 @@ local function runCinematicIntro()
 
     task.spawn(function()
         if not introEnabledNow then return end
-        -- Şarkı yüklenene kadar bekle (max 8sn)
-        local t0 = tick()
-        while not introSongReady and tick() - t0 < 8 do
-            task.wait(0.1)
-        end
-        task.wait(0.3)
-    
+        -- Şarkı bekleme yok — animasyon hemen
+        task.wait(0.05)
+
         for _, c in ipairs(cards) do
             c.Wrapper.Visible = true
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, 140, 0, 200)
             }):Play()
-            task.wait(0.1)
+            task.wait(0.04)
         end
-        task.wait(0.4)
-    
+        task.wait(0.12)
+
         MainTitle.Visible = true
-        TweenService:Create(MainTitle, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
-    
-        task.wait(1.15)
+        TweenService:Create(MainTitle, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
+
+        task.wait(0.45)
         if not isIntroActive then return end
-    
-        TweenService:Create(MainTitle, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
-    
-        task.wait(0.08)
+
+        TweenService:Create(MainTitle, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
+
+        task.wait(0.05)
         if not isIntroActive then return end
-    
+
         for idx, c in ipairs(cards) do
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(0.5, stackOffsets[idx], 0.5, 120),
                 Rotation = stackRotations[idx]
             }):Play()
         end
-    
-        task.wait(0.5)
+
+        task.wait(0.28)
         if not isIntroActive then return end
-    
+
         FlipCards()
-    
+
         if not isIntroActive then return end
-    
+
         SkipText.Visible = true
         SkipText.TextTransparency = 1
-        TweenService:Create(SkipText, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+        TweenService:Create(SkipText, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
             TextTransparency = 0
         }):Play()
-    
-        task.wait(0.3)
+
+        task.wait(0.1)
         if not isIntroActive then return end
-    
+
         canSkip = true
     end)
 
