@@ -524,44 +524,214 @@ local function doStrongJumpOnce()
     end)
 end
 
--- Reset spin: dev güç, yeniden doğana kadar
-local RESET_SPIN_POWER = 9999999999999999999999999999999999
-local resetSpinConn = nil
-local resetSpinChar = nil
-local function stopResetSpin()
-    if resetSpinConn then
-        pcall(function() resetSpinConn:Disconnect() end)
-        resetSpinConn = nil
+-- Reset: v4gg-style 0.1s BURST (spin yok) — physics spam ile server respawn
+local resettingBurst = false
+local resetBurstConn = nil
+local resetMtHooked = false
+local resetOldIndex = nil
+
+local function cleanupResetBurst()
+    resettingBurst = false
+    if resetBurstConn then
+        pcall(function() resetBurstConn:Disconnect() end)
+        resetBurstConn = nil
     end
-    resetSpinChar = nil
+    if resetMtHooked then
+        pcall(function()
+            local mt = getrawmetatable and getrawmetatable(game)
+            if mt and resetOldIndex then
+                if setreadonly then setreadonly(mt, false) end
+                mt.__index = resetOldIndex
+                if setreadonly then setreadonly(mt, true) end
+            end
+        end)
+        resetMtHooked = false
+        resetOldIndex = nil
+    end
 end
-local function startResetSpin()
-    stopResetSpin()
+
+local function startResetBurst()
+    if resettingBurst then return end
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    resetSpinChar = char
-    resetSpinConn = RunService.Heartbeat:Connect(function()
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not root or not hum then return end
+
+    resettingBurst = true
+
+    pcall(function()
+        if not getrawmetatable then return end
+        local mt = getrawmetatable(game)
+        if not mt then return end
+        local oldIdx = mt.__index
+        resetOldIndex = oldIdx
+        if setreadonly then setreadonly(mt, false) end
+        local hook = function(s, k)
+            if k == "WalkSpeed" and resettingBurst then
+                return 16
+            end
+            if type(oldIdx) == "function" then
+                return oldIdx(s, k)
+            end
+            return oldIdx[k]
+        end
+        if newcclosure then
+            mt.__index = newcclosure(hook)
+        else
+            mt.__index = hook
+        end
+        if setreadonly then setreadonly(mt, true) end
+        resetMtHooked = true
+    end)
+
+    local start = tick()
+    local myChar = char
+    if resetBurstConn then pcall(function() resetBurstConn:Disconnect() end) end
+    resetBurstConn = RunService.Heartbeat:Connect(function()
+        if tick() - start > 0.15 or not myChar.Parent then
+            if resetBurstConn then
+                pcall(function() resetBurstConn:Disconnect() end)
+                resetBurstConn = nil
+            end
+            return
+        end
         pcall(function()
-            local c = LocalPlayer.Character
-            if c ~= resetSpinChar then
-                stopResetSpin()
+            local r = myChar:FindFirstChild("HumanoidRootPart")
+            local h = myChar:FindFirstChildOfClass("Humanoid")
+            if not r or not h then return end
+            pcall(function()
+                if r.SetNetworkOwner then r:SetNetworkOwner(LocalPlayer) end
+            end)
+            r.AssemblyLinearVelocity = Vector3.new(1e7, 1e7, 1e7)
+            h.Health = 0
+        end)
+    end)
+
+    task.spawn(function()
+        LocalPlayer.CharacterAdded:Wait()
+        cleanupResetBurst()
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+    cleanupResetBurst()
+end)
+
+-- AUTO LEFT / AUTO RIGHT waypoints (fotoğraflar) — mevcut speed boost ile yürü
+local AUTO_LEFT_POINTS = {
+    Vector3.new(-475.8, -7.0, 29.1),
+    Vector3.new(-474.1, -7.0, 91.9),
+    Vector3.new(-483.1, -5.0, 21.4),
+    Vector3.new(-473.6, -7.0, 30.2),
+}
+local AUTO_RIGHT_POINTS = {
+    Vector3.new(-476.1, -6.8, 102.2),
+    Vector3.new(-473.6, -7.0, 30.2),
+    Vector3.new(-475.8, -7.0, 29.1),
+    Vector3.new(-483.1, -5.0, 21.4),
+}
+
+local autoLeftOn = false
+local autoRightOn = false
+local autoPathConn = nil
+local autoPathIndex = 1
+local autoPathPoints = nil
+
+local function stopAutoPath()
+    autoLeftOn = false
+    autoRightOn = false
+    autoPathPoints = nil
+    autoPathIndex = 1
+    if autoPathConn then
+        pcall(function() autoPathConn:Disconnect() end)
+        autoPathConn = nil
+    end
+end
+
+local function startAutoPath(points)
+    if autoPathConn then
+        pcall(function() autoPathConn:Disconnect() end)
+        autoPathConn = nil
+    end
+    if not points or #points == 0 then return end
+    autoPathPoints = points
+    autoPathIndex = 1
+    -- Mevcut speed boost aynen; ekstra speed yok
+    autoPathConn = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if not autoPathPoints then return end
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if not root or not hum or hum.Health <= 0 then return end
+
+            local target = autoPathPoints[autoPathIndex]
+            if not target then
+                autoPathIndex = 1
+                target = autoPathPoints[1]
+            end
+
+            local pos = root.Position
+            local flat = Vector3.new(target.X - pos.X, 0, target.Z - pos.Z)
+            local dist = flat.Magnitude
+
+            if dist < 4 then
+                autoPathIndex = autoPathIndex % #autoPathPoints + 1
                 return
             end
-            local r = c:FindFirstChild("HumanoidRootPart")
-            local hum = c:FindFirstChildOfClass("Humanoid")
-            if not r or not hum or hum.Health <= 0 then
-                stopResetSpin()
-                return
-            end
-            r.AssemblyAngularVelocity = Vector3.new(0, RESET_SPIN_POWER, 0)
-            pcall(function() r.RotVelocity = Vector3.new(0, RESET_SPIN_POWER, 0) end)
+
+            local dir = flat.Unit
+            pcall(function()
+                hum:MoveTo(Vector3.new(target.X, pos.Y, target.Z))
+            end)
+            pcall(function()
+                hum:Move(dir, false)
+            end)
         end)
     end)
 end
-LocalPlayer.CharacterAdded:Connect(function()
-    stopResetSpin()
-end)
+
+local function setAutoLeft(on)
+    if on then
+        autoRightOn = false
+        autoLeftOn = true
+        pcall(function()
+            local B = (_LH and _LH.Buttons) or Buttons
+            local S = (_LH and _LH.ButtonStrokes) or ButtonStrokes
+            local T = (_LH and _LH.ButtonToggled) or ButtonToggled
+            local sv = (_LH and _LH.setButtonVisual) or setButtonVisual
+            if B and S and T and sv and B["Auto Right"] then
+                T["Auto Right"] = false
+                sv(B["Auto Right"], S["Auto Right"], false)
+            end
+        end)
+        startAutoPath(AUTO_LEFT_POINTS)
+    else
+        autoLeftOn = false
+        stopAutoPath()
+    end
+end
+
+local function setAutoRight(on)
+    if on then
+        autoLeftOn = false
+        autoRightOn = true
+        pcall(function()
+            local B = (_LH and _LH.Buttons) or Buttons
+            local S = (_LH and _LH.ButtonStrokes) or ButtonStrokes
+            local T = (_LH and _LH.ButtonToggled) or ButtonToggled
+            local sv = (_LH and _LH.setButtonVisual) or setButtonVisual
+            if B and S and T and sv and B["Auto Left"] then
+                T["Auto Left"] = false
+                sv(B["Auto Left"], S["Auto Left"], false)
+            end
+        end)
+        startAutoPath(AUTO_RIGHT_POINTS)
+    else
+        autoRightOn = false
+        stopAutoPath()
+    end
+end
 
 -- Spawn Y kaydı (high jump / Tp down / Auto Tp Down için)
 local savedSpawnY = nil
@@ -1048,7 +1218,7 @@ for text, defaultPos in pairs(defaultLayout) do
             end)
 
             if text == "Reset" then
-                startResetSpin()
+                startResetBurst()
             elseif text == "Tp down" then
                 doTpDown()
             elseif text == "Drop Brainrot" then
@@ -1147,8 +1317,21 @@ for text, defaultPos in pairs(defaultLayout) do
                 stopBatAimbot()
             end
         end)
+    elseif text == "Auto Left" then
+        Btn.MouseButton1Click:Connect(function()
+            if hasMoved then return end
+            ButtonToggled[text] = not ButtonToggled[text]
+            setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
+            setAutoLeft(ButtonToggled[text] == true)
+        end)
+    elseif text == "Auto Right" then
+        Btn.MouseButton1Click:Connect(function()
+            if hasMoved then return end
+            ButtonToggled[text] = not ButtonToggled[text]
+            setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
+            setAutoRight(ButtonToggled[text] == true)
+        end)
     else
-        -- Diğer toggle butonlar (Auto Left, Auto Right ...)
         Btn.MouseButton1Click:Connect(function()
             if hasMoved then return end
             ButtonToggled[text] = not ButtonToggled[text]
@@ -2849,10 +3032,22 @@ local function triggerScreenButton(actionName)
             setButtonVisual(b, s, true)
             task.delay(0.2, function() setButtonVisual(b, s, false) end)
         end
-        startResetSpin()
+        startResetBurst()
+    elseif actionName == "Auto Left" then
+        ButtonToggled["Auto Left"] = not ButtonToggled["Auto Left"]
+        if Buttons["Auto Left"] and ButtonStrokes["Auto Left"] and setButtonVisual then
+            setButtonVisual(Buttons["Auto Left"], ButtonStrokes["Auto Left"], ButtonToggled["Auto Left"])
+        end
+        setAutoLeft(ButtonToggled["Auto Left"] == true)
+    elseif actionName == "Auto Right" then
+        ButtonToggled["Auto Right"] = not ButtonToggled["Auto Right"]
+        if Buttons["Auto Right"] and ButtonStrokes["Auto Right"] and setButtonVisual then
+            setButtonVisual(Buttons["Auto Right"], ButtonStrokes["Auto Right"], ButtonToggled["Auto Right"])
+        end
+        setAutoRight(ButtonToggled["Auto Right"] == true)
     else
         ButtonToggled[actionName] = not ButtonToggled[actionName]
-        if Buttons[actionName] then
+        if Buttons[actionName] and setButtonVisual then
             setButtonVisual(Buttons[actionName], ButtonStrokes[actionName], ButtonToggled[actionName])
         end
     end
@@ -3664,18 +3859,18 @@ local function runCinematicIntro()
     CinematicBlur.Parent = Lighting
 
     if introEnabledNow then
-        -- Hemen görsel başlasın; şarkı arka planda
-        if IntroGui and IntroGui.Parent then
-            TweenService:Create(IntroGui, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0.35}):Play()
-        end
-        if CinematicBlur and CinematicBlur.Parent then
-            TweenService:Create(CinematicBlur, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = 24}):Play()
-        end
+        -- Intro eski tempo: şarkı + fade birlikte
         task.spawn(function()
             safeCall(function()
                 local idx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
                 if preloadAllSongs then preloadAllSongs(idx) end
                 if playIntroSong then playIntroSong() end
+                if IntroGui and IntroGui.Parent then
+                    TweenService:Create(IntroGui, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {BackgroundTransparency = 0.35}):Play()
+                end
+                if CinematicBlur and CinematicBlur.Parent then
+                    TweenService:Create(CinematicBlur, TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = 24}):Play()
+                end
             end)
         end)
     else
@@ -3868,39 +4063,43 @@ local function runCinematicIntro()
 
     task.spawn(function()
         if not introEnabledNow then return end
-        -- Şarkı bekleme yok — animasyon hemen
-        task.wait(0.05)
+        -- Eski tempo (çok hızlı değildi)
+        local t0 = tick()
+        while not introSongReady and tick() - t0 < 3 do
+            task.wait(0.1)
+        end
+        task.wait(0.3)
 
         for _, c in ipairs(cards) do
             c.Wrapper.Visible = true
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, 140, 0, 200)
             }):Play()
-            task.wait(0.04)
+            task.wait(0.1)
         end
-        task.wait(0.12)
+        task.wait(0.4)
 
         MainTitle.Visible = true
-        TweenService:Create(MainTitle, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
+        TweenService:Create(MainTitle, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
 
-        task.wait(0.45)
+        task.wait(1.15)
         if not isIntroActive then return end
 
-        TweenService:Create(MainTitle, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
+        TweenService:Create(MainTitle, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
 
-        task.wait(0.05)
+        task.wait(0.08)
         if not isIntroActive then return end
 
         for idx, c in ipairs(cards) do
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(0.5, stackOffsets[idx], 0.5, 120),
                 Rotation = stackRotations[idx]
             }):Play()
         end
 
-        task.wait(0.28)
+        task.wait(0.5)
         if not isIntroActive then return end
 
         FlipCards()
@@ -3909,11 +4108,11 @@ local function runCinematicIntro()
 
         SkipText.Visible = true
         SkipText.TextTransparency = 1
-        TweenService:Create(SkipText, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+        TweenService:Create(SkipText, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
             TextTransparency = 0
         }):Play()
 
-        task.wait(0.1)
+        task.wait(0.3)
         if not isIntroActive then return end
 
         canSkip = true
