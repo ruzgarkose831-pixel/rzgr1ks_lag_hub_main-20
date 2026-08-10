@@ -663,6 +663,12 @@ for _, child in ipairs(Lighting:GetChildren()) do
     if child.Name == "LightHubIntroBlur" then child:Destroy() end
 end
 
+-- Shared UI state (register limit fix: GUI in separate function scope)
+getgenv()._LH = getgenv()._LH or {}
+local _LH = getgenv()._LH
+
+-- GUI Part 1 (buttons, panel, features) — own register scope
+local function __LH_BuildGUI1()
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LightHubIndependent"
 ScreenGui.ResetOnSpawn = false
@@ -2595,6 +2601,45 @@ end)
 ----------------------------------------------------------------
 -- KEYBINDS (Console Mode + PC Keybinds)
 ----------------------------------------------------------------
+
+    _LH.ScreenGui = ScreenGui
+    _LH.Buttons = Buttons
+    _LH.ButtonStrokes = ButtonStrokes
+    _LH.ButtonToggled = ButtonToggled
+    _LH.ButtonKeyLabels = ButtonKeyLabels
+    _LH.setButtonVisual = setButtonVisual
+    _LH.updateSpeedMode = updateSpeedMode
+    _LH.ContentScroll = ContentScroll
+    _LH.MakeSectionTitle = MakeSectionTitle
+    _LH.MakeToggle = MakeToggle
+    _LH.MakeRow = MakeRow
+    _LH.HubBtn = HubBtn
+    _LH.HubStroke = HubStroke
+    _LH.HubPanel = HubPanel
+    _LH.PanelBg = PanelBg
+    if SetMultiJumpVisual then _LH.SetMultiJumpVisual = SetMultiJumpVisual end
+end
+safeCall(__LH_BuildGUI1)
+
+-- GUI Part 2 (keybinds, intro settings, colors, reset) — own register scope
+local function __LH_BuildGUI2()
+    local ScreenGui = _LH.ScreenGui
+    local Buttons = _LH.Buttons or {}
+    local ButtonStrokes = _LH.ButtonStrokes or {}
+    local ButtonToggled = _LH.ButtonToggled or {}
+    local ButtonKeyLabels = _LH.ButtonKeyLabels or {}
+    local setButtonVisual = _LH.setButtonVisual
+    local updateSpeedMode = _LH.updateSpeedMode
+    local ContentScroll = _LH.ContentScroll
+    local MakeSectionTitle = _LH.MakeSectionTitle
+    local MakeToggle = _LH.MakeToggle
+    local MakeRow = _LH.MakeRow
+    local HubBtn = _LH.HubBtn
+    local HubStroke = _LH.HubStroke
+    local HubPanel = _LH.HubPanel
+    local PanelBg = _LH.PanelBg
+    local keybindOrder = _LH.keybindOrder or 20
+    local SetMultiJumpVisual = _LH.SetMultiJumpVisual
 local KEYBIND_DISPLAY = {
     DPadLeft = "←", DPadRight = "→", DPadUp = "↑", DPadDown = "↓",
     ButtonA = "✕", ButtonB = "○", ButtonX = "□", ButtonY = "△",
@@ -3512,6 +3557,45 @@ end)
 
 ----------------------------------------------------------------
 ----------------------------------------------------------------
+
+
+    _LH.ScreenGui = ScreenGui
+    _LH.Buttons = Buttons
+    _LH.ButtonStrokes = ButtonStrokes
+    _LH.ButtonToggled = ButtonToggled
+    _LH.setButtonVisual = setButtonVisual
+    _LH.updateSpeedMode = updateSpeedMode
+    if SetMultiJumpVisual then _LH.SetMultiJumpVisual = SetMultiJumpVisual end
+    if SetConsoleModeVisual then _LH.SetConsoleModeVisual = SetConsoleModeVisual end
+    if SetPCKeybindsVisual then _LH.SetPCKeybindsVisual = SetPCKeybindsVisual end
+    if HubBtn then _LH.HubBtn = HubBtn end
+    if HubStroke then _LH.HubStroke = HubStroke end
+    if HubPanel then _LH.HubPanel = HubPanel end
+    if playIntroSong then _LH.playIntroSong = playIntroSong end
+    if preloadAllSongs then _LH.preloadAllSongs = preloadAllSongs end
+    if stopIntroMusic then _LH.stopIntroMusic = stopIntroMusic end
+    if stopPreview then _LH.stopPreview = stopPreview end
+end
+safeCall(__LH_BuildGUI2)
+
+-- Restore short names for intro/init
+local ScreenGui = _LH.ScreenGui
+local Buttons = _LH.Buttons or {}
+local ButtonStrokes = _LH.ButtonStrokes or {}
+local ButtonToggled = _LH.ButtonToggled or {}
+local setButtonVisual = _LH.setButtonVisual
+local updateSpeedMode = _LH.updateSpeedMode
+local SetMultiJumpVisual = _LH.SetMultiJumpVisual
+local SetConsoleModeVisual = _LH.SetConsoleModeVisual
+local SetPCKeybindsVisual = _LH.SetPCKeybindsVisual
+local HubBtn = _LH.HubBtn
+local HubStroke = _LH.HubStroke
+local HubPanel = _LH.HubPanel
+local playIntroSong = _LH.playIntroSong
+local preloadAllSongs = _LH.preloadAllSongs
+local stopIntroMusic = _LH.stopIntroMusic
+local stopPreview = _LH.stopPreview
+
 -- KUSURSUZ SİNEMATİK İNTRO SİSTEMİ (ayrı scope - register limiti)
 ----------------------------------------------------------------
 local function runCinematicIntro()
