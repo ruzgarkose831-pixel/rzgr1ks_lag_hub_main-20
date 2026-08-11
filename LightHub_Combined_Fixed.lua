@@ -106,7 +106,7 @@ getgenv().LightHubConfig = getgenv().LightHubConfig or {
     IntroEnabled = true,
     IntroSongIndex = 1,
     UiBackgroundIndex = 1,
-    UiColorIndex = 1, -- 1 Black, 2 Blue, 3 Green, 4 Pink, 5 White
+    UiColorIndex = 1, -- 1 Black, 2 Blue, 3 Green, 4 Pink, 5 Orange
 }
 
 local CONFIG_FILE = "LightHubConfig_v6.json"
@@ -619,16 +619,16 @@ end)
 
 -- AUTO LEFT / AUTO RIGHT waypoints (fotoğraflar) — mevcut speed boost ile yürü
 local AUTO_LEFT_POINTS = {
-    Vector3.new(-475.8, -7.0, 29.1),
-    Vector3.new(-474.1, -7.0, 91.9),
-    Vector3.new(-483.1, -5.0, 21.4),
-    Vector3.new(-473.6, -7.0, 30.2),
+    Vector3.new(-474.5, -6.8, 91.7),
+    Vector3.new(-484.1, -4.8, 97.1),
+    Vector3.new(-475.5, -6.8, 92.3),
+    Vector3.new(-475.3, -6.7, 21.2),
 }
 local AUTO_RIGHT_POINTS = {
-    Vector3.new(-476.1, -6.8, 102.2),
-    Vector3.new(-473.6, -7.0, 30.2),
-    Vector3.new(-475.8, -7.0, 29.1),
-    Vector3.new(-483.1, -5.0, 21.4),
+    Vector3.new(-474.2, -6.8, 30.9),
+    Vector3.new(-484.7, -4.8, 25.0),
+    Vector3.new(-476.2, -6.3, 28.4),
+    Vector3.new(-476.4, -6.2, 95.6),
 }
 
 local autoLeftOn = false
@@ -945,7 +945,7 @@ local ButtonToggled = {}    -- text -> boolean (for toggle buttons)
 local ButtonKeyLabels = {}  -- text -> TextLabel (console keybind)
 
 -- UI Color themes (Black = current default)
-local UI_COLOR_NAMES = { "Black", "Blue", "Green", "Pink", "White" }
+local UI_COLOR_NAMES = { "Black", "Blue", "Green", "Pink", "Orange" }
 local UI_THEMES = {
     -- offBg, offText, offStroke, onBg, onText, onStroke, accent, barBg, barFill, hubBg
     Black = {
@@ -960,6 +960,9 @@ local UI_THEMES = {
         barFill = Color3.fromRGB(100, 180, 255),
         hubBg = Color3.fromRGB(22, 24, 34),
         panelStroke = Color3.fromRGB(255, 255, 255),
+        cardBg = Color3.fromRGB(15, 15, 20),
+        cardStroke = Color3.fromRGB(255, 255, 255),
+        cardText = Color3.fromRGB(255, 255, 255),
     },
     Blue = {
         offBg = Color3.fromRGB(20, 40, 80),
@@ -973,6 +976,9 @@ local UI_THEMES = {
         barFill = Color3.fromRGB(50, 140, 255),
         hubBg = Color3.fromRGB(15, 30, 60),
         panelStroke = Color3.fromRGB(80, 160, 255),
+        cardBg = Color3.fromRGB(12, 28, 55),
+        cardStroke = Color3.fromRGB(80, 160, 255),
+        cardText = Color3.fromRGB(200, 230, 255),
     },
     Green = {
         offBg = Color3.fromRGB(20, 50, 30),
@@ -986,6 +992,9 @@ local UI_THEMES = {
         barFill = Color3.fromRGB(60, 200, 100),
         hubBg = Color3.fromRGB(15, 40, 22),
         panelStroke = Color3.fromRGB(80, 220, 120),
+        cardBg = Color3.fromRGB(12, 35, 20),
+        cardStroke = Color3.fromRGB(80, 220, 120),
+        cardText = Color3.fromRGB(200, 255, 210),
     },
     Pink = {
         offBg = Color3.fromRGB(55, 25, 45),
@@ -999,19 +1008,25 @@ local UI_THEMES = {
         barFill = Color3.fromRGB(255, 100, 180),
         hubBg = Color3.fromRGB(45, 18, 35),
         panelStroke = Color3.fromRGB(255, 120, 190),
+        cardBg = Color3.fromRGB(45, 15, 35),
+        cardStroke = Color3.fromRGB(255, 120, 190),
+        cardText = Color3.fromRGB(255, 210, 235),
     },
-    White = {
-        offBg = Color3.fromRGB(230, 230, 235),
-        offText = Color3.fromRGB(20, 20, 25),
-        offStroke = Color3.fromRGB(180, 180, 190),
-        onBg = Color3.fromRGB(40, 40, 48),
-        onText = Color3.fromRGB(255, 255, 255),
-        onStroke = Color3.fromRGB(120, 120, 130),
-        accent = Color3.fromRGB(200, 200, 210),
-        barBg = Color3.fromRGB(240, 240, 245),
-        barFill = Color3.fromRGB(80, 80, 90),
-        hubBg = Color3.fromRGB(245, 245, 250),
-        panelStroke = Color3.fromRGB(180, 180, 190),
+    Orange = {
+        offBg = Color3.fromRGB(55, 30, 12),
+        offText = Color3.fromRGB(255, 220, 180),
+        offStroke = Color3.fromRGB(255, 150, 50),
+        onBg = Color3.fromRGB(255, 140, 40),
+        onText = Color3.fromRGB(30, 10, 0),
+        onStroke = Color3.fromRGB(180, 80, 20),
+        accent = Color3.fromRGB(255, 160, 60),
+        barBg = Color3.fromRGB(40, 20, 8),
+        barFill = Color3.fromRGB(255, 140, 40),
+        hubBg = Color3.fromRGB(45, 25, 10),
+        panelStroke = Color3.fromRGB(255, 150, 50),
+        cardBg = Color3.fromRGB(40, 20, 8),
+        cardStroke = Color3.fromRGB(255, 150, 50),
+        cardText = Color3.fromRGB(255, 220, 180),
     },
 }
 
@@ -2913,7 +2928,7 @@ local function __LH_BuildGUI2()
     local PanelBg = _LH.PanelBg
     local keybindOrder = _LH.keybindOrder or 20
     local SetMultiJumpVisual = _LH.SetMultiJumpVisual
-    local UI_COLOR_NAMES = _LH.UI_COLOR_NAMES or { "Black", "Blue", "Green", "Pink", "White" }
+    local UI_COLOR_NAMES = _LH.UI_COLOR_NAMES or { "Black", "Blue", "Green", "Pink", "Orange" }
     local UI_THEMES = _LH.UI_THEMES
     local getCurrentTheme = _LH.getCurrentTheme
     local applyUiColorTheme = _LH.applyUiColorTheme
@@ -3639,7 +3654,7 @@ UiBgBtn.MouseButton1Click:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- UI COLORS (Black / Blue / Green / Pink / White)
+-- UI COLORS (Black / Blue / Green / Pink / Orange)
 ----------------------------------------------------------------
 MakeSectionTitle("Ui Colors", keybindOrder)
 keybindOrder = keybindOrder + 1
@@ -3668,7 +3683,7 @@ UiColorLabel.TextXAlignment = Enum.TextXAlignment.Left
 UiColorLabel.ZIndex = 63
 
 local colorIdx = tonumber(getgenv().LightHubConfig.UiColorIndex) or 1
-if not UI_COLOR_NAMES then UI_COLOR_NAMES = { "Black", "Blue", "Green", "Pink", "White" } end
+if not UI_COLOR_NAMES then UI_COLOR_NAMES = { "Black", "Blue", "Green", "Pink", "Orange" } end
 if colorIdx < 1 or colorIdx > #UI_COLOR_NAMES then colorIdx = 1 end
 getgenv().LightHubConfig.UiColorIndex = colorIdx
 
@@ -3987,6 +4002,23 @@ local function runCinematicIntro()
     local stackOffsets = {-16, -8, 0, 8, 16}
     local stackRotations = {-9, -4.5, 0, 4.5, 9}
 
+    -- Kart renkleri GUI temasından
+    local introTheme = UI_THEMES.Black
+    pcall(function()
+        if type(getCurrentTheme) == "function" then
+            introTheme = getCurrentTheme()
+        elseif _LH and _LH.getCurrentTheme then
+            introTheme = _LH.getCurrentTheme()
+        end
+    end)
+    local cardBg = (introTheme and introTheme.cardBg) or Color3.fromRGB(15, 15, 20)
+    local cardStroke = (introTheme and introTheme.cardStroke) or Color3.fromRGB(255, 255, 255)
+    local cardText = (introTheme and introTheme.cardText) or Color3.fromRGB(255, 255, 255)
+    pcall(function()
+        if MainTitleStroke then MainTitleStroke.Color = cardStroke end
+        if MainTitle then MainTitle.TextColor3 = cardText end
+    end)
+
     for idx = 1, 5 do
         local wrapper = Instance.new("Frame")
         wrapper.Parent = CardContainer
@@ -4000,36 +4032,36 @@ local function runCinematicIntro()
 
         local front = Instance.new("Frame", wrapper)
         front.Name = "Front"
-        front.Size = UDim2.new(1, 0, 1, 0); front.BackgroundColor3 = Color3.fromRGB(15, 15, 20); front.Visible = true
+        front.Size = UDim2.new(1, 0, 1, 0); front.BackgroundColor3 = cardBg; front.Visible = true
         front.AnchorPoint = Vector2.new(0.5, 0.5); front.Position = UDim2.new(0.5, 0, 0.5, 0)
         Instance.new("UICorner", front).CornerRadius = UDim.new(0, 10)
-        local fStroke = Instance.new("UIStroke", front); fStroke.Color = Color3.fromRGB(255, 255, 255); fStroke.Thickness = 2
+        local fStroke = Instance.new("UIStroke", front); fStroke.Color = cardStroke; fStroke.Thickness = 2
 
         local txt = Instance.new("TextLabel", front)
         txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1
-        txt.Text = letters[idx]; txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+        txt.Text = letters[idx]; txt.TextColor3 = cardText
         txt.TextSize = 65; txt.Font = Enum.Font.GothamBlack
 
         local sym1 = Instance.new("TextLabel", front)
         sym1.Size = UDim2.new(0, 30, 0, 30); sym1.Position = UDim2.new(0, 5, 0, 5)
-        sym1.BackgroundTransparency = 1; sym1.Text = "♠"; sym1.TextColor3 = Color3.fromRGB(255,255,255); sym1.TextSize = 22
+        sym1.BackgroundTransparency = 1; sym1.Text = "♠"; sym1.TextColor3 = cardText; sym1.TextSize = 22
         local sym2 = sym1:Clone(); sym2.Parent = front; sym2.Position = UDim2.new(1, -35, 1, -35); sym2.Rotation = 180
 
         local back = Instance.new("Frame", wrapper)
         back.Name = "Back"
-        back.Size = UDim2.new(1, 0, 1, 0); back.BackgroundColor3 = Color3.fromRGB(15, 15, 20); back.Visible = false
+        back.Size = UDim2.new(1, 0, 1, 0); back.BackgroundColor3 = cardBg; back.Visible = false
         back.AnchorPoint = Vector2.new(0.5, 0.5); back.Position = UDim2.new(0.5, 0, 0.5, 0)
         Instance.new("UICorner", back).CornerRadius = UDim.new(0, 10)
-        local bStroke = Instance.new("UIStroke", back); bStroke.Color = Color3.fromRGB(255, 255, 255); bStroke.Thickness = 2
+        local bStroke = Instance.new("UIStroke", back); bStroke.Color = cardStroke; bStroke.Thickness = 2
 
         local bTxt = Instance.new("TextLabel", back)
         bTxt.Size = UDim2.new(1, 0, 1, 0); bTxt.BackgroundTransparency = 1
-        bTxt.Text = "HUB"; bTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
+        bTxt.Text = "HUB"; bTxt.TextColor3 = cardText
         bTxt.TextSize = 42; bTxt.Font = Enum.Font.GothamBlack
 
         local bSym1 = Instance.new("TextLabel", back)
         bSym1.Size = UDim2.new(0, 30, 0, 30); bSym1.Position = UDim2.new(0, 5, 0, 5)
-        bSym1.BackgroundTransparency = 1; bSym1.Text = "♠"; bSym1.TextColor3 = Color3.fromRGB(255, 255, 255); bSym1.TextSize = 22
+        bSym1.BackgroundTransparency = 1; bSym1.Text = "♠"; bSym1.TextColor3 = cardText; bSym1.TextSize = 22
         local bSym2 = bSym1:Clone(); bSym2.Parent = back; bSym2.Position = UDim2.new(1, -35, 1, -35); bSym2.Rotation = 180
 
         cards[idx] = {Wrapper = wrapper}
@@ -4133,43 +4165,39 @@ local function runCinematicIntro()
 
     task.spawn(function()
         if not introEnabledNow then return end
-        -- Eski tempo (çok hızlı değildi)
-        local t0 = tick()
-        while not introSongReady and tick() - t0 < 3 do
-            task.wait(0.1)
-        end
-        task.wait(0.3)
+        -- Kartlar hemen; şarkı bekleme yok
+        task.wait(0.05)
 
         for _, c in ipairs(cards) do
             c.Wrapper.Visible = true
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, 140, 0, 200)
             }):Play()
-            task.wait(0.1)
+            task.wait(0.06)
         end
-        task.wait(0.4)
+        task.wait(0.2)
 
         MainTitle.Visible = true
-        TweenService:Create(MainTitle, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
+        TweenService:Create(MainTitle, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
 
-        task.wait(1.15)
+        task.wait(0.7)
         if not isIntroActive then return end
 
-        TweenService:Create(MainTitle, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
+        TweenService:Create(MainTitle, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
 
-        task.wait(0.08)
+        task.wait(0.06)
         if not isIntroActive then return end
 
         for idx, c in ipairs(cards) do
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(0.5, stackOffsets[idx], 0.5, 120),
                 Rotation = stackRotations[idx]
             }):Play()
         end
 
-        task.wait(0.5)
+        task.wait(0.35)
         if not isIntroActive then return end
 
         FlipCards()
@@ -4178,11 +4206,11 @@ local function runCinematicIntro()
 
         SkipText.Visible = true
         SkipText.TextTransparency = 1
-        TweenService:Create(SkipText, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+        TweenService:Create(SkipText, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
             TextTransparency = 0
         }):Play()
 
-        task.wait(0.3)
+        task.wait(0.15)
         if not isIntroActive then return end
 
         canSkip = true
@@ -4204,16 +4232,91 @@ safeCall(function()
 end)
 
 --========================================================================
+-- Hız göstergesi (kafa üstü)
+--========================================================================
+local speedBillboard = nil
+local speedLabel = nil
+local speedBillboardConn = nil
+
+local function setupSpeedDisplay(character)
+    pcall(function()
+        if speedBillboardConn then
+            speedBillboardConn:Disconnect()
+            speedBillboardConn = nil
+        end
+        if speedBillboard then
+            pcall(function() speedBillboard:Destroy() end)
+            speedBillboard = nil
+            speedLabel = nil
+        end
+        if not character then return end
+        local head = character:FindFirstChild("Head") or character:WaitForChild("Head", 3)
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not head and not root then return end
+        local parent = head or root
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "LightHubSpeedDisplay"
+        bb.Adornee = parent
+        bb.AlwaysOnTop = true
+        bb.Size = UDim2.new(0, 120, 0, 36)
+        bb.StudsOffset = Vector3.new(0, 2.6, 0)
+        bb.MaxDistance = 80
+        bb.Parent = parent
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Name = "SpeedText"
+        lbl.Parent = bb
+        lbl.Size = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "0"
+        lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+        lbl.TextStrokeTransparency = 0.3
+        lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        lbl.TextSize = 22
+        lbl.Font = Enum.Font.GothamBlack
+        lbl.ZIndex = 10
+
+        speedBillboard = bb
+        speedLabel = lbl
+
+        speedBillboardConn = RunService.RenderStepped:Connect(function()
+            pcall(function()
+                if not speedLabel or not speedLabel.Parent then return end
+                local char = LocalPlayer.Character
+                local r = char and char:FindFirstChild("HumanoidRootPart")
+                if not r then
+                    speedLabel.Text = "0"
+                    return
+                end
+                local v = r.AssemblyLinearVelocity
+                local horiz = Vector3.new(v.X, 0, v.Z).Magnitude
+                speedLabel.Text = string.format("%.0f", horiz)
+                -- Tema rengi
+                pcall(function()
+                    local theme = getCurrentTheme and getCurrentTheme() or nil
+                    if theme and theme.accent then
+                        speedLabel.TextColor3 = theme.accent
+                    end
+                end)
+            end)
+        end)
+    end)
+end
+
+--========================================================================
 -- Initialize
 --========================================================================
 safeCall(function()
     if LocalPlayer.Character then
         setupBoost(LocalPlayer.Character)
+        setupSpeedDisplay(LocalPlayer.Character)
     end
 end)
 LocalPlayer.CharacterAdded:Connect(function(char)
     safeCall(function()
         setupBoost(char)
+        setupSpeedDisplay(char)
         task.wait(0.3)
         if getgenv().LightHubConfig and getgenv().LightHubConfig.BatAimbotEnabled then
             startBatAimbot()
