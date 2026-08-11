@@ -107,6 +107,9 @@ getgenv().LightHubConfig = getgenv().LightHubConfig or {
     IntroSongIndex = 1,
     UiBackgroundIndex = 1,
     UiColorIndex = 1, -- 1 Black, 2 Blue, 3 Green, 4 Pink, 5 Orange
+    -- Kaydedilen toggle durumları (script yeniden açılınca)
+    SavedAutoLeft = false,
+    SavedAutoRight = false,
 }
 
 local CONFIG_FILE = "LightHubConfig_v6.json"
@@ -448,12 +451,20 @@ local function applyMultiJumpImpulse()
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoid or not rootPart then return end
 
+    -- Yerden değil, havadayken zıpla (FloorMaterial Air veya Jumping/Freefall)
     local state = humanoid:GetState()
-    if state ~= Enum.HumanoidStateType.Freefall and state ~= Enum.HumanoidStateType.Jumping then
-        return
+    local inAir = state == Enum.HumanoidStateType.Freefall
+        or state == Enum.HumanoidStateType.Jumping
+        or state == Enum.HumanoidStateType.FallingDown
+    if not inAir then
+        -- FloorMaterial kontrolü (bazı executor'larda state gecikmeli)
+        local okMat, mat = pcall(function() return humanoid.FloorMaterial end)
+        if okMat and mat ~= Enum.Material.Air then
+            return
+        end
+        if not okMat then return end
     end
 
-    -- Cooldown yok — anında tekrar
     ensureMultiJumpForce(rootPart)
 
     local jumpPower = 35
@@ -480,24 +491,54 @@ local function applyMultiJumpImpulse()
     end
 end
 
+-- Basılı tutma takibi (PC / konsol / mobil)
+local jumpHeld = false
+local lastJumpRequest = 0
 UserInputService.JumpRequest:Connect(function()
+    jumpHeld = true
+    lastJumpRequest = tick()
     safeCall(applyMultiJumpImpulse)
 end)
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.KeyCode == Enum.KeyCode.Space
+        or input.KeyCode == Enum.KeyCode.ButtonA then
+        jumpHeld = true
+        lastJumpRequest = tick()
+    end
+end)
+UserInputService.InputEnded:Connect(function(input, gp)
+    if input.KeyCode == Enum.KeyCode.Space
+        or input.KeyCode == Enum.KeyCode.ButtonA then
+        jumpHeld = false
+    end
+end)
 
--- Basılı tutunca da multi jump (Space / gamepad A)
 local multiJumpHoldAcc = 0
 RunService.Heartbeat:Connect(function(dt)
     safeCall(function()
         if not getgenv().LightHubConfig.MultiJumpEnabled then return end
-        local holding = UserInputService:IsKeyDown(Enum.KeyCode.Space)
+
+        local keyDown = UserInputService:IsKeyDown(Enum.KeyCode.Space)
             or UserInputService:IsKeyDown(Enum.KeyCode.ButtonA)
+        -- Mobil: JumpRequest basılı tutunca tekrar eder → son 0.25sn içinde geldiyse hâlâ basılı say
+        if jumpHeld and (tick() - lastJumpRequest) > 0.25 and not keyDown then
+            jumpHeld = false
+        end
+
+        local holding = jumpHeld or keyDown
+        if not holding then
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Jump then
+                holding = true
+            end
+        end
         if not holding then
             multiJumpHoldAcc = 0
             return
         end
         multiJumpHoldAcc = multiJumpHoldAcc + dt
-        -- Her frame yakınında (çok hafif throttle sadece spam fizik patlamasın)
-        if multiJumpHoldAcc >= 0.05 then
+        if multiJumpHoldAcc >= 0.08 then
             multiJumpHoldAcc = 0
             applyMultiJumpImpulse()
         end
@@ -1385,6 +1426,11 @@ for text, defaultPos in pairs(defaultLayout) do
             ButtonToggled[text] = not ButtonToggled[text]
             setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
             setAutoLeft(ButtonToggled[text] == true)
+            getgenv().LightHubConfig.SavedAutoLeft = ButtonToggled[text] == true
+            if ButtonToggled[text] then
+                getgenv().LightHubConfig.SavedAutoRight = false
+            end
+            SaveConfig()
         end)
     elseif text == "Auto Right" then
         Btn.MouseButton1Click:Connect(function()
@@ -1392,6 +1438,11 @@ for text, defaultPos in pairs(defaultLayout) do
             ButtonToggled[text] = not ButtonToggled[text]
             setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
             setAutoRight(ButtonToggled[text] == true)
+            getgenv().LightHubConfig.SavedAutoRight = ButtonToggled[text] == true
+            if ButtonToggled[text] then
+                getgenv().LightHubConfig.SavedAutoLeft = false
+            end
+            SaveConfig()
         end)
     else
         Btn.MouseButton1Click:Connect(function()
@@ -3920,6 +3971,17 @@ local playIntroSong = _LH.playIntroSong
 local preloadAllSongs = _LH.preloadAllSongs
 local stopIntroMusic = _LH.stopIntroMusic
 local stopPreview = _LH.stopPreview
+local UI_THEMES = _LH.UI_THEMES or {
+    Black = {
+        cardBg = Color3.fromRGB(15, 15, 20),
+        cardStroke = Color3.fromRGB(255, 255, 255),
+        cardText = Color3.fromRGB(255, 255, 255),
+        accent = Color3.fromRGB(255, 255, 255),
+    }
+}
+local getCurrentTheme = _LH.getCurrentTheme or function()
+    return UI_THEMES.Black, "Black", 1
+end
 
 -- KUSURSUZ SİNEMATİK İNTRO SİSTEMİ (ayrı scope - register limiti)
 ----------------------------------------------------------------
@@ -3927,13 +3989,19 @@ local function runCinematicIntro()
     local introEnabledNow = getgenv().LightHubConfig.IntroEnabled ~= false
     local SkipText = nil
 
+    -- ScreenGui yoksa CoreGui'ye bağla (kartlar gelsin)
+    local introParent = ScreenGui
+    if not introParent or not introParent.Parent then
+        introParent = (gethui and gethui()) or CoreGui
+    end
+
     local IntroGui = Instance.new("Frame")
     IntroGui.Name = "CinematicIntro"
-    IntroGui.Parent = ScreenGui
+    IntroGui.Parent = introParent
     IntroGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     IntroGui.BackgroundTransparency = 1 
-    IntroGui.Size = UDim2.new(2, 0, 2, 0) 
-    IntroGui.Position = UDim2.new(-0.5, 0, -0.5, 0)
+    IntroGui.Size = UDim2.new(1, 0, 1, 0) 
+    IntroGui.Position = UDim2.new(0, 0, 0, 0)
     IntroGui.ZIndex = 100
     IntroGui.Active = false
     IntroGui.Visible = introEnabledNow
@@ -4002,15 +4070,16 @@ local function runCinematicIntro()
     local stackOffsets = {-16, -8, 0, 8, 16}
     local stackRotations = {-9, -4.5, 0, 4.5, 9}
 
-    -- Kart renkleri GUI temasından
-    local introTheme = UI_THEMES.Black
+    -- Kart renkleri GUI temasından (nil-safe)
+    local introTheme = nil
     pcall(function()
         if type(getCurrentTheme) == "function" then
             introTheme = getCurrentTheme()
-        elseif _LH and _LH.getCurrentTheme then
-            introTheme = _LH.getCurrentTheme()
         end
     end)
+    if not introTheme and UI_THEMES then
+        introTheme = UI_THEMES.Black or UI_THEMES.Blue
+    end
     local cardBg = (introTheme and introTheme.cardBg) or Color3.fromRGB(15, 15, 20)
     local cardStroke = (introTheme and introTheme.cardStroke) or Color3.fromRGB(255, 255, 255)
     local cardText = (introTheme and introTheme.cardText) or Color3.fromRGB(255, 255, 255)
@@ -4165,15 +4234,28 @@ local function runCinematicIntro()
 
     task.spawn(function()
         if not introEnabledNow then return end
-        -- Kartlar hemen; şarkı bekleme yok
-        task.wait(0.05)
-
+        -- Kartlar hemen (bekleme yok, hata yut)
+        local okAnim, errAnim = pcall(function()
         for _, c in ipairs(cards) do
-            c.Wrapper.Visible = true
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 140, 0, 200)
-            }):Play()
+            if c and c.Wrapper then
+                c.Wrapper.Visible = true
+                c.Wrapper.Size = UDim2.new(0, 10, 0, 14) -- tween başlasın diye minimal size
+                TweenService:Create(c.Wrapper, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(0, 140, 0, 200)
+                }):Play()
+            end
             task.wait(0.06)
+        end
+        end)
+        if not okAnim then
+            warn("[LightHub] intro card anim:", errAnim)
+            -- Fallback: kartları direkt göster
+            for _, c in ipairs(cards) do
+                if c and c.Wrapper then
+                    c.Wrapper.Visible = true
+                    c.Wrapper.Size = UDim2.new(0, 140, 0, 200)
+                end
+            end
         end
         task.wait(0.2)
 
@@ -4324,32 +4406,50 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end)
 end)
 
--- Script açılışında her şey kapalı
+-- Kaydedilmiş durumları geri yükle (önceki oturumdaki açık butonlar)
 safeCall(function()
-    getgenv().LightHubConfig.BatAimbotEnabled = false
-    getgenv().LightHubConfig.SpeedBoostEnabled = true
-    getgenv().LightHubConfig.MultiJumpEnabled = false
-    getgenv().LightHubConfig.SpeedMode = "normal"
-    getgenv().LightHubConfig.ConsoleMode = false
-    getgenv().LightHubConfig.PCKeybindsEnabled = false
-end)
-safeCall(function()
-    if Buttons then
-        for name, btn in pairs(Buttons) do
-            ButtonToggled[name] = false
-            if ButtonStrokes[name] then
-                setButtonVisual(btn, ButtonStrokes[name], false)
-            end
-            if name == "Lagger Speed" and btn then
-                btn.Text = "Lagger Mode"
-            end
+    local cfg = getgenv().LightHubConfig
+    -- Speed mode
+    if updateSpeedMode then
+        updateSpeedMode(cfg.SpeedMode or "normal")
+    end
+    -- Multi Jump
+    if SetMultiJumpVisual then
+        SetMultiJumpVisual(cfg.MultiJumpEnabled == true)
+    end
+    -- Console / PC keybinds
+    if SetConsoleModeVisual then
+        SetConsoleModeVisual(cfg.ConsoleMode == true)
+    end
+    if SetPCKeybindsVisual then
+        SetPCKeybindsVisual(cfg.PCKeybindsEnabled == true)
+    end
+    -- Bat Aimbot
+    if Buttons and Buttons["Bat Aimbot"] and ButtonStrokes and setButtonVisual then
+        ButtonToggled["Bat Aimbot"] = cfg.BatAimbotEnabled == true
+        setButtonVisual(Buttons["Bat Aimbot"], ButtonStrokes["Bat Aimbot"], ButtonToggled["Bat Aimbot"])
+        if ButtonToggled["Bat Aimbot"] then
+            pcall(startBatAimbot)
         end
     end
+    -- Auto Left / Right
+    if cfg.SavedAutoLeft then
+        if Buttons and Buttons["Auto Left"] and setButtonVisual then
+            ButtonToggled["Auto Left"] = true
+            setButtonVisual(Buttons["Auto Left"], ButtonStrokes["Auto Left"], true)
+        end
+        pcall(function() setAutoLeft(true) end)
+    elseif cfg.SavedAutoRight then
+        if Buttons and Buttons["Auto Right"] and setButtonVisual then
+            ButtonToggled["Auto Right"] = true
+            setButtonVisual(Buttons["Auto Right"], ButtonStrokes["Auto Right"], true)
+        end
+        pcall(function() setAutoRight(true) end)
+    end
+    -- SpeedBoost varsayılan açık kalsın
+    if cfg.SpeedBoostEnabled == nil then
+        cfg.SpeedBoostEnabled = true
+    end
 end)
-safeCall(function() updateSpeedMode("normal") end)
-safeCall(function() stopBatAimbot() end)
-safeCall(function() if SetMultiJumpVisual then SetMultiJumpVisual(false) end end)
-safeCall(function() if SetConsoleModeVisual then SetConsoleModeVisual(false) end end)
-safeCall(function() if SetPCKeybindsVisual then SetPCKeybindsVisual(false) end end)
 
-print("[Light Hub] Combined script loaded. Errors are skipped; features continue. All features start OFF.")
+print("[Light Hub] Combined script loaded. Saved toggles restored.")
