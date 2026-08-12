@@ -118,6 +118,7 @@ getgenv().LightHubConfig = getgenv().LightHubConfig or {
     NoAnimationEnabled = false,
     AntiLagEnabled = false,
     DropType = "walkfling",
+    AutoStealRadius = 50,
 }
 
 local CONFIG_FILE = "LightHubConfig_v6.json"
@@ -2013,7 +2014,7 @@ local autoStealBarGui = nil
 local autoStealBarConn = nil
 local autoStealPromptConn = nil
 local autoStealProgress = 0
-local autoStealRadius = 50
+local autoStealRadius = tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
 
 local function destroyAutoStealBar()
     if autoStealBarConn then
@@ -2035,10 +2036,13 @@ local function getStealRadius()
         local box = autoStealBarGui:FindFirstChild("Bar") and autoStealBarGui.Bar:FindFirstChild("RadiusBox")
         if box then
             local n = tonumber(box.Text)
-            if n then autoStealRadius = n end
+            if n then
+                autoStealRadius = n
+                getgenv().LightHubConfig.AutoStealRadius = n
+            end
         end
     end
-    return autoStealRadius or 50
+    return autoStealRadius or tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
 end
 
 local function processStealPrompt(prompt)
@@ -2250,7 +2254,21 @@ local function createAutoStealBar()
         local f = radiusBox.Text:gsub("[^0-9]", "")
         if radiusBox.Text ~= f then radiusBox.Text = f end
         local n = tonumber(radiusBox.Text)
-        if n then autoStealRadius = n end
+        if n then
+            autoStealRadius = n
+            getgenv().LightHubConfig.AutoStealRadius = n
+            pcall(SaveConfig)
+        end
+    end)
+    radiusBox.FocusLost:Connect(function()
+        local n = tonumber(radiusBox.Text)
+        if n then
+            autoStealRadius = n
+            getgenv().LightHubConfig.AutoStealRadius = n
+            pcall(SaveConfig)
+        else
+            radiusBox.Text = tostring(autoStealRadius or 50)
+        end
     end)
 
     -- Ping FPS en sağda
@@ -4623,4 +4641,5 @@ safeCall(function()
     end
 end)
 
-print("[Light Hub] Combined script loaded. Saved toggles restored.")
+print("From Light Hub Not From Other Skid Hubs ;]")
+gles restored.")
