@@ -168,6 +168,7 @@ LoadConfig()
 -- Sadece LocalPlayer etkilenir.
 --========================================================================
 local currentBoostConnection = nil
+local autoSteerDir = nil -- Auto play yönü (VectorForce bunu kullanır)
 
 local function getTargetSpeed()
     local cfg = getgenv().LightHubConfig
@@ -222,11 +223,16 @@ local function setupBoost(character)
                 return
             end
 
+            -- Auto play yönü varsa onu kullan (VectorForce aynı şekilde devreye girer)
             local moveDir = humanoid.MoveDirection
+            if autoSteerDir and autoSteerDir.Magnitude > 0.05 then
+                moveDir = autoSteerDir
+            end
+
             local targetSpeed = tonumber(getTargetSpeed()) or 16
             if targetSpeed < 0 then targetSpeed = 0 end
 
-            -- WalkSpeed sadece okunur, asla değiştirilmez (oyun bazen değiştirir)
+            -- WalkSpeed sadece okunur, asla değiştirilmez
             local ws = humanoid.WalkSpeed
             if type(ws) ~= "number" or ws ~= ws or ws < 0 then
                 ws = 16
@@ -241,21 +247,15 @@ local function setupBoost(character)
             local currentHorizVel = Vector3.new(currentVel.X, 0, currentVel.Z)
             local speed = currentHorizVel.Magnitude
 
-            -- Hedef mutlak hız = config değeri (WalkSpeed ile toplanmaz)
+            -- Hedefe ulaştıysa kuvvet kes
             if speed >= targetSpeed then
                 vectorForce.Force = Vector3.zero
                 return
             end
 
-            -- VectorForce yöntemi aynı; kuvvet WalkSpeed'e göre ölçeklenir
+            -- Daha güçlü kuvvet: hedef hıza gerçekten ulaşsın (WalkSpeed okunur, çarpılmaz)
             local gap = targetSpeed - speed
-            local wsFactor = 1
-            if targetSpeed > 0 then
-                wsFactor = math.clamp(1 - (math.min(ws, targetSpeed) / targetSpeed) * 0.4, 0.45, 1)
-            end
-            local nearFactor = math.clamp(gap / math.max(targetSpeed * 0.2, 4), 0.25, 1)
-            local forceMul = 1200 * wsFactor * nearFactor
-
+            local forceMul = math.clamp(900 + gap * 55, 900, 3200)
             vectorForce.Force = Vector3.new(moveDir.X, 0, moveDir.Z) * forceMul
         end)
         if not ok then
@@ -678,15 +678,64 @@ local autoPathConn = nil
 local autoPathIndex = 1
 local autoPathPoints = nil
 
+local function isManualMoveInput()
+    -- PC
+    if UserInputService:IsKeyDown(Enum.KeyCode.W)
+        or UserInputService:IsKeyDown(Enum.KeyCode.A)
+        or UserInputService:IsKeyDown(Enum.KeyCode.S)
+        or UserInputService:IsKeyDown(Enum.KeyCode.D)
+        or UserInputService:IsKeyDown(Enum.KeyCode.Up)
+        or UserInputService:IsKeyDown(Enum.KeyCode.Down)
+        or UserInputService:IsKeyDown(Enum.KeyCode.Left)
+        or UserInputService:IsKeyDown(Enum.KeyCode.Right) then
+        return true
+    end
+    -- Gamepad thumbstick
+    local ok, states = pcall(function()
+        return UserInputService:GetGamepadState(Enum.UserInputType.Gamepad1)
+    end)
+    if ok and states then
+        for _, input in ipairs(states) do
+            if input.KeyCode == Enum.KeyCode.Thumbstick1 and input.Position.Magnitude > 0.28 then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function stopAutoPath()
     autoLeftOn = false
     autoRightOn = false
     autoPathPoints = nil
     autoPathIndex = 1
+    autoSteerDir = nil
     if autoPathConn then
         pcall(function() autoPathConn:Disconnect() end)
         autoPathConn = nil
     end
+    -- Görselleri kapat
+    pcall(function()
+        local B = (_LH and _LH.Buttons) or Buttons
+        local S = (_LH and _LH.ButtonStrokes) or ButtonStrokes
+        local T = (_LH and _LH.ButtonToggled) or ButtonToggled
+        local sv = (_LH and _LH.setButtonVisual) or setButtonVisual
+        if B and S and T and sv then
+            if B["Auto Left"] then
+                T["Auto Left"] = false
+                sv(B["Auto Left"], S["Auto Left"], false)
+            end
+            if B["Auto Right"] then
+                T["Auto Right"] = false
+                sv(B["Auto Right"], S["Auto Right"], false)
+            end
+        end
+        if getgenv().LightHubConfig then
+            getgenv().LightHubConfig.SavedAutoLeft = false
+            getgenv().LightHubConfig.SavedAutoRight = false
+            pcall(SaveConfig)
+        end
+    end)
 end
 
 local function startAutoPath(points)
@@ -697,18 +746,31 @@ local function startAutoPath(points)
     if not points or #points == 0 then return end
     autoPathPoints = points
     autoPathIndex = 1
-    -- Sadece yön ver: VectorForce + WalkSpeed (normal speed boost) hareketi sağlar
-    -- AssemblyLinearVelocity'ye dokunulmaz
+    autoSteerDir = nil
+    -- Speed boost açık kalsın → VectorForce devrede
     pcall(function()
         getgenv().LightHubConfig.SpeedBoostEnabled = true
+        if LocalPlayer.Character then
+            setupBoost(LocalPlayer.Character)
+        end
     end)
     autoPathConn = RunService.Heartbeat:Connect(function()
         pcall(function()
             if not autoPathPoints then return end
+
+            -- Oyuncu hareket ederse auto play dursun
+            if isManualMoveInput() then
+                stopAutoPath()
+                return
+            end
+
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if not root or not hum or hum.Health <= 0 then return end
+            if not root or not hum or hum.Health <= 0 then
+                autoSteerDir = nil
+                return
+            end
 
             local target = autoPathPoints[autoPathIndex]
             if not target then
@@ -722,11 +784,14 @@ local function startAutoPath(points)
 
             if dist < 5 then
                 autoPathIndex = autoPathIndex % #autoPathPoints + 1
+                autoSteerDir = nil
                 return
             end
 
             local dir = flat.Unit
-            -- MoveDirection set → mevcut VectorForce speed boost + WalkSpeed çalışır
+            -- VectorForce boost bu yönü kullanır
+            autoSteerDir = dir
+            -- MoveDirection da set (WalkSpeed tabanı)
             pcall(function()
                 hum:Move(dir, false)
             end)
@@ -1319,7 +1384,8 @@ for text, defaultPos in pairs(defaultLayout) do
                             if not root then return end
                             local baseY = savedSpawnY
                             if baseY == nil then baseY = root.Position.Y - 5 end
-                            if root.Position.Y >= baseY + 30 then
+                            -- Auto Tp Down gibi: 20 blok yukarıda yere TP
+                            if root.Position.Y >= baseY + 20 then
                                 local y = baseY - 2
                                 pcall(function()
                                     root.AssemblyLinearVelocity = Vector3.zero
@@ -3070,7 +3136,8 @@ local function fireDropBrainrot()
                 if not root then return end
                 local baseY = savedSpawnY
                 if baseY == nil then baseY = root.Position.Y - 5 end
-                if root.Position.Y >= baseY + 30 then
+                -- Auto Tp Down gibi: 20 blok yukarıda yere TP
+                if root.Position.Y >= baseY + 20 then
                     local y = baseY - 2
                     pcall(function()
                         root.AssemblyLinearVelocity = Vector3.zero
