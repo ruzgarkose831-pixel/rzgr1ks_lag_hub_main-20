@@ -32,8 +32,8 @@ if not math.clamp then
         return n
     end
 end
-if typeof == nil then
-    function typeof(v)
+if type(typeof) ~= "function" then
+    typeof = function(v)
         local t = type(v)
         if t == "userdata" then
             local ok, cn = pcall(function() return v.ClassName end)
@@ -4641,5 +4641,138 @@ safeCall(function()
     end
 end)
 
-print("From Light Hub Not From Other Skid Hubs ;]")
-gles restored.")
+--========================================================================
+-- USING LIGHT HUB etiketi + kullanıcı kaydı
+--========================================================================
+local USERS_FILE = "LightHub_ActiveUsers.json"
+local hubUserTags = {} -- [userId] = BillboardGui
+
+local function loadHubUsers()
+    local list = {}
+    pcall(function()
+        if isfile and isfile(USERS_FILE) and readfile then
+            local data = HttpService:JSONDecode(readfile(USERS_FILE))
+            if type(data) == "table" then
+                for _, entry in ipairs(data) do
+                    if type(entry) == "table" and entry.UserId then
+                        list[tostring(entry.UserId)] = entry
+                    elseif type(entry) == "number" or type(entry) == "string" then
+                        list[tostring(entry)] = { UserId = tonumber(entry) or entry }
+                    end
+                end
+            end
+        end
+    end)
+    return list
+end
+
+local function saveHubUser(userId, userName)
+    pcall(function()
+        local list = loadHubUsers()
+        list[tostring(userId)] = {
+            UserId = userId,
+            Name = userName or "",
+            LastSeen = os.time and os.time() or 0,
+        }
+        local arr = {}
+        for _, v in pairs(list) do
+            table.insert(arr, v)
+        end
+        if writefile then
+            writefile(USERS_FILE, HttpService:JSONEncode(arr))
+        end
+    end)
+end
+
+local function createUsingTag(character, player)
+    if not character then return end
+    pcall(function()
+        local uid = player and player.UserId
+        if uid and hubUserTags[uid] then
+            pcall(function() hubUserTags[uid]:Destroy() end)
+            hubUserTags[uid] = nil
+        end
+        local head = character:FindFirstChild("Head")
+        local root = character:FindFirstChild("HumanoidRootPart")
+        local parent = head or root
+        if not parent then return end
+        -- Eski etiketi temizle
+        local old = parent:FindFirstChild("LightHub_UsingTag")
+        if old then pcall(function() old:Destroy() end) end
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "LightHub_UsingTag"
+        bb.Adornee = parent
+        bb.AlwaysOnTop = true
+        bb.Size = UDim2.new(0, 200, 0, 28)
+        bb.StudsOffset = Vector3.new(0, 3.2, 0)
+        bb.MaxDistance = 120
+        bb.Parent = parent
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Parent = bb
+        lbl.Size = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "USING LIGHT HUB"
+        lbl.TextColor3 = Color3.fromRGB(130, 200, 255)
+        lbl.TextStrokeTransparency = 0.2
+        lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        lbl.TextSize = 14
+        lbl.Font = Enum.Font.GothamBlack
+        lbl.ZIndex = 20
+
+        if uid then
+            hubUserTags[uid] = bb
+        end
+    end)
+end
+
+local function refreshHubUserTags()
+    pcall(function()
+        local list = loadHubUsers()
+        -- Kendini her zaman kaydet / etiketle
+        saveHubUser(LocalPlayer.UserId, LocalPlayer.Name)
+        list[tostring(LocalPlayer.UserId)] = {
+            UserId = LocalPlayer.UserId,
+            Name = LocalPlayer.Name,
+        }
+        -- Aynı sunucudaki kayıtlı kullanıcılara etiket
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if list[tostring(plr.UserId)] then
+                if plr.Character then
+                    createUsingTag(plr.Character, plr)
+                end
+            end
+        end
+    end)
+end
+
+safeCall(function()
+    saveHubUser(LocalPlayer.UserId, LocalPlayer.Name)
+    if LocalPlayer.Character then
+        createUsingTag(LocalPlayer.Character, LocalPlayer)
+    end
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        createUsingTag(char, LocalPlayer)
+    end)
+    Players.PlayerAdded:Connect(function(plr)
+        plr.CharacterAdded:Connect(function(char)
+            task.wait(0.5)
+            local list = loadHubUsers()
+            if list[tostring(plr.UserId)] then
+                createUsingTag(char, plr)
+            end
+        end)
+    end)
+    -- Periyodik yenile
+    task.spawn(function()
+        while true do
+            task.wait(8)
+            refreshHubUserTags()
+        end
+    end)
+    refreshHubUserTags()
+end)
+
+print("[Light Hub] Combined script loaded. Saved toggles restored.")
