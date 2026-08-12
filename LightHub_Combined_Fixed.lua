@@ -110,6 +110,14 @@ getgenv().LightHubConfig = getgenv().LightHubConfig or {
     -- Kaydedilen toggle durumları (script yeniden açılınca)
     SavedAutoLeft = false,
     SavedAutoRight = false,
+    -- Panel özellikleri (ekran butonları hariç)
+    AutoStealEnabled = false,
+    AntiRagdollEnabled = false,
+    MedusaCounterEnabled = false,
+    TryardAnimEnabled = false,
+    NoAnimationEnabled = false,
+    AntiLagEnabled = false,
+    DropType = "walkfling",
 }
 
 local CONFIG_FILE = "LightHubConfig_v6.json"
@@ -554,7 +562,7 @@ RunService.Heartbeat:Connect(function(dt)
     end)
 end)
 
--- High jump (Drop Brainrot): 20 bloğa yetecek güç, aşırı değil
+-- High jump (Drop Brainrot): 35 bloğa yetecek, 1.3x daha yavaş
 local function doStrongJumpOnce()
     local character = LocalPlayer.Character
     if not character then return end
@@ -562,13 +570,13 @@ local function doStrongJumpOnce()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if not rootPart or not humanoid then return end
     ensureMultiJumpForce(rootPart)
-    -- Yatay hızı koruma, dikey kontrollü
+    -- 1.3x yavaş: ~69 dikey hız, daha düşük force
     pcall(function()
         local vel = rootPart.AssemblyLinearVelocity
-        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X * 0.3, 90, vel.Z * 0.3)
+        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X * 0.25, 69, vel.Z * 0.25)
     end)
-    multiJumpForce.Force = Vector3.new(0, 12000, 0)
-    task.delay(0.1, function()
+    multiJumpForce.Force = Vector3.new(0, 9230, 0)
+    task.delay(0.12, function()
         if multiJumpForce and multiJumpForce.Parent then
             multiJumpForce.Force = Vector3.zero
         end
@@ -813,11 +821,7 @@ local function startAutoPath(points)
                 return
             end
 
-            -- Oyuncu WASD / stick ile hareket ederse auto play dursun
-            if isManualMoveInput() then
-                stopAutoPath()
-                return
-            end
+            -- WASD / stick auto play'i DURDURMAZ (kullanıcı isteği)
 
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -1439,8 +1443,8 @@ for text, defaultPos in pairs(defaultLayout) do
                             if not root then return end
                             local baseY = savedSpawnY
                             if baseY == nil then baseY = root.Position.Y - 5 end
-                            -- Auto Tp Down gibi: 20 blok yukarıda yere TP
-                            if root.Position.Y >= baseY + 20 then
+                            -- 35 blok yukarıda yere TP
+                            if root.Position.Y >= baseY + 35 then
                                 local y = baseY - 2
                                 pcall(function()
                                     root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
@@ -1882,7 +1886,15 @@ DropTypeBtn.Size = UDim2.new(0.36, 0, 0, 26)
 DropTypeBtn.Position = UDim2.new(0.62, 0, 0.5, -13)
 DropTypeBtn.BackgroundColor3 = Color3.fromRGB(30, 34, 48)
 DropTypeBtn.BackgroundTransparency = 0.1
-DropTypeBtn.Text = "walkfling"
+local dropModes = {"walkfling", "high jump"}
+local dropIndex = 1
+do
+    local savedDrop = getgenv().LightHubConfig.DropType or "walkfling"
+    for i, m in ipairs(dropModes) do
+        if m == savedDrop then dropIndex = i break end
+    end
+end
+DropTypeBtn.Text = dropModes[dropIndex]
 DropTypeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 DropTypeBtn.TextSize = 13
 DropTypeBtn.Font = Enum.Font.Gotham
@@ -1899,11 +1911,11 @@ DropTypeBtnStroke.Color = Color3.fromRGB(255, 255, 255)
 DropTypeBtnStroke.Thickness = 1.5
 DropTypeBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-local dropModes = {"walkfling", "high jump"}
-local dropIndex = 1
 DropTypeBtn.MouseButton1Click:Connect(function()
     dropIndex = dropIndex % #dropModes + 1
     DropTypeBtn.Text = dropModes[dropIndex]
+    getgenv().LightHubConfig.DropType = dropModes[dropIndex]
+    pcall(SaveConfig)
 end)
 
 -- Animasyonlu aç/kapa toggle
@@ -2280,7 +2292,9 @@ local function createAutoStealBar()
     end)
 end
 
-local GetAutoSteal = MakeToggle("Auto Steal", 8, false, function(state)
+local GetAutoSteal = MakeToggle("Auto Steal", 8, getgenv().LightHubConfig.AutoStealEnabled == true, function(state)
+    getgenv().LightHubConfig.AutoStealEnabled = state
+    pcall(SaveConfig)
     safeCall(function()
         if state then
             createAutoStealBar()
@@ -2361,7 +2375,9 @@ local function stopAntiRagdoll()
     end
 end
 
-local GetAntiRagdoll = MakeToggle("Anti Ragdoll", 9, false, function(state)
+local GetAntiRagdoll = MakeToggle("Anti Ragdoll", 9, getgenv().LightHubConfig.AntiRagdollEnabled == true, function(state)
+    getgenv().LightHubConfig.AntiRagdollEnabled = state
+    pcall(SaveConfig)
     if state then startAntiRagdoll() else stopAntiRagdoll() end
 end)
 -- Medusa Counter
@@ -2482,7 +2498,9 @@ local function startMedusaCounter()
     end))
 end
 
-local GetMedusaCounter = MakeToggle("Medusa Counter", 10, false, function(state)
+local GetMedusaCounter = MakeToggle("Medusa Counter", 10, getgenv().LightHubConfig.MedusaCounterEnabled == true, function(state)
+    getgenv().LightHubConfig.MedusaCounterEnabled = state
+    pcall(SaveConfig)
     if state then startMedusaCounter() else stopMedusaCounter() end
 end)
 
@@ -2756,8 +2774,10 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
-local GetTryardAnim = MakeToggle("Tryard Animation", 13, false, function(state)
+local GetTryardAnim = MakeToggle("Tryard Animation", 13, getgenv().LightHubConfig.TryardAnimEnabled == true, function(state)
     tryardAnimEnabled = state
+    getgenv().LightHubConfig.TryardAnimEnabled = state
+    pcall(SaveConfig)
     if state then
         if noAnimationEnabled then return end -- No Animation açıksa uygulama
         startTryardAnim()
@@ -2805,8 +2825,10 @@ local function stopNoAnimation()
     end
 end
 
-local GetNoAnimation = MakeToggle("No Animation", 14, false, function(state)
+local GetNoAnimation = MakeToggle("No Animation", 14, getgenv().LightHubConfig.NoAnimationEnabled == true, function(state)
     noAnimationEnabled = state
+    getgenv().LightHubConfig.NoAnimationEnabled = state
+    pcall(SaveConfig)
     if state then
         startNoAnimation()
     else
@@ -3007,8 +3029,10 @@ local function startAntiLag()
     end)
 end
 
-local GetAntiLag = MakeToggle("Anti Lag", 15, false, function(state)
+local GetAntiLag = MakeToggle("Anti Lag", 15, getgenv().LightHubConfig.AntiLagEnabled == true, function(state)
     antiLagEnabled = state
+    getgenv().LightHubConfig.AntiLagEnabled = state
+    pcall(SaveConfig)
     if state then
         startAntiLag()
     else
@@ -3189,8 +3213,8 @@ local function fireDropBrainrot()
                 if not root then return end
                 local baseY = savedSpawnY
                 if baseY == nil then baseY = root.Position.Y - 5 end
-                -- Auto Tp Down gibi: 20 blok yukarıda yere TP
-                if root.Position.Y >= baseY + 20 then
+                -- 35 blok yukarıda yere TP
+                if root.Position.Y >= baseY + 35 then
                     local y = baseY - 2
                     pcall(function()
                         root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
@@ -4359,27 +4383,28 @@ local function runCinematicIntro()
         end
         task.wait(0.2)
 
+        -- LIGHT kısmı 2x daha uzun
         MainTitle.Visible = true
-        TweenService:Create(MainTitle, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
+        TweenService:Create(MainTitle, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0}):Play()
 
-        task.wait(0.7)
+        task.wait(1.4)
         if not isIntroActive then return end
 
-        TweenService:Create(MainTitle, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
-        TweenService:Create(MainTitleStroke, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
+        TweenService:Create(MainTitle, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+        TweenService:Create(MainTitleStroke, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Transparency = 1}):Play()
 
-        task.wait(0.06)
+        task.wait(0.12)
         if not isIntroActive then return end
 
         for idx, c in ipairs(cards) do
-            TweenService:Create(c.Wrapper, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(c.Wrapper, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(0.5, stackOffsets[idx], 0.5, 120),
                 Rotation = stackRotations[idx]
             }):Play()
         end
 
-        task.wait(0.35)
+        task.wait(0.7)
         if not isIntroActive then return end
 
         FlipCards()
@@ -4530,7 +4555,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end)
 end)
 
--- Kaydedilmiş durumları geri yükle (önceki oturumdaki açık butonlar)
+-- Kaydedilmiş durumları geri yükle (ekran butonları hariç panel + kaydedilenler)
 safeCall(function()
     local cfg = getgenv().LightHubConfig
     -- Speed mode
@@ -4548,7 +4573,29 @@ safeCall(function()
     if SetPCKeybindsVisual then
         SetPCKeybindsVisual(cfg.PCKeybindsEnabled == true)
     end
-    -- Bat Aimbot
+    -- Panel özellikleri
+    if cfg.AutoStealEnabled then
+        pcall(function() createAutoStealBar() end)
+    end
+    if cfg.AntiRagdollEnabled then
+        pcall(startAntiRagdoll)
+    end
+    if cfg.MedusaCounterEnabled then
+        pcall(startMedusaCounter)
+    end
+    if cfg.TryardAnimEnabled then
+        tryardAnimEnabled = true
+        pcall(startTryardAnim)
+    end
+    if cfg.NoAnimationEnabled then
+        noAnimationEnabled = true
+        pcall(startNoAnimation)
+    end
+    if cfg.AntiLagEnabled then
+        antiLagEnabled = true
+        pcall(startAntiLag)
+    end
+    -- Bat Aimbot (ekran butonu da olsa config'ten)
     if Buttons and Buttons["Bat Aimbot"] and ButtonStrokes and setButtonVisual then
         ButtonToggled["Bat Aimbot"] = cfg.BatAimbotEnabled == true
         setButtonVisual(Buttons["Bat Aimbot"], ButtonStrokes["Bat Aimbot"], ButtonToggled["Bat Aimbot"])
