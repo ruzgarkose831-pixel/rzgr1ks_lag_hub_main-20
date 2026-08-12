@@ -247,17 +247,25 @@ local function setupBoost(character)
             local currentVel = rootPart.AssemblyLinearVelocity
             local currentHorizVel = Vector3.new(currentVel.X, 0, currentVel.Z)
             local speed = currentHorizVel.Magnitude
+            local dirUnit = moveDir.Magnitude > 0.05 and moveDir.Unit or (speed > 0.05 and currentHorizVel.Unit or Vector3.new(0,0,0))
 
-            -- Hedefe ulaştıysa kuvvet kes
-            if speed >= targetSpeed then
+            -- Hedefi aştıysa: kuvvet kes + hızı tam targetSpeed'e sabitle (60 ise 60)
+            if speed >= targetSpeed - 0.5 then
                 vectorForce.Force = Vector3.zero
+                if dirUnit.Magnitude > 0.05 then
+                    rootPart.AssemblyLinearVelocity = Vector3.new(
+                        dirUnit.X * targetSpeed,
+                        currentVel.Y,
+                        dirUnit.Z * targetSpeed
+                    )
+                end
                 return
             end
 
-            -- Daha güçlü kuvvet: hedef hıza gerçekten ulaşsın (WalkSpeed okunur, çarpılmaz)
+            -- Hedefe yumuşak yaklaş (aşırı kuvvet yok)
             local gap = targetSpeed - speed
-            local forceMul = math.clamp(900 + gap * 55, 900, 3200)
-            vectorForce.Force = Vector3.new(moveDir.X, 0, moveDir.Z) * forceMul
+            local forceMul = math.clamp(500 + gap * 35, 400, 1800)
+            vectorForce.Force = Vector3.new(dirUnit.X, 0, dirUnit.Z) * forceMul
         end)
         if not ok then
             pcall(function() if vectorForce then vectorForce.Force = Vector3.zero end end)
@@ -546,7 +554,7 @@ RunService.Heartbeat:Connect(function(dt)
     end)
 end)
 
--- High jump (Drop Brainrot): daha yükseğe + daha hızlı
+-- High jump (Drop Brainrot): 20 bloğa yetecek güç, aşırı değil
 local function doStrongJumpOnce()
     local character = LocalPlayer.Character
     if not character then return end
@@ -554,19 +562,42 @@ local function doStrongJumpOnce()
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if not rootPart or not humanoid then return end
     ensureMultiJumpForce(rootPart)
-    local vel = rootPart.AssemblyLinearVelocity
+    -- Yatay hızı koruma, dikey kontrollü
     pcall(function()
-        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X, 160, vel.Z)
+        local vel = rootPart.AssemblyLinearVelocity
+        rootPart.AssemblyLinearVelocity = Vector3.new(vel.X * 0.3, 90, vel.Z * 0.3)
     end)
-    multiJumpForce.Force = Vector3.new(0, 28000, 0)
-    task.delay(0.14, function()
+    multiJumpForce.Force = Vector3.new(0, 12000, 0)
+    task.delay(0.1, function()
         if multiJumpForce and multiJumpForce.Parent then
             multiJumpForce.Force = Vector3.zero
         end
     end)
 end
 
--- Reset: Domain-style 0.1s BURST (spin yok) — physics spam ile server respawn
+-- TP sonrası kaymayı kes
+local function hardStopRoot(root)
+    if not root then return end
+    pcall(function()
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+        pcall(function() root.RotVelocity = Vector3.zero end)
+    end)
+    -- Birkaç frame daha sıfırla (momentum kalmasın)
+    task.spawn(function()
+        for _ = 1, 8 do
+            pcall(function()
+                if root and root.Parent then
+                    root.AssemblyLinearVelocity = Vector3.zero
+                    root.AssemblyAngularVelocity = Vector3.zero
+                end
+            end)
+            task.wait()
+        end
+    end)
+end
+
+-- Reset: v4gg-style 0.1s BURST (spin yok) — physics spam ile server respawn
 local resettingBurst = false
 local resetBurstConn = nil
 local resetMtHooked = false
@@ -895,7 +926,7 @@ local function doTpDown()
     if baseY == nil then
         baseY = root.Position.Y
     end
-    local y = baseY - 3
+    local y = baseY - 2
     pcall(function()
         root.AssemblyLinearVelocity = Vector3.zero
         root.AssemblyAngularVelocity = Vector3.zero
@@ -1412,24 +1443,22 @@ for text, defaultPos in pairs(defaultLayout) do
                             if root.Position.Y >= baseY + 20 then
                                 local y = baseY - 2
                                 pcall(function()
-                                    root.AssemblyLinearVelocity = Vector3.zero
-                                    root.AssemblyAngularVelocity = Vector3.zero
                                     root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
-                                    root.AssemblyLinearVelocity = Vector3.zero
                                 end)
+                                hardStopRoot(root)
                                 return
                             end
                             task.wait()
                         end
-                        -- Timeout: yine de yere indir
+                        -- Timeout: yine de yere indir ve dur
                         local char = LocalPlayer.Character
                         local root = char and char:FindFirstChild("HumanoidRootPart")
                         if root then
                             local baseY = savedSpawnY or root.Position.Y
                             pcall(function()
-                                root.AssemblyLinearVelocity = Vector3.zero
                                 root.CFrame = CFrame.new(root.Position.X, baseY - 2, root.Position.Z)
                             end)
+                            hardStopRoot(root)
                         end
                     end)
                 end
@@ -3164,11 +3193,9 @@ local function fireDropBrainrot()
                 if root.Position.Y >= baseY + 20 then
                     local y = baseY - 2
                     pcall(function()
-                        root.AssemblyLinearVelocity = Vector3.zero
-                        root.AssemblyAngularVelocity = Vector3.zero
                         root.CFrame = CFrame.new(root.Position.X, y, root.Position.Z)
-                        root.AssemblyLinearVelocity = Vector3.zero
                     end)
+                    hardStopRoot(root)
                     return
                 end
                 task.wait()
@@ -3178,9 +3205,9 @@ local function fireDropBrainrot()
             if root then
                 local baseY = savedSpawnY or root.Position.Y
                 pcall(function()
-                    root.AssemblyLinearVelocity = Vector3.zero
                     root.CFrame = CFrame.new(root.Position.X, baseY - 2, root.Position.Z)
                 end)
+                hardStopRoot(root)
             end
         end)
     end
@@ -4438,27 +4465,40 @@ local function setupSpeedDisplay(character)
         speedBillboardConn = RunService.RenderStepped:Connect(function()
             pcall(function()
                 if not speedLabel or not speedLabel.Parent then return end
-                -- Kullandığın hedef hız (Normal/Carry/Lagger) — anlık velocity değil
-                local spd = 16
-                if type(getTargetSpeed) == "function" then
-                    spd = tonumber(getTargetSpeed()) or 16
+                local char = LocalPlayer.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                local moving = false
+                if hum and hum.MoveDirection.Magnitude > 0.05 then
+                    moving = true
+                end
+                local steer = autoSteerDir or getgenv()._LH_AutoSteerDir
+                if steer and typeof(steer) == "Vector3" and steer.Magnitude > 0.05 then
+                    moving = true
+                end
+                if not moving then
+                    speedLabel.Text = "0"
                 else
-                    local cfg = getgenv().LightHubConfig
-                    if cfg then
-                        local mode = cfg.SpeedMode or "normal"
-                        if mode == "carry" then
-                            spd = tonumber(cfg.StealSpeed) or 30
-                        elseif mode == "lagger" then
-                            spd = tonumber(cfg.LaggerSpeed) or 15
-                        elseif mode == "lagger_carry" then
-                            spd = tonumber(cfg.LaggerSteal) or 10
-                        else
-                            spd = tonumber(cfg.NormalSpeed) or 60
+                    local spd = 16
+                    if type(getTargetSpeed) == "function" then
+                        spd = tonumber(getTargetSpeed()) or 16
+                    else
+                        local cfg = getgenv().LightHubConfig
+                        if cfg then
+                            local mode = cfg.SpeedMode or "normal"
+                            if mode == "carry" then
+                                spd = tonumber(cfg.StealSpeed) or 30
+                            elseif mode == "lagger" then
+                                spd = tonumber(cfg.LaggerSpeed) or 15
+                            elseif mode == "lagger_carry" then
+                                spd = tonumber(cfg.LaggerSteal) or 10
+                            else
+                                spd = tonumber(cfg.NormalSpeed) or 60
+                            end
                         end
                     end
+                    if spd < 0 then spd = 0 end
+                    speedLabel.Text = string.format("%.0f", spd)
                 end
-                if spd < 0 then spd = 0 end
-                speedLabel.Text = string.format("%.0f", spd)
                 pcall(function()
                     local theme = getCurrentTheme and getCurrentTheme() or nil
                     if theme and theme.accent then
