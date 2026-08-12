@@ -225,8 +225,9 @@ local function setupBoost(character)
 
             -- Auto play yönü varsa onu kullan (VectorForce aynı şekilde devreye girer)
             local moveDir = humanoid.MoveDirection
-            if autoSteerDir and autoSteerDir.Magnitude > 0.05 then
-                moveDir = autoSteerDir
+            local steer = autoSteerDir or getgenv()._LH_AutoSteerDir
+            if steer and typeof(steer) == "Vector3" and steer.Magnitude > 0.05 then
+                moveDir = steer
             end
 
             local targetSpeed = tonumber(getTargetSpeed()) or 16
@@ -565,7 +566,7 @@ local function doStrongJumpOnce()
     end)
 end
 
--- Reset: v4gg-style 0.1s BURST (spin yok) — physics spam ile server respawn
+-- Reset: Domain-style 0.1s BURST (spin yok) — physics spam ile server respawn
 local resettingBurst = false
 local resetBurstConn = nil
 local resetMtHooked = false
@@ -710,10 +711,27 @@ local function stopAutoPath()
     autoPathPoints = nil
     autoPathIndex = 1
     autoSteerDir = nil
+    getgenv()._LH_AutoSteerDir = nil
     if autoPathConn then
         pcall(function() autoPathConn:Disconnect() end)
         autoPathConn = nil
     end
+    -- Hareketi anında kes (MoveTo devam etmesin)
+    pcall(function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if hum then
+            hum:Move(Vector3.zero, false)
+            if root then
+                pcall(function() hum:MoveTo(root.Position) end)
+            end
+        end
+        if root then
+            local v = root.AssemblyLinearVelocity
+            root.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+        end
+    end)
     -- Görselleri kapat
     pcall(function()
         local B = (_LH and _LH.Buttons) or Buttons
@@ -747,18 +765,24 @@ local function startAutoPath(points)
     autoPathPoints = points
     autoPathIndex = 1
     autoSteerDir = nil
-    -- Speed boost açık kalsın → VectorForce devrede
+    getgenv()._LH_AutoSteerDir = nil
+    -- Speed boost açık + VectorForce yeniden kur
     pcall(function()
         getgenv().LightHubConfig.SpeedBoostEnabled = true
         if LocalPlayer.Character then
             setupBoost(LocalPlayer.Character)
         end
     end)
-    autoPathConn = RunService.Heartbeat:Connect(function()
+    -- RenderStepped: VectorForce ile aynı frame'de yön ver
+    autoPathConn = RunService.RenderStepped:Connect(function()
         pcall(function()
-            if not autoPathPoints then return end
+            if not autoPathPoints then
+                autoSteerDir = nil
+                getgenv()._LH_AutoSteerDir = nil
+                return
+            end
 
-            -- Oyuncu hareket ederse auto play dursun
+            -- Oyuncu WASD / stick ile hareket ederse auto play dursun
             if isManualMoveInput() then
                 stopAutoPath()
                 return
@@ -769,6 +793,7 @@ local function startAutoPath(points)
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             if not root or not hum or hum.Health <= 0 then
                 autoSteerDir = nil
+                getgenv()._LH_AutoSteerDir = nil
                 return
             end
 
@@ -785,18 +810,17 @@ local function startAutoPath(points)
             if dist < 5 then
                 autoPathIndex = autoPathIndex % #autoPathPoints + 1
                 autoSteerDir = nil
+                getgenv()._LH_AutoSteerDir = nil
                 return
             end
 
             local dir = flat.Unit
-            -- VectorForce boost bu yönü kullanır
+            -- VectorForce bu yönü kullanır (setupBoost)
             autoSteerDir = dir
-            -- MoveDirection da set (WalkSpeed tabanı)
+            getgenv()._LH_AutoSteerDir = dir
+            -- WalkSpeed tabanı için MoveDirection
             pcall(function()
                 hum:Move(dir, false)
-            end)
-            pcall(function()
-                hum:MoveTo(Vector3.new(target.X, pos.Y, target.Z))
             end)
         end)
     end)
@@ -871,7 +895,7 @@ local function doTpDown()
     if baseY == nil then
         baseY = root.Position.Y
     end
-    local y = baseY - 2
+    local y = baseY - 3
     pcall(function()
         root.AssemblyLinearVelocity = Vector3.zero
         root.AssemblyAngularVelocity = Vector3.zero
@@ -4414,16 +4438,27 @@ local function setupSpeedDisplay(character)
         speedBillboardConn = RunService.RenderStepped:Connect(function()
             pcall(function()
                 if not speedLabel or not speedLabel.Parent then return end
-                local char = LocalPlayer.Character
-                local r = char and char:FindFirstChild("HumanoidRootPart")
-                if not r then
-                    speedLabel.Text = "0"
-                    return
+                -- Kullandığın hedef hız (Normal/Carry/Lagger) — anlık velocity değil
+                local spd = 16
+                if type(getTargetSpeed) == "function" then
+                    spd = tonumber(getTargetSpeed()) or 16
+                else
+                    local cfg = getgenv().LightHubConfig
+                    if cfg then
+                        local mode = cfg.SpeedMode or "normal"
+                        if mode == "carry" then
+                            spd = tonumber(cfg.StealSpeed) or 30
+                        elseif mode == "lagger" then
+                            spd = tonumber(cfg.LaggerSpeed) or 15
+                        elseif mode == "lagger_carry" then
+                            spd = tonumber(cfg.LaggerSteal) or 10
+                        else
+                            spd = tonumber(cfg.NormalSpeed) or 60
+                        end
+                    end
                 end
-                local v = r.AssemblyLinearVelocity
-                local horiz = Vector3.new(v.X, 0, v.Z).Magnitude
-                speedLabel.Text = string.format("%.0f", horiz)
-                -- Tema rengi
+                if spd < 0 then spd = 0 end
+                speedLabel.Text = string.format("%.0f", spd)
                 pcall(function()
                     local theme = getCurrentTheme and getCurrentTheme() or nil
                     if theme and theme.accent then
