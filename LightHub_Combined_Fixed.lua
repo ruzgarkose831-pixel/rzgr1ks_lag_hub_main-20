@@ -2059,7 +2059,7 @@ local function getStealRadius()
     return autoStealRadius or tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
 end
 
--- Auto Steal mantığı (plot prompt + getconnections) — 1.3s, %75 durak, 10 blok devam
+-- Auto Steal mantığı (plot prompt + getconnections) — 1.3s, sadece Name=="steal", %75 durak, 7 blok devam
 local stealDelay = 1.30
 local isStealing = false
 local holdingPrompt = nil
@@ -2088,23 +2088,9 @@ local function isValidStealPrompt(prompt)
     local okEnabled = true
     pcall(function() okEnabled = prompt.Enabled end)
     if not okEnabled then return false end
-    local state, actionText = nil, nil
-    pcall(function() state = prompt:GetAttribute("State") end)
-    pcall(function() actionText = prompt.ActionText end)
-    if state == "Steal" or state == "Grab" or actionText == "Steal" or actionText == "Grab" then
-        return true
-    end
-    -- Yedek: isimde steal
-    local name = string.lower(tostring(prompt.Name or ""))
-    local parentName = prompt.Parent and string.lower(tostring(prompt.Parent.Name or "")) or ""
-    local action = string.lower(tostring(actionText or ""))
-    local obj = ""
-    pcall(function() obj = string.lower(tostring(prompt.ObjectText or "")) end)
-    return name:find("steal", 1, true)
-        or parentName:find("steal", 1, true)
-        or action:find("steal", 1, true)
-        or obj:find("steal", 1, true)
-        or action:find("grab", 1, true)
+    -- Sadece ismi "steal" olan prompt'lar
+    local name = string.lower(tostring(prompt.Name or "")):gsub("%s+", "")
+    return name == "steal"
 end
 
 local function getPromptWorldPosition(prompt)
@@ -2253,8 +2239,8 @@ local function tryHoldNearestSteal()
         local elapsed = tick() - holdStartTime
         local rawProg = math.clamp(elapsed / holdDuration, 0, 1)
 
-        -- %75'de durakla; 10 blok içine girince devam et
-        if dist > 10 then
+        -- %75'de durakla; 7 blok içine girince devam et
+        if dist > 7 then
             if rawProg >= 0.75 then
                 stealPausedAt75 = true
                 stealPauseElapsed = math.max(stealPauseElapsed, 0.75 * holdDuration)
@@ -2268,7 +2254,7 @@ local function tryHoldNearestSteal()
             return
         end
 
-        -- 10 blok içinde: devam
+        -- 7 blok içinde: devam
         if stealPausedAt75 then
             -- Kaldığı yerden devam (0.75'ten)
             holdStartTime = tick() - (0.75 * holdDuration)
