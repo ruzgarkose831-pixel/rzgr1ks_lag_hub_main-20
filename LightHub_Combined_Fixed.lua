@@ -633,65 +633,66 @@ local function cleanupResetBurst()
 end
 
 local function startResetBurst()
-    if resettingBurst then return end
+    -- Kullanıcı reset kodu: god health + ForceField + jump + VectorForce uçuş
     local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 3)
+    local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 3)
     if not root or not hum then return end
 
-    resettingBurst = true
-
     pcall(function()
-        if not getrawmetatable then return end
-        local mt = getrawmetatable(game)
-        if not mt then return end
-        local oldIdx = mt.__index
-        resetOldIndex = oldIdx
-        if setreadonly then setreadonly(mt, false) end
-        local hook = function(s, k)
-            if k == "WalkSpeed" and resettingBurst then
-                return 16
-            end
-            if type(oldIdx) == "function" then
-                return oldIdx(s, k)
-            end
-            return oldIdx[k]
-        end
-        if newcclosure then
-            mt.__index = newcclosure(hook)
-        else
-            mt.__index = hook
-        end
-        if setreadonly then setreadonly(mt, true) end
-        resetMtHooked = true
+        hum.MaxHealth = 999999999999
+        hum.Health = 999999999999
     end)
 
-    local start = tick()
-    local myChar = char
-    if resetBurstConn then pcall(function() resetBurstConn:Disconnect() end) end
-    resetBurstConn = RunService.Heartbeat:Connect(function()
-        if tick() - start > 0.15 or not myChar.Parent then
-            if resetBurstConn then
-                pcall(function() resetBurstConn:Disconnect() end)
-                resetBurstConn = nil
-            end
-            return
-        end
-        pcall(function()
-            local r = myChar:FindFirstChild("HumanoidRootPart")
-            local h = myChar:FindFirstChildOfClass("Humanoid")
-            if not r or not h then return end
-            pcall(function()
-                if r.SetNetworkOwner then r:SetNetworkOwner(LocalPlayer) end
-            end)
-            r.AssemblyLinearVelocity = Vector3.new(1e7, 1e7, 1e7)
-            h.Health = 0
-        end)
-    end)
-
+    -- Canı periyodik fulle
     task.spawn(function()
-        LocalPlayer.CharacterAdded:Wait()
-        cleanupResetBurst()
+        local myChar = char
+        while myChar and myChar.Parent and myChar:IsDescendantOf(workspace) do
+            pcall(function()
+                local h = myChar:FindFirstChildOfClass("Humanoid")
+                if h then
+                    h.Health = h.MaxHealth
+                end
+            end)
+            task.wait(10)
+        end
+    end)
+
+    -- ForceField
+    pcall(function()
+        if not char:FindFirstChildOfClass("ForceField") then
+            local ff = Instance.new("ForceField")
+            ff.Name = "SonsuzKalkan"
+            ff.Visible = true
+            ff.Parent = char
+        end
+    end)
+
+    -- Devasa zıplama
+    pcall(function()
+        hum.JumpPower = 9e25
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end)
+
+    task.wait(0.1)
+
+    -- Eski VectorForce temizle + ultra uçuş kuvveti
+    pcall(function()
+        for _, child in ipairs(root:GetChildren()) do
+            if child:IsA("VectorForce") or child.Name == "GodModeUcus" then
+                child:Destroy()
+            end
+        end
+        local attachment = Instance.new("Attachment")
+        attachment.Name = "GodModeUcus"
+        attachment.Parent = root
+        local vectorForce = Instance.new("VectorForce")
+        vectorForce.Name = "GodModeUcus"
+        vectorForce.Attachment0 = attachment
+        vectorForce.Force = Vector3.new(0, 2e7, 0)
+        vectorForce.RelativeTo = Enum.ActuatorRelativeTo.World
+        vectorForce.Parent = root
     end)
 end
 
@@ -1976,7 +1977,7 @@ local function MakeToggle(labelText, order, initialOn, onChanged)
     hit.Text = ""
     hit.ZIndex = 65
 
-    local on = initialOn
+    local on = initialOn == true
     hit.MouseButton1Click:Connect(function()
         on = not on
         local goalPos = on and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
@@ -1987,10 +1988,20 @@ local function MakeToggle(labelText, order, initialOn, onChanged)
         TweenService:Create(track, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundColor3 = goalColor
         }):Play()
-        if onChanged then onChanged(on) end
+        if onChanged then
+            pcall(onChanged, on)
+        end
     end)
 
+    -- Kaydedilmiş "açık" durumdaysa özelliği gerçekten başlat
+    if on and onChanged then
+        task.defer(function()
+            pcall(onChanged, true)
+        end)
+    end
+
     return function() return on end, function(newState)
+        newState = newState == true
         if on == newState then return end
         on = newState
         local goalPos = on and UDim2.new(1, -24, 0.5, -11) or UDim2.new(0, 2, 0.5, -11)
@@ -2001,6 +2012,9 @@ local function MakeToggle(labelText, order, initialOn, onChanged)
         TweenService:Create(track, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundColor3 = goalColor
         }):Play()
+        if onChanged then
+            pcall(onChanged, on)
+        end
     end
 end
 
@@ -2058,7 +2072,7 @@ local function processStealPrompt(prompt)
             or obj:find("steal", 1, true)
         if not isSteal then return end
         prompt.HoldDuration = 1.3
-        prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, getStealRadius())
+        prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
     end)
 end
 
@@ -2076,6 +2090,18 @@ local holdingPrompt = nil
 local holdStartTime = 0
 local holdDuration = 1.3
 
+local function isStealPrompt(prompt)
+    if not prompt or not prompt:IsA("ProximityPrompt") then return false end
+    local name = string.lower(prompt.Name or "")
+    local parentName = prompt.Parent and string.lower(prompt.Parent.Name or "") or ""
+    local action = string.lower(tostring(prompt.ActionText or ""))
+    local obj = string.lower(tostring(prompt.ObjectText or ""))
+    return name:find("steal", 1, true)
+        or parentName:find("steal", 1, true)
+        or action:find("steal", 1, true)
+        or obj:find("steal", 1, true)
+end
+
 local function tryHoldNearestSteal()
     pcall(function()
         local char = LocalPlayer.Character
@@ -2089,38 +2115,34 @@ local function tryHoldNearestSteal()
         local radius = getStealRadius()
         local nearest, nearestDist = nil, radius + 1
         for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then
-                local name = string.lower(obj.Name)
-                local parentName = obj.Parent and string.lower(obj.Parent.Name) or ""
-                local action = string.lower(tostring(obj.ActionText or ""))
-                local isSteal = name:find("steal", 1, true)
-                    or parentName:find("steal", 1, true)
-                    or action:find("steal", 1, true)
-                if isSteal then
-                    local part = obj.Parent
-                    local pos = nil
-                    if part and part:IsA("BasePart") then
-                        pos = part.Position
-                    elseif part and part:IsA("Model") then
-                        local pp = part:FindFirstChildWhichIsA("BasePart")
-                        if pp then pos = pp.Position end
-                    end
-                    if pos then
-                        local d = (pos - root.Position).Magnitude
-                        if d < nearestDist then
-                            nearestDist = d
-                            nearest = obj
-                        end
+            if isStealPrompt(obj) then
+                local part = obj.Parent
+                local pos = nil
+                if part and part:IsA("BasePart") then
+                    pos = part.Position
+                elseif part and part:IsA("Model") then
+                    local pp = part:FindFirstChildWhichIsA("BasePart")
+                    if pp then pos = pp.Position end
+                end
+                if pos then
+                    local d = (pos - root.Position).Magnitude
+                    if d < nearestDist then
+                        nearestDist = d
+                        nearest = obj
                     end
                 end
             end
         end
+
+        -- Hold süresi her zaman 1.3 sn
+        holdDuration = 1.3
+
         if nearest and nearestDist <= radius then
             processStealPrompt(nearest)
-            holdDuration = tonumber(nearest.HoldDuration) or 1.3
-            if holdDuration <= 0 then holdDuration = 0.05 end
-            -- Radius icindeyken ASLA birakma; surekli basili tut
-            -- Prompt yeniden baslasa bile tekrar InputHoldBegin
+            pcall(function()
+                nearest.HoldDuration = 1.3
+            end)
+            -- Bırakmadan basılı tut
             pcall(function()
                 nearest:InputHoldBegin()
             end)
@@ -2129,17 +2151,29 @@ local function tryHoldNearestSteal()
                 holdStartTime = tick()
             end
             local elapsed = tick() - holdStartTime
-            autoStealProgress = math.clamp(elapsed / holdDuration, 0, 1)
-            -- Hold tamamlandiysa (prompt firladi / reset) basariyi sifirla ama basili tutmaya devam
+            local rawProg = math.clamp(elapsed / holdDuration, 0, 1)
+
+            -- 75%'de durakla; 10 blok yakınına girince devam et (bırakmadan)
+            if nearestDist > 10 then
+                autoStealProgress = math.min(rawProg, 0.75)
+            else
+                autoStealProgress = rawProg
+            end
+
+            -- Tamamlandıysa yeniden başlat ama bırakma
             if autoStealProgress >= 1 then
                 holdStartTime = tick()
                 autoStealProgress = 0
                 pcall(function()
                     nearest:InputHoldBegin()
                 end)
+            else
+                -- Her sn kontrol: basılı tutmayı tazele
+                pcall(function()
+                    nearest:InputHoldBegin()
+                end)
             end
         else
-            -- Radius disina cikinca birak
             if holdingPrompt then
                 pcall(function() holdingPrompt:InputHoldEnd() end)
             end
@@ -3100,6 +3134,19 @@ end)
     _LH.hubWasDragged = hubWasDragged
     _LH.defaultLayout = defaultLayout
     if SetMultiJumpVisual then _LH.SetMultiJumpVisual = SetMultiJumpVisual end
+    -- Özellik başlatıcıları (restore için)
+    _LH.createAutoStealBar = createAutoStealBar
+    _LH.destroyAutoStealBar = destroyAutoStealBar
+    _LH.startAntiRagdoll = startAntiRagdoll
+    _LH.stopAntiRagdoll = stopAntiRagdoll
+    _LH.startMedusaCounter = startMedusaCounter
+    _LH.stopMedusaCounter = stopMedusaCounter
+    _LH.startTryardAnim = startTryardAnim
+    _LH.stopTryardAnim = stopTryardAnim
+    _LH.startNoAnimation = startNoAnimation
+    _LH.stopNoAnimation = stopNoAnimation
+    _LH.startAntiLag = startAntiLag
+    _LH.cleanupAntiLag = cleanupAntiLag
 end
 safeCall(__LH_BuildGUI1)
 
@@ -4573,47 +4620,49 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end)
 end)
 
--- Kaydedilmiş durumları geri yükle (ekran butonları hariç panel + kaydedilenler)
+-- Kaydedilmiş durumları geri yükle — özellikler GERÇEKTEN başlasın
 safeCall(function()
     local cfg = getgenv().LightHubConfig
-    -- Speed mode
+    local LH = getgenv()._LH or {}
+
     if updateSpeedMode then
         updateSpeedMode(cfg.SpeedMode or "normal")
     end
-    -- Multi Jump
     if SetMultiJumpVisual then
         SetMultiJumpVisual(cfg.MultiJumpEnabled == true)
     end
-    -- Console / PC keybinds
     if SetConsoleModeVisual then
         SetConsoleModeVisual(cfg.ConsoleMode == true)
     end
     if SetPCKeybindsVisual then
         SetPCKeybindsVisual(cfg.PCKeybindsEnabled == true)
     end
-    -- Panel özellikleri
-    if cfg.AutoStealEnabled then
-        pcall(function() createAutoStealBar() end)
-    end
-    if cfg.AntiRagdollEnabled then
-        pcall(startAntiRagdoll)
-    end
-    if cfg.MedusaCounterEnabled then
-        pcall(startMedusaCounter)
-    end
-    if cfg.TryardAnimEnabled then
-        tryardAnimEnabled = true
-        pcall(startTryardAnim)
-    end
-    if cfg.NoAnimationEnabled then
-        noAnimationEnabled = true
-        pcall(startNoAnimation)
-    end
-    if cfg.AntiLagEnabled then
-        antiLagEnabled = true
-        pcall(startAntiLag)
-    end
-    -- Bat Aimbot (ekran butonu da olsa config'ten)
+
+    -- Panel: MakeToggle zaten initialOn + onChanged defer ile başlatır;
+    -- yedek olarak _LH üzerinden de zorla başlat
+    task.defer(function()
+        pcall(function()
+            if cfg.AutoStealEnabled and LH.createAutoStealBar then
+                LH.createAutoStealBar()
+            end
+            if cfg.AntiRagdollEnabled and LH.startAntiRagdoll then
+                LH.startAntiRagdoll()
+            end
+            if cfg.MedusaCounterEnabled and LH.startMedusaCounter then
+                LH.startMedusaCounter()
+            end
+            if cfg.TryardAnimEnabled and LH.startTryardAnim then
+                LH.startTryardAnim()
+            end
+            if cfg.NoAnimationEnabled and LH.startNoAnimation then
+                LH.startNoAnimation()
+            end
+            if cfg.AntiLagEnabled and LH.startAntiLag then
+                LH.startAntiLag()
+            end
+        end)
+    end)
+
     if Buttons and Buttons["Bat Aimbot"] and ButtonStrokes and setButtonVisual then
         ButtonToggled["Bat Aimbot"] = cfg.BatAimbotEnabled == true
         setButtonVisual(Buttons["Bat Aimbot"], ButtonStrokes["Bat Aimbot"], ButtonToggled["Bat Aimbot"])
@@ -4621,7 +4670,6 @@ safeCall(function()
             pcall(startBatAimbot)
         end
     end
-    -- Auto Left / Right
     if cfg.SavedAutoLeft then
         if Buttons and Buttons["Auto Left"] and setButtonVisual then
             ButtonToggled["Auto Left"] = true
@@ -4642,44 +4690,28 @@ safeCall(function()
 end)
 
 --========================================================================
--- USING LIGHT HUB etiketi + kullanıcı kaydı
+-- USING LIGHT HUB etiketi (aynı cihaz gerekmez — sunucudaki her hub kullanıcısı)
+-- Her client kendi karakterine etiket koyar; diğer hub client'ları da
+-- diğer oyuncuların karakterinde LightHub işareti arar / lokal etiket basar.
 --========================================================================
-local USERS_FILE = "LightHub_ActiveUsers.json"
 local hubUserTags = {} -- [userId] = BillboardGui
 
-local function loadHubUsers()
-    local list = {}
+local function markCharacterAsHubUser(character)
+    if not character then return end
     pcall(function()
-        if isfile and isfile(USERS_FILE) and readfile then
-            local data = HttpService:JSONDecode(readfile(USERS_FILE))
-            if type(data) == "table" then
-                for _, entry in ipairs(data) do
-                    if type(entry) == "table" and entry.UserId then
-                        list[tostring(entry.UserId)] = entry
-                    elseif type(entry) == "number" or type(entry) == "string" then
-                        list[tostring(entry)] = { UserId = tonumber(entry) or entry }
-                    end
-                end
-            end
+        local marker = character:FindFirstChild("LightHub_ActiveMarker")
+        if not marker then
+            marker = Instance.new("BoolValue")
+            marker.Name = "LightHub_ActiveMarker"
+            marker.Value = true
+            marker.Parent = character
         end
-    end)
-    return list
-end
-
-local function saveHubUser(userId, userName)
-    pcall(function()
-        local list = loadHubUsers()
-        list[tostring(userId)] = {
-            UserId = userId,
-            Name = userName or "",
-            LastSeen = os.time and os.time() or 0,
-        }
-        local arr = {}
-        for _, v in pairs(list) do
-            table.insert(arr, v)
-        end
-        if writefile then
-            writefile(USERS_FILE, HttpService:JSONEncode(arr))
+        -- Görünür işaret (bazı ortamlarda diğer client görebilir)
+        if not character:FindFirstChild("LightHub_ActiveFF") then
+            local ff = Instance.new("ForceField")
+            ff.Name = "LightHub_ActiveFF"
+            ff.Visible = false
+            ff.Parent = character
         end
     end)
 end
@@ -4688,17 +4720,17 @@ local function createUsingTag(character, player)
     if not character then return end
     pcall(function()
         local uid = player and player.UserId
-        if uid and hubUserTags[uid] then
-            pcall(function() hubUserTags[uid]:Destroy() end)
-            hubUserTags[uid] = nil
-        end
         local head = character:FindFirstChild("Head")
         local root = character:FindFirstChild("HumanoidRootPart")
         local parent = head or root
         if not parent then return end
-        -- Eski etiketi temizle
+
         local old = parent:FindFirstChild("LightHub_UsingTag")
-        if old then pcall(function() old:Destroy() end) end
+        if old then
+            -- Zaten var
+            if uid then hubUserTags[uid] = old end
+            return
+        end
 
         local bb = Instance.new("BillboardGui")
         bb.Name = "LightHub_UsingTag"
@@ -4706,7 +4738,7 @@ local function createUsingTag(character, player)
         bb.AlwaysOnTop = true
         bb.Size = UDim2.new(0, 200, 0, 28)
         bb.StudsOffset = Vector3.new(0, 3.2, 0)
-        bb.MaxDistance = 120
+        bb.MaxDistance = 200
         bb.Parent = parent
 
         local lbl = Instance.new("TextLabel")
@@ -4727,19 +4759,27 @@ local function createUsingTag(character, player)
     end)
 end
 
+local function playerLooksLikeHubUser(plr)
+    if not plr or not plr.Character then return false end
+    local c = plr.Character
+    if c:FindFirstChild("LightHub_ActiveMarker") then return true end
+    if c:FindFirstChild("LightHub_ActiveFF") then return true end
+    if c:FindFirstChild("LightHub_UsingTag", true) then return true end
+    if c:FindFirstChild("SonsuzKalkan") then return true end
+    return false
+end
+
 local function refreshHubUserTags()
     pcall(function()
-        local list = loadHubUsers()
-        -- Kendini her zaman kaydet / etiketle
-        saveHubUser(LocalPlayer.UserId, LocalPlayer.Name)
-        list[tostring(LocalPlayer.UserId)] = {
-            UserId = LocalPlayer.UserId,
-            Name = LocalPlayer.Name,
-        }
-        -- Aynı sunucudaki kayıtlı kullanıcılara etiket
+        -- Kendini işaretle + etiketle
+        if LocalPlayer.Character then
+            markCharacterAsHubUser(LocalPlayer.Character)
+            createUsingTag(LocalPlayer.Character, LocalPlayer)
+        end
+        -- Diğer oyuncular: hub işareti varsa VEYA lokal etiket bas (script çalışan herkes kendini işaretler)
         for _, plr in ipairs(Players:GetPlayers()) do
-            if list[tostring(plr.UserId)] then
-                if plr.Character then
+            if plr ~= LocalPlayer and plr.Character then
+                if playerLooksLikeHubUser(plr) then
                     createUsingTag(plr.Character, plr)
                 end
             end
@@ -4748,27 +4788,26 @@ local function refreshHubUserTags()
 end
 
 safeCall(function()
-    saveHubUser(LocalPlayer.UserId, LocalPlayer.Name)
     if LocalPlayer.Character then
+        markCharacterAsHubUser(LocalPlayer.Character)
         createUsingTag(LocalPlayer.Character, LocalPlayer)
     end
     LocalPlayer.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
+        task.wait(0.4)
+        markCharacterAsHubUser(char)
         createUsingTag(char, LocalPlayer)
     end)
     Players.PlayerAdded:Connect(function(plr)
         plr.CharacterAdded:Connect(function(char)
-            task.wait(0.5)
-            local list = loadHubUsers()
-            if list[tostring(plr.UserId)] then
+            task.wait(0.6)
+            if playerLooksLikeHubUser(plr) then
                 createUsingTag(char, plr)
             end
         end)
     end)
-    -- Periyodik yenile
     task.spawn(function()
         while true do
-            task.wait(8)
+            task.wait(3)
             refreshHubUserTags()
         end
     end)
