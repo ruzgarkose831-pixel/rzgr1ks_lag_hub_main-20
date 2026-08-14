@@ -2031,6 +2031,13 @@ local autoStealProgress = 0
 local autoStealRadius = tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
 
 local function destroyAutoStealBar()
+    pcall(function()
+        if stopAutoStealLoop then stopAutoStealLoop() end
+    end)
+    autoStealLoopRunning = false
+    isStealing = false
+    holdingPrompt = nil
+    autoStealProgress = 0
     if autoStealBarConn then
         autoStealBarConn:Disconnect()
         autoStealBarConn = nil
@@ -2059,14 +2066,11 @@ local function getStealRadius()
     return autoStealRadius or tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
 end
 
--- Auto Steal mantığı (plot prompt + getconnections) — 1.3s, sadece Name=="steal", %75 durak, 7 blok devam
+-- Auto Steal: getconnections + fireproximityprompt, Name/ActionText == "steal", 1.3s, %75@>7blok
 local stealDelay = 1.30
 local isStealing = false
 local holdingPrompt = nil
-local holdStartTime = 0
-local holdDuration = 1.3
-local stealPausedAt75 = false
-local stealPauseElapsed = 0 -- %75'e kadar biriken süre
+local autoStealLoopRunning = false
 
 local function isMyPlot(plot)
     if not plot then return false end
@@ -2088,9 +2092,16 @@ local function isValidStealPrompt(prompt)
     local okEnabled = true
     pcall(function() okEnabled = prompt.Enabled end)
     if not okEnabled then return false end
-    -- Sadece ismi "steal" olan prompt'lar
+    -- Sadece "steal" (Name veya ActionText veya State)
     local name = string.lower(tostring(prompt.Name or "")):gsub("%s+", "")
-    return name == "steal"
+    local action = ""
+    pcall(function() action = string.lower(tostring(prompt.ActionText or "")):gsub("%s+", "") end)
+    local state = ""
+    pcall(function()
+        local s = prompt:GetAttribute("State")
+        if s then state = string.lower(tostring(s)):gsub("%s+", "") end
+    end)
+    return name == "steal" or action == "steal" or state == "steal"
 end
 
 local function getPromptWorldPosition(prompt)
@@ -2144,11 +2155,23 @@ local function getNearestStealable()
                         end
                     end
                 end
+                -- Plot altındaki tüm ProximityPrompt (yedek path)
+                for _, d in ipairs(plot:GetDescendants()) do
+                    if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
+                        local wpos = getPromptWorldPosition(d)
+                        if wpos then
+                            local dist = (root.Position - wpos).Magnitude
+                            if dist < minDistance then
+                                minDistance = dist
+                                nearestPrompt = d
+                            end
+                        end
+                    end
+                end
             end
         end
     end
 
-    -- Yedek tarama (Plots yoksa / farklı map)
     if not nearestPrompt then
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("ProximityPrompt") and isValidStealPrompt(obj) then
@@ -2169,19 +2192,57 @@ end
 
 local function firePromptConnections(prompt, signalName)
     pcall(function()
-        if not getconnections then return end
+        if type(getconnections) ~= "function" then return end
         local signal = prompt[signalName]
         if not signal then return end
         local connections = getconnections(signal)
-        if not connections then return end
+        if type(connections) ~= "table" then return end
         for _, conn in ipairs(connections) do
-            if conn.Function then
-                task.spawn(conn.Function)
-            elseif conn.Fire then
-                pcall(function() conn:Fire() end)
-            end
+            pcall(function()
+                if conn.Function then
+                    task.spawn(conn.Function)
+                end
+                if conn.Fire then
+                    conn:Fire()
+                end
+                if type(conn) == "table" and conn.Enabled ~= nil then
+                    -- bazı executor'lar
+                    if conn.Function then conn.Function() end
+                end
+            end)
         end
     end)
+end
+
+local function forceFirePrompt(prompt)
+    if not prompt or not prompt.Parent then return end
+    pcall(function()
+        prompt.HoldDuration = 1.3
+        prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
+        prompt.Enabled = true
+    end)
+    -- 1) fireproximityprompt (executor API)
+    pcall(function()
+        if fireproximityprompt then
+            fireproximityprompt(prompt)
+        end
+    end)
+    -- 2) getconnections HoldBegan
+    firePromptConnections(prompt, "PromptButtonHoldBegan")
+    -- 3) InputHoldBegin
+    pcall(function() prompt:InputHoldBegin() end)
+end
+
+local function forceTriggerPrompt(prompt)
+    if not prompt or not prompt.Parent then return end
+    firePromptConnections(prompt, "Triggered")
+    firePromptConnections(prompt, "PromptButtonHoldEnded")
+    pcall(function()
+        if fireproximityprompt then
+            fireproximityprompt(prompt, 1.3)
+        end
+    end)
+    pcall(function() prompt:InputHoldEnd() end)
 end
 
 local function processStealPrompt(prompt)
@@ -2194,99 +2255,117 @@ end
 
 local function scanAllStealPrompts()
     pcall(function()
-        local plots = workspace:FindFirstChild("Plots")
-        if plots then
-            for _, plot in ipairs(plots:GetChildren()) do
-                for _, d in ipairs(plot:GetDescendants()) do
-                    if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
-                        processStealPrompt(d)
-                    end
-                end
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
+                processStealPrompt(d)
             end
         end
     end)
 end
 
-local function tryHoldNearestSteal()
+-- Ana steal: leak mantığı (bekle + Triggered) + %75 / 7 blok
+local function executeSteal(prompt)
+    if isStealing or not prompt or not prompt.Parent then return end
+    isStealing = true
+    holdingPrompt = prompt
+
     pcall(function()
-        if isStealing then return end
-
-        local prompt, dist = getNearestStealable()
-        local radius = getStealRadius()
-
-        if not prompt or dist > radius then
-            holdingPrompt = nil
-            holdStartTime = 0
-            stealPausedAt75 = false
-            stealPauseElapsed = 0
-            autoStealProgress = 0
-            return
-        end
-
         processStealPrompt(prompt)
-        holdDuration = stealDelay -- 1.30
+        forceFirePrompt(prompt)
 
-        if holdingPrompt ~= prompt then
-            holdingPrompt = prompt
-            holdStartTime = tick()
-            stealPausedAt75 = false
-            stealPauseElapsed = 0
-            -- Hold began (getconnections mantığı)
-            firePromptConnections(prompt, "PromptButtonHoldBegan")
-            pcall(function() prompt:InputHoldBegin() end)
-        end
+        local t0 = tick()
+        local paused = false
+        local pauseAccum = 0
 
-        local elapsed = tick() - holdStartTime
-        local rawProg = math.clamp(elapsed / holdDuration, 0, 1)
+        while tick() - t0 - pauseAccum < stealDelay do
+            if not prompt or not prompt.Parent then break end
+            if not autoStealBarGui or not autoStealBarGui.Parent then break end
 
-        -- %75'de durakla; 7 blok içine girince devam et
-        if dist > 7 then
-            if rawProg >= 0.75 then
-                stealPausedAt75 = true
-                stealPauseElapsed = math.max(stealPauseElapsed, 0.75 * holdDuration)
-                -- holdStartTime'ı dondur: süre ilerlemesin
-                holdStartTime = tick() - stealPauseElapsed
+            local _, dist = getNearestStealable()
+            -- aynı prompt mesafesi
+            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local wpos = getPromptWorldPosition(prompt)
+            if root and wpos then
+                dist = (root.Position - wpos).Magnitude
             end
-            autoStealProgress = math.min(rawProg, 0.75)
-            -- Hold'u canlı tut
-            firePromptConnections(prompt, "PromptButtonHoldBegan")
-            pcall(function() prompt:InputHoldBegin() end)
-            return
-        end
 
-        -- 7 blok içinde: devam
-        if stealPausedAt75 then
-            -- Kaldığı yerden devam (0.75'ten)
-            holdStartTime = tick() - (0.75 * holdDuration)
-            stealPausedAt75 = false
-        end
+            local elapsed = (tick() - t0) - pauseAccum
+            local rawProg = math.clamp(elapsed / stealDelay, 0, 1)
 
-        elapsed = tick() - holdStartTime
-        autoStealProgress = math.clamp(elapsed / holdDuration, 0, 1)
-
-        firePromptConnections(prompt, "PromptButtonHoldBegan")
-        pcall(function() prompt:InputHoldBegin() end)
-
-        if autoStealProgress >= 1 then
-            isStealing = true
-            -- Trigger
-            firePromptConnections(prompt, "Triggered")
-            pcall(function()
-                if prompt.Parent and prompt.Enabled then
-                    -- bazı oyunlar InputHoldEnd ister
-                    prompt:InputHoldEnd()
+            if dist > 7 then
+                if rawProg >= 0.75 then
+                    paused = true
+                    autoStealProgress = 0.75
+                    local waitStart = tick()
+                    while dist > 7 do
+                        if not prompt.Parent or not autoStealBarGui or not autoStealBarGui.Parent then break end
+                        forceFirePrompt(prompt)
+                        autoStealProgress = 0.75
+                        task.wait(0.05)
+                        local r2 = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        local wp2 = getPromptWorldPosition(prompt)
+                        if r2 and wp2 then
+                            dist = (r2.Position - wp2).Magnitude
+                        else
+                            break
+                        end
+                    end
+                    pauseAccum = pauseAccum + (tick() - waitStart)
+                    paused = false
+                else
+                    autoStealProgress = math.min(rawProg, 0.75)
+                    forceFirePrompt(prompt)
+                    task.wait(0.03)
                 end
-            end)
-            task.defer(function()
-                isStealing = false
-                holdingPrompt = nil
-                holdStartTime = 0
-                stealPausedAt75 = false
-                stealPauseElapsed = 0
-                autoStealProgress = 0
-            end)
+            else
+                autoStealProgress = rawProg
+                forceFirePrompt(prompt)
+                task.wait(0.03)
+            end
+        end
+
+        autoStealProgress = 1
+        if prompt and prompt.Parent then
+            forceTriggerPrompt(prompt)
         end
     end)
+
+    task.wait(0.05)
+    isStealing = false
+    holdingPrompt = nil
+    autoStealProgress = 0
+end
+
+-- Heartbeat yerine: bar açıkken sürekli tarama döngüsü
+local function tryHoldNearestSteal()
+    -- Progress bar güncellemesi için boş bırakılabilir;
+    -- asıl iş startAutoStealLoop içinde
+end
+
+local function startAutoStealLoop()
+    if autoStealLoopRunning then return end
+    autoStealLoopRunning = true
+    task.spawn(function()
+        while autoStealLoopRunning and autoStealBarGui and autoStealBarGui.Parent do
+            if not isStealing then
+                local target, dist = getNearestStealable()
+                if target and dist <= getStealRadius() then
+                    executeSteal(target)
+                else
+                    autoStealProgress = 0
+                end
+            end
+            task.wait(0.1)
+        end
+        autoStealLoopRunning = false
+    end)
+end
+
+local function stopAutoStealLoop()
+    autoStealLoopRunning = false
+    isStealing = false
+    holdingPrompt = nil
+    autoStealProgress = 0
 end
 
 local function createAutoStealBar()
@@ -2427,16 +2506,18 @@ local function createAutoStealBar()
     autoStealProgress = 0
     scanAllStealPrompts()
     autoStealPromptConn = workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("ProximityPrompt") then
+        if obj:IsA("ProximityPrompt") and isValidStealPrompt(obj) then
             processStealPrompt(obj)
         end
     end)
+
+    -- Asıl steal döngüsü (leak mantığı)
+    startAutoStealLoop()
 
     local StatsService = game:GetService("Stats")
     autoStealBarConn = RunService.Heartbeat:Connect(function(dt)
         pcall(function()
             if not autoStealBarGui or not autoStealBarGui.Parent then return end
-            tryHoldNearestSteal()
             if fill then fill.Size = UDim2.new(autoStealProgress, 0, 1, 0) end
             if pctLabel then pctLabel.Text = string.format("%d%%", math.floor(autoStealProgress * 100 + 0.5)) end
             local ping, fps = "--", "--"
@@ -2456,6 +2537,7 @@ local GetAutoSteal = MakeToggle("Auto Steal", 8, getgenv().LightHubConfig.AutoSt
         if state then
             createAutoStealBar()
         else
+            stopAutoStealLoop()
             if holdingPrompt then
                 pcall(function() holdingPrompt:InputHoldEnd() end)
                 holdingPrompt = nil
