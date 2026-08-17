@@ -2066,306 +2066,527 @@ local function getStealRadius()
     return autoStealRadius or tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
 end
 
--- Auto Steal: getconnections + fireproximityprompt, Name/ActionText == "steal", 1.3s, %75@>7blok
+-- Auto Steal engine (BRIGHTER / Synchronizer logic) — LightHub UI
+-- HOLD 1.3s min, %75 pause until within 7 studs, then Triggered via getconnections
 local stealDelay = 1.30
+local STEAL_RANGE = 7
+local HOLD_MAX = 2.6
+local ENTRY_DELAY = 0.3
+local STEAL_COOLDOWN = 0.05
+local PRIME_RANGE = 80
+
 local isStealing = false
 local holdingPrompt = nil
 local autoStealLoopRunning = false
+local stealConnection = nil
+local allAnimalsCache = {}
+local PromptMemoryCache = {}
+local InternalStealCache = {}
+local plotAnimalSync = { caches = {}, connections = {} }
+local AnimalsData = nil
+local syncReady = false
 
-local function isMyPlot(plot)
-    if not plot then return false end
-    local ok, result = pcall(function()
-        local sign = plot:FindFirstChild("PlotSign")
-        if sign then
-            local yourBase = sign:FindFirstChild("YourBase")
-            if yourBase and yourBase:IsA("BillboardGui") and yourBase.Enabled then
-                return true
-            end
-        end
-        return false
-    end)
-    return ok and result == true
+local StealState = {
+	active = false,
+	startTime = 0,
+	phase = "idle",
+}
+
+local function asGetHRP()
+	local char = LocalPlayer.Character
+	if not char then return nil end
+	return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
 end
 
+local function initSynchronizer()
+	local ok = pcall(function()
+		local RS = game:GetService("ReplicatedStorage")
+		local Packages = RS:WaitForChild("Packages", 5)
+		local Datas = RS:WaitForChild("Datas", 5)
+		if not Packages or not Datas then return end
+		pcall(function()
+			AnimalsData = require(Datas:WaitForChild("Animals", 5))
+		end)
+		local folder = Packages:WaitForChild("Synchronizer", 5)
+		if not folder then return end
+		local channelFolder = folder:WaitForChild("Channel", 5)
+		local routeRemote = folder:WaitForChild("CommunicationRoute", 5)
+		local requestData = folder:FindFirstChild("RequestData")
+		local plots = workspace:FindFirstChild("Plots")
+		if not channelFolder or not plots then return end
+
+		local function splitSyncPath(path)
+			if typeof(path) == "table" then return path end
+			local out = {}
+			for part in string.gmatch(tostring(path), "[^%.]+") do
+				table.insert(out, tonumber(part) or part)
+			end
+			return out
+		end
+
+		local function resolveSyncPath(path, root)
+			local current, parent, key = root, nil, nil
+			for _, part in ipairs(splitSyncPath(path)) do
+				parent = current
+				key = part
+				current = current and current[part] or nil
+			end
+			return current, parent, key
+		end
+
+		local function applyPlotSyncDiff(channelName, packet)
+			local cache = plotAnimalSync.caches[channelName]
+			if typeof(cache) ~= "table" then return end
+			local path, action, a, b = packet[1], packet[2], packet[3], packet[4]
+			local current, parent, key = resolveSyncPath(path, cache)
+			if action == "Changed" then
+				if parent ~= nil then parent[key] = a end
+			elseif action == "ArrayInsert" then
+				if current ~= nil then table.insert(current, b, a) end
+			elseif action == "ArrayRemoved" then
+				if current ~= nil then table.remove(current, b) end
+			elseif action == "DictionaryInsert" then
+				if current ~= nil then current[b] = a end
+			elseif action == "DictionaryRemoved" then
+				if current ~= nil then current[b] = nil end
+			end
+		end
+
+		local function attachPlotChannel(remote)
+			if plotAnimalSync.connections[remote] then return end
+			local channelName = tostring(remote.Name)
+			if not plots:FindFirstChild(channelName) then return end
+			if requestData and plotAnimalSync.caches[channelName] == nil then
+				local ok2, data = pcall(function()
+					return requestData:InvokeServer(channelName)
+				end)
+				plotAnimalSync.caches[channelName] = (ok2 and typeof(data) == "table") and data or {}
+			elseif plotAnimalSync.caches[channelName] == nil then
+				plotAnimalSync.caches[channelName] = {}
+			end
+			plotAnimalSync.connections[remote] = remote.OnClientEvent:Connect(function(queue)
+				for _, packet in ipairs(queue) do
+					applyPlotSyncDiff(channelName, packet)
+				end
+			end)
+		end
+
+		for _, child in ipairs(channelFolder:GetChildren()) do
+			if child:IsA("RemoteEvent") then attachPlotChannel(child) end
+		end
+		channelFolder.ChildAdded:Connect(function(child)
+			if child:IsA("RemoteEvent") then attachPlotChannel(child) end
+		end)
+		if routeRemote then
+			routeRemote.OnClientEvent:Connect(function(actions)
+				for _, action in ipairs(actions) do
+					local kind, channelName = action[1], tostring(action[2])
+					if plots:FindFirstChild(channelName) and kind == "ListenerAdded" then
+						local remote = channelFolder:FindFirstChild(channelName)
+						if remote and remote:IsA("RemoteEvent") then attachPlotChannel(remote) end
+					end
+				end
+			end)
+		end
+		syncReady = true
+	end)
+	return ok and syncReady
+end
+
+local function getPlotOwner(plot)
+	local sign = plot:FindFirstChild("PlotSign")
+	local frame = sign and sign:FindFirstChild("SurfaceGui") and sign.SurfaceGui:FindFirstChild("Frame")
+	local label = frame and frame:FindFirstChild("TextLabel")
+	if not label or label.Text == "Empty Base" then return nil end
+	return label.Text:gsub("'s [Bb]ase$", ""):gsub("%s+$", "")
+end
+
+local function isMyBaseAnimal(animalData)
+	if not animalData or not animalData.plot then return false end
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return false end
+	local plot = plots:FindFirstChild(animalData.plot)
+	if not plot then return false end
+	return getPlotOwner(plot) == LocalPlayer.DisplayName
+end
+
+local function findProximityPromptForAnimal(animalData)
+	if not animalData then return nil end
+	local cached = PromptMemoryCache[animalData.uid]
+	if cached and cached.Parent then return cached end
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return nil end
+	local plot = plots:FindFirstChild(animalData.plot)
+	if not plot then return nil end
+	local podiums = plot:FindFirstChild("AnimalPodiums")
+	if not podiums then return nil end
+	local podium = podiums:FindFirstChild(animalData.slot)
+	if not podium then return nil end
+	local base = podium:FindFirstChild("Base")
+	if not base then return nil end
+	local spawn = base:FindFirstChild("Spawn")
+	if not spawn then return nil end
+	local attach = spawn:FindFirstChild("PromptAttachment")
+	if not attach then return nil end
+	for _, p in ipairs(attach:GetChildren()) do
+		if p:IsA("ProximityPrompt") then
+			-- Tercihen Name/ActionText steal
+			local n = string.lower(tostring(p.Name or "")):gsub("%s+", "")
+			local a = ""
+			pcall(function() a = string.lower(tostring(p.ActionText or "")):gsub("%s+", "") end)
+			if n == "steal" or a == "steal" or true then
+				PromptMemoryCache[animalData.uid] = p
+				return p
+			end
+		end
+	end
+	return nil
+end
+
+local function getAnimalPosition(animalData)
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return nil end
+	local plot = plots:FindFirstChild(animalData.plot)
+	if not plot then return nil end
+	local podiums = plot:FindFirstChild("AnimalPodiums")
+	if not podiums then return nil end
+	local podium = podiums:FindFirstChild(animalData.slot)
+	if not podium then return nil end
+	local ok, pos = pcall(function() return podium:GetPivot().Position end)
+	return ok and pos or nil
+end
+
+local function distToAnimal(animalData)
+	local hrp = asGetHRP()
+	if not hrp then return math.huge end
+	local pos = getAnimalPosition(animalData)
+	if not pos and animalData and animalData._prompt then
+		pos = getPromptWorldPosition(animalData._prompt)
+	end
+	if not pos and animalData and animalData.uid and PromptMemoryCache[animalData.uid] then
+		pos = getPromptWorldPosition(PromptMemoryCache[animalData.uid])
+	end
+	if not pos then return math.huge end
+	return (hrp.Position - pos).Magnitude
+end
+
+local function scanAllPlots()
+	local newCache = {}
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return 0 end
+	for _, plot in ipairs(plots:GetChildren()) do
+		local cache = plotAnimalSync.caches[plot.Name]
+		if cache and typeof(cache) == "table" then
+			local animalList = cache.AnimalList
+			if typeof(animalList) == "table" then
+				for slot, animalData in pairs(animalList) do
+					if type(animalData) == "table" then
+						local animalName = animalData.Index
+						local displayName = animalName
+						if AnimalsData and AnimalsData[animalName] then
+							displayName = AnimalsData[animalName].DisplayName or animalName
+						end
+						if animalName or animalData.Index then
+							table.insert(newCache, {
+								name = displayName or tostring(animalName),
+								plot = plot.Name,
+								slot = tostring(slot),
+								uid = plot.Name .. "_" .. tostring(slot),
+							})
+						end
+					end
+				end
+			end
+		end
+	end
+	allAnimalsCache = newCache
+	return #allAnimalsCache
+end
+
+local function pickClosest()
+	local hrp = asGetHRP()
+	if not hrp then return nil end
+	local radius = getStealRadius()
+	local best, bestDist = nil, math.huge
+	for _, animalData in ipairs(allAnimalsCache) do
+		if not isMyBaseAnimal(animalData) then
+			local pos = getAnimalPosition(animalData)
+			if pos then
+				local dist = (hrp.Position - pos).Magnitude
+				if dist <= math.max(radius, PRIME_RANGE) and dist < bestDist then
+					bestDist = dist
+					best = animalData
+				end
+			end
+		end
+	end
+	return best, bestDist
+end
+
+local function buildStealCallbacks(prompt)
+	if InternalStealCache[prompt] then return end
+	local data = { holdCallbacks = {}, triggerCallbacks = {}, ready = true }
+	if type(getconnections) == "function" then
+		local ok1, conns1 = pcall(getconnections, prompt.PromptButtonHoldBegan)
+		if ok1 and type(conns1) == "table" then
+			for _, conn in ipairs(conns1) do
+				if type(conn.Function) == "function" then
+					table.insert(data.holdCallbacks, conn.Function)
+				end
+			end
+		end
+		local ok2, conns2 = pcall(getconnections, prompt.Triggered)
+		if ok2 and type(conns2) == "table" then
+			for _, conn in ipairs(conns2) do
+				if type(conn.Function) == "function" then
+					table.insert(data.triggerCallbacks, conn.Function)
+				end
+			end
+		end
+	end
+	-- Fallback: boş olsa bile InputHoldBegin / fireproximityprompt kullanılsın
+	InternalStealCache[prompt] = data
+end
+
+local function executeStealAsync(prompt, animalData)
+	local data = InternalStealCache[prompt]
+	if not data or not data.ready then return false end
+	data.ready = false
+	isStealing = true
+	holdingPrompt = prompt
+	StealState.active = true
+	StealState.startTime = tick()
+	StealState.phase = "holding"
+	autoStealProgress = 0
+
+	task.spawn(function()
+		-- Hold start
+		for _, fn in ipairs(data.holdCallbacks) do
+			task.spawn(fn)
+		end
+		pcall(function()
+			prompt.HoldDuration = 1.3
+			prompt:InputHoldBegin()
+		end)
+		pcall(function()
+			if fireproximityprompt then fireproximityprompt(prompt) end
+		end)
+
+		-- Min hold 1.3s — progress 0 → 0.75
+		local t0 = tick()
+		while tick() - t0 < stealDelay * 0.75 do
+			if not prompt.Parent then break end
+			if not autoStealBarGui or not autoStealBarGui.Parent then break end
+			autoStealProgress = math.clamp((tick() - t0) / stealDelay, 0, 0.75)
+			pcall(function() prompt:InputHoldBegin() end)
+			task.wait(0.03)
+		end
+		autoStealProgress = 0.75
+		StealState.phase = "waitingRange"
+
+		-- %75'te bekle: 7 blok içine girene kadar (HOLD_MAX'a kadar)
+		local fired = false
+		while tick() - StealState.startTime < HOLD_MAX do
+			if not prompt.Parent then break end
+			if not autoStealBarGui or not autoStealBarGui.Parent then break end
+			local dist = distToAnimal(animalData)
+			autoStealProgress = 0.75
+			if dist <= STEAL_RANGE then
+				-- Kalan %25 (1.3'ün geri kalanı) + ENTRY_DELAY
+				local remain = stealDelay * 0.25
+				local r0 = tick()
+				while tick() - r0 < remain do
+					if not prompt.Parent then break end
+					autoStealProgress = 0.75 + 0.25 * math.clamp((tick() - r0) / remain, 0, 1)
+					pcall(function() prompt:InputHoldBegin() end)
+					task.wait(0.03)
+				end
+				task.wait(ENTRY_DELAY)
+				autoStealProgress = 1
+				for _, fn in ipairs(data.triggerCallbacks) do
+					task.spawn(fn)
+				end
+				pcall(function()
+					if fireproximityprompt then fireproximityprompt(prompt) end
+				end)
+				pcall(function() prompt:InputHoldEnd() end)
+				fired = true
+				break
+			end
+			-- Hold canlı tut
+			for _, fn in ipairs(data.holdCallbacks) do
+				task.spawn(fn)
+			end
+			pcall(function() prompt:InputHoldBegin() end)
+			task.wait()
+		end
+
+		task.wait(STEAL_COOLDOWN)
+		data.ready = true
+		isStealing = false
+		holdingPrompt = nil
+		StealState.active = false
+		StealState.phase = "idle"
+		autoStealProgress = 0
+	end)
+	return true
+end
+
+-- Fallback: synchronizer yoksa klasik prompt tarama
 local function isValidStealPrompt(prompt)
-    if not prompt or not prompt.Parent then return false end
-    local okEnabled = true
-    pcall(function() okEnabled = prompt.Enabled end)
-    if not okEnabled then return false end
-    -- Sadece "steal" (Name veya ActionText veya State)
-    local name = string.lower(tostring(prompt.Name or "")):gsub("%s+", "")
-    local action = ""
-    pcall(function() action = string.lower(tostring(prompt.ActionText or "")):gsub("%s+", "") end)
-    local state = ""
-    pcall(function()
-        local s = prompt:GetAttribute("State")
-        if s then state = string.lower(tostring(s)):gsub("%s+", "") end
-    end)
-    return name == "steal" or action == "steal" or state == "steal"
+	if not prompt or not prompt.Parent then return false end
+	local okEnabled = true
+	pcall(function() okEnabled = prompt.Enabled end)
+	if not okEnabled then return false end
+	local name = string.lower(tostring(prompt.Name or "")):gsub("%s+", "")
+	local action = ""
+	pcall(function() action = string.lower(tostring(prompt.ActionText or "")):gsub("%s+", "") end)
+	local state = ""
+	pcall(function()
+		local s = prompt:GetAttribute("State")
+		if s then state = string.lower(tostring(s)):gsub("%s+", "") end
+	end)
+	return name == "steal" or action == "steal" or state == "steal"
 end
 
 local function getPromptWorldPosition(prompt)
-    local pos = nil
-    pcall(function()
-        local p = prompt.Parent
-        if p and p:IsA("Attachment") then
-            pos = p.WorldPosition
-        elseif p and p:IsA("BasePart") then
-            pos = p.Position
-        elseif p and p:IsA("Model") then
-            local bp = p:FindFirstChildWhichIsA("BasePart")
-            if bp then pos = bp.Position end
-        end
-    end)
-    return pos
+	local pos = nil
+	pcall(function()
+		local p = prompt.Parent
+		if p and p:IsA("Attachment") then
+			pos = p.WorldPosition
+		elseif p and p:IsA("BasePart") then
+			pos = p.Position
+		elseif p and p:IsA("Model") then
+			local bp = p:FindFirstChildWhichIsA("BasePart")
+			if bp then pos = bp.Position end
+		end
+	end)
+	return pos
 end
 
-local function getNearestStealable()
-    local char = LocalPlayer.Character
-    local root = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso"))
-    if not root then return nil, math.huge end
-
-    local radius = getStealRadius()
-    local nearestPrompt = nil
-    local minDistance = radius + 1
-
-    local plots = workspace:FindFirstChild("Plots")
-    if plots then
-        for _, plot in ipairs(plots:GetChildren()) do
-            if not isMyPlot(plot) then
-                local podiums = plot:FindFirstChild("AnimalPodiums")
-                if podiums then
-                    for _, podium in ipairs(podiums:GetChildren()) do
-                        local base = podium:FindFirstChild("Base")
-                        local spawnPoint = base and base:FindFirstChild("Spawn")
-                        local attachment = spawnPoint and spawnPoint:FindFirstChild("PromptAttachment")
-                        if attachment then
-                            for _, child in ipairs(attachment:GetChildren()) do
-                                if child:IsA("ProximityPrompt") and isValidStealPrompt(child) then
-                                    local wpos = getPromptWorldPosition(child)
-                                    if wpos then
-                                        local dist = (root.Position - wpos).Magnitude
-                                        if dist < minDistance then
-                                            minDistance = dist
-                                            nearestPrompt = child
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                -- Plot altındaki tüm ProximityPrompt (yedek path)
-                for _, d in ipairs(plot:GetDescendants()) do
-                    if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
-                        local wpos = getPromptWorldPosition(d)
-                        if wpos then
-                            local dist = (root.Position - wpos).Magnitude
-                            if dist < minDistance then
-                                minDistance = dist
-                                nearestPrompt = d
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    if not nearestPrompt then
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") and isValidStealPrompt(obj) then
-                local wpos = getPromptWorldPosition(obj)
-                if wpos then
-                    local dist = (root.Position - wpos).Magnitude
-                    if dist < minDistance then
-                        minDistance = dist
-                        nearestPrompt = obj
-                    end
-                end
-            end
-        end
-    end
-
-    return nearestPrompt, minDistance
-end
-
-local function firePromptConnections(prompt, signalName)
-    pcall(function()
-        if type(getconnections) ~= "function" then return end
-        local signal = prompt[signalName]
-        if not signal then return end
-        local connections = getconnections(signal)
-        if type(connections) ~= "table" then return end
-        for _, conn in ipairs(connections) do
-            pcall(function()
-                if conn.Function then
-                    task.spawn(conn.Function)
-                end
-                if conn.Fire then
-                    conn:Fire()
-                end
-                if type(conn) == "table" and conn.Enabled ~= nil then
-                    -- bazı executor'lar
-                    if conn.Function then conn.Function() end
-                end
-            end)
-        end
-    end)
-end
-
-local function forceFirePrompt(prompt)
-    if not prompt or not prompt.Parent then return end
-    pcall(function()
-        prompt.HoldDuration = 1.3
-        prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
-        prompt.Enabled = true
-    end)
-    -- 1) fireproximityprompt (executor API)
-    pcall(function()
-        if fireproximityprompt then
-            fireproximityprompt(prompt)
-        end
-    end)
-    -- 2) getconnections HoldBegan
-    firePromptConnections(prompt, "PromptButtonHoldBegan")
-    -- 3) InputHoldBegin
-    pcall(function() prompt:InputHoldBegin() end)
-end
-
-local function forceTriggerPrompt(prompt)
-    if not prompt or not prompt.Parent then return end
-    firePromptConnections(prompt, "Triggered")
-    firePromptConnections(prompt, "PromptButtonHoldEnded")
-    pcall(function()
-        if fireproximityprompt then
-            fireproximityprompt(prompt, 1.3)
-        end
-    end)
-    pcall(function() prompt:InputHoldEnd() end)
+local function getNearestStealableFallback()
+	local hrp = asGetHRP()
+	if not hrp then return nil, math.huge end
+	local radius = getStealRadius()
+	local nearest, minD = nil, radius + 1
+	local plots = workspace:FindFirstChild("Plots")
+	if plots then
+		for _, plot in ipairs(plots:GetChildren()) do
+			for _, d in ipairs(plot:GetDescendants()) do
+				if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
+					local wpos = getPromptWorldPosition(d)
+					if wpos then
+						local dist = (hrp.Position - wpos).Magnitude
+						if dist < minD then
+							minD = dist
+							nearest = d
+						end
+					end
+				end
+			end
+		end
+	else
+		for _, obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("ProximityPrompt") and isValidStealPrompt(obj) then
+				local wpos = getPromptWorldPosition(obj)
+				if wpos then
+					local dist = (hrp.Position - wpos).Magnitude
+					if dist < minD then
+						minD = dist
+						nearest = obj
+					end
+				end
+			end
+		end
+	end
+	return nearest, minD
 end
 
 local function processStealPrompt(prompt)
-    pcall(function()
-        if not prompt:IsA("ProximityPrompt") then return end
-        prompt.HoldDuration = 1.3
-        prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
-    end)
+	pcall(function()
+		if prompt and prompt:IsA("ProximityPrompt") then
+			prompt.HoldDuration = 1.3
+			prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
+		end
+	end)
 end
 
 local function scanAllStealPrompts()
-    pcall(function()
-        for _, d in ipairs(workspace:GetDescendants()) do
-            if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
-                processStealPrompt(d)
-            end
-        end
-    end)
+	pcall(function()
+		for _, d in ipairs(workspace:GetDescendants()) do
+			if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
+				processStealPrompt(d)
+			end
+		end
+	end)
 end
 
--- Ana steal: leak mantığı (bekle + Triggered) + %75 / 7 blok
-local function executeSteal(prompt)
-    if isStealing or not prompt or not prompt.Parent then return end
-    isStealing = true
-    holdingPrompt = prompt
-
-    pcall(function()
-        processStealPrompt(prompt)
-        forceFirePrompt(prompt)
-
-        local t0 = tick()
-        local paused = false
-        local pauseAccum = 0
-
-        while tick() - t0 - pauseAccum < stealDelay do
-            if not prompt or not prompt.Parent then break end
-            if not autoStealBarGui or not autoStealBarGui.Parent then break end
-
-            local _, dist = getNearestStealable()
-            -- aynı prompt mesafesi
-            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local wpos = getPromptWorldPosition(prompt)
-            if root and wpos then
-                dist = (root.Position - wpos).Magnitude
-            end
-
-            local elapsed = (tick() - t0) - pauseAccum
-            local rawProg = math.clamp(elapsed / stealDelay, 0, 1)
-
-            if dist > 7 then
-                if rawProg >= 0.75 then
-                    paused = true
-                    autoStealProgress = 0.75
-                    local waitStart = tick()
-                    while dist > 7 do
-                        if not prompt.Parent or not autoStealBarGui or not autoStealBarGui.Parent then break end
-                        forceFirePrompt(prompt)
-                        autoStealProgress = 0.75
-                        task.wait(0.05)
-                        local r2 = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        local wp2 = getPromptWorldPosition(prompt)
-                        if r2 and wp2 then
-                            dist = (r2.Position - wp2).Magnitude
-                        else
-                            break
-                        end
-                    end
-                    pauseAccum = pauseAccum + (tick() - waitStart)
-                    paused = false
-                else
-                    autoStealProgress = math.min(rawProg, 0.75)
-                    forceFirePrompt(prompt)
-                    task.wait(0.03)
-                end
-            else
-                autoStealProgress = rawProg
-                forceFirePrompt(prompt)
-                task.wait(0.03)
-            end
-        end
-
-        autoStealProgress = 1
-        if prompt and prompt.Parent then
-            forceTriggerPrompt(prompt)
-        end
-    end)
-
-    task.wait(0.05)
-    isStealing = false
-    holdingPrompt = nil
-    autoStealProgress = 0
-end
-
--- Heartbeat yerine: bar açıkken sürekli tarama döngüsü
 local function tryHoldNearestSteal()
-    -- Progress bar güncellemesi için boş bırakılabilir;
-    -- asıl iş startAutoStealLoop içinde
+	-- progress bar heartbeat yedek; asıl iş startAutoStealLoop
 end
 
 local function startAutoStealLoop()
-    if autoStealLoopRunning then return end
-    autoStealLoopRunning = true
-    task.spawn(function()
-        while autoStealLoopRunning and autoStealBarGui and autoStealBarGui.Parent do
-            if not isStealing then
-                local target, dist = getNearestStealable()
-                if target and dist <= getStealRadius() then
-                    executeSteal(target)
-                else
-                    autoStealProgress = 0
-                end
-            end
-            task.wait(0.1)
-        end
-        autoStealLoopRunning = false
-    end)
+	if autoStealLoopRunning then return end
+	autoStealLoopRunning = true
+	task.spawn(function()
+		initSynchronizer()
+	end)
+	task.spawn(function()
+		while autoStealLoopRunning do
+			pcall(scanAllPlots)
+			task.wait(5)
+		end
+	end)
+	if stealConnection then
+		pcall(function() stealConnection:Disconnect() end)
+		stealConnection = nil
+	end
+	stealConnection = RunService.Heartbeat:Connect(function()
+		if not autoStealLoopRunning then return end
+		if not autoStealBarGui or not autoStealBarGui.Parent then return end
+		if isStealing or StealState.active then return end
+		-- Synchronizer path
+		local target = pickClosest()
+		if target then
+			local prompt = PromptMemoryCache[target.uid]
+			if not prompt or not prompt.Parent then
+				prompt = findProximityPromptForAnimal(target)
+			end
+			if prompt then
+				buildStealCallbacks(prompt)
+				executeStealAsync(prompt, target)
+				return
+			end
+		end
+		-- Fallback path
+		local prompt, dist = getNearestStealableFallback()
+		if prompt and dist <= getStealRadius() then
+			buildStealCallbacks(prompt)
+			local uid = "fb_" .. tostring(tick())
+			PromptMemoryCache[uid] = prompt
+			executeStealAsync(prompt, {
+				name = "Steal",
+				plot = "",
+				slot = "",
+				uid = uid,
+				_prompt = prompt,
+			})
+		end
+	end)
 end
 
 local function stopAutoStealLoop()
-    autoStealLoopRunning = false
-    isStealing = false
-    holdingPrompt = nil
-    autoStealProgress = 0
+	autoStealLoopRunning = false
+	isStealing = false
+	holdingPrompt = nil
+	autoStealProgress = 0
+	StealState.active = false
+	StealState.phase = "idle"
+	if stealConnection then
+		pcall(function() stealConnection:Disconnect() end)
+		stealConnection = nil
+	end
 end
 
 local function createAutoStealBar()
@@ -2431,16 +2652,20 @@ local function createAutoStealBar()
     fill.ZIndex = 102
     Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 5)
 
-    -- % hemen barın yanında
+    -- % hemen barın yanında (daha okunaklı stil)
     local pctLabel = Instance.new("TextLabel")
     pctLabel.Name = "Percent"
     pctLabel.Parent = bar
-    pctLabel.Size = UDim2.new(0, 36, 1, 0)
-    pctLabel.Position = UDim2.new(0, 192, 0, 0)
+    pctLabel.Size = UDim2.new(0, 48, 1, 0)
+    pctLabel.Position = UDim2.new(0, 188, 0, 0)
     pctLabel.BackgroundTransparency = 1
     pctLabel.Text = "0%"
-    pctLabel.TextColor3 = theme.offText
-    pctLabel.TextXAlignment = Enum.TextXAlignment.Left
+    pctLabel.TextColor3 = theme.accent or Color3.fromRGB(255, 255, 255)
+    pctLabel.TextSize = 14
+    pctLabel.Font = Enum.Font.GothamBlack
+    pctLabel.TextXAlignment = Enum.TextXAlignment.Center
+    pctLabel.TextStrokeTransparency = 0.4
+    pctLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     pctLabel.ZIndex = 101
 
     -- radius + box (barın dışında, sağa)
@@ -2519,7 +2744,7 @@ local function createAutoStealBar()
         pcall(function()
             if not autoStealBarGui or not autoStealBarGui.Parent then return end
             if fill then fill.Size = UDim2.new(autoStealProgress, 0, 1, 0) end
-            if pctLabel then pctLabel.Text = string.format("%d%%", math.floor(autoStealProgress * 100 + 0.5)) end
+            if pctLabel then pctLabel.Text = string.format("%d%%", math.floor((autoStealProgress or 0) * 100 + 0.5)) end
             local ping, fps = "--", "--"
             pcall(function()
                 ping = tostring(math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue()))
