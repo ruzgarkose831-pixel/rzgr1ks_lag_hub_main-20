@@ -1,8 +1,6 @@
---========================================================================
--- LIGHT HUB - COMBINED (Intro GUI + Speed/MultiJump + Walkfling Drop)
+-- ANOMALY HUB - COMBINED (Intro GUI + Speed/MultiJump + Walkfling Drop)
 -- Sadece LocalPlayer'ı etkiler, diğer oyuncuları etkilemez.
 -- Speed Boost: VectorForce yöntemi (koddaki stabil versiyon)
---========================================================================
 
 -- Servisleri Al
 local CoreGui = game:GetService("CoreGui")
@@ -19,7 +17,7 @@ local function safeCall(fn, ...)
     if type(fn) ~= "function" then return false end
     local ok, err = pcall(fn, ...)
     if not ok then
-        warn("[LightHub] skipped:", tostring(err))
+        warn("[AnomalyHub] skipped:", tostring(err))
     end
     return ok
 end
@@ -47,7 +45,7 @@ if getgenv == nil then
 end
 
 -- Dosya Adı (buton pozisyonları)
-local SaveFileName = "LightHub_ButtonPositions_v17.json"
+local SaveFileName = "AnomalyHub_ButtonPositions_v17.json"
 
 -- Konum Yükleme
 local function LoadPositions()
@@ -67,10 +65,7 @@ local function SavePosition(btnName, position)
     if writefile then pcall(function() writefile(SaveFileName, HttpService:JSONEncode(savedPositions)) end) end
 end
 
---========================================================================
--- [ CONFIG & SAVE SYSTEM ]
---========================================================================
-getgenv().LightHubConfig = getgenv().LightHubConfig or {
+getgenv().AnomalyHubConfig = getgenv().AnomalyHubConfig or {
     SpeedBoostEnabled = true,
     NormalSpeed = 60,
     StealSpeed = 30,          -- Carry Speed değeri
@@ -124,11 +119,11 @@ getgenv().LightHubConfig = getgenv().LightHubConfig or {
     AutoStealRadius = 50,
 }
 
-local CONFIG_FILE = "LightHubConfig_v6.json"
+local CONFIG_FILE = "AnomalyHubConfig_v6.json"
 
 local function SaveConfig()
     pcall(function()
-        writefile(CONFIG_FILE, HttpService:JSONEncode(getgenv().LightHubConfig))
+        writefile(CONFIG_FILE, HttpService:JSONEncode(getgenv().AnomalyHubConfig))
     end)
 end
 
@@ -137,8 +132,8 @@ local function LoadConfig()
         if isfile and isfile(CONFIG_FILE) then
             local data = HttpService:JSONDecode(readfile(CONFIG_FILE))
             for k, v in pairs(data) do
-                if getgenv().LightHubConfig[k] ~= nil then
-                    getgenv().LightHubConfig[k] = v
+                if getgenv().AnomalyHubConfig[k] ~= nil then
+                    getgenv().AnomalyHubConfig[k] = v
                 end
             end
         else
@@ -146,44 +141,41 @@ local function LoadConfig()
         end
     end)
     -- Nested tablolar her zaman dolu olsun
-    getgenv().LightHubConfig.Keybinds = getgenv().LightHubConfig.Keybinds or {
+    getgenv().AnomalyHubConfig.Keybinds = getgenv().AnomalyHubConfig.Keybinds or {
         ["Auto Left"] = "DPadLeft", ["Auto Right"] = "DPadRight",
         ["Tp down"] = "DPadDown", ["Bat Aimbot"] = "ButtonB",
         ["Carry Speed"] = "ButtonL3", ["Reset"] = "ButtonY",
         ["Lagger Speed"] = "ButtonR3", ["Drop Brainrot"] = "ButtonX",
     }
     -- Drop Brainrot console key yoksa ekle
-    if not getgenv().LightHubConfig.Keybinds["Drop Brainrot"] then
-        getgenv().LightHubConfig.Keybinds["Drop Brainrot"] = "ButtonX"
+    if not getgenv().AnomalyHubConfig.Keybinds["Drop Brainrot"] then
+        getgenv().AnomalyHubConfig.Keybinds["Drop Brainrot"] = "ButtonX"
     end
-    getgenv().LightHubConfig.PCKeybinds = getgenv().LightHubConfig.PCKeybinds or {
+    getgenv().AnomalyHubConfig.PCKeybinds = getgenv().AnomalyHubConfig.PCKeybinds or {
         ["Auto Left"] = "L", ["Auto Right"] = "R", ["Drop Brainrot"] = "K",
         ["Reset"] = "T", ["Bat Aimbot"] = "B", ["Tp down"] = "Q",
         ["Carry Speed"] = "C", ["Lagger Speed"] = "J", ["Lagger Steal"] = "G",
     }
     -- Eski kayıtlarda D ise K yap
-    if getgenv().LightHubConfig.PCKeybinds["Drop Brainrot"] == "D" then
-        getgenv().LightHubConfig.PCKeybinds["Drop Brainrot"] = "K"
+    if getgenv().AnomalyHubConfig.PCKeybinds["Drop Brainrot"] == "D" then
+        getgenv().AnomalyHubConfig.PCKeybinds["Drop Brainrot"] = "K"
     end
-    if getgenv().LightHubConfig.IntroEnabled == nil then
-        getgenv().LightHubConfig.IntroEnabled = true
+    if getgenv().AnomalyHubConfig.IntroEnabled == nil then
+        getgenv().AnomalyHubConfig.IntroEnabled = true
     end
-    if not getgenv().LightHubConfig.IntroSongIndex then
-        getgenv().LightHubConfig.IntroSongIndex = 1
+    if not getgenv().AnomalyHubConfig.IntroSongIndex then
+        getgenv().AnomalyHubConfig.IntroSongIndex = 1
     end
 end
 LoadConfig()
 
---========================================================================
--- [ SPEED BOOST (VectorForce) - STABİL YÖNTEM ]
 -- Verdiğin koddaki VectorForce mantığı + SpeedMode desteği
 -- Sadece LocalPlayer etkilenir.
---========================================================================
 local currentBoostConnection = nil
 local autoSteerDir = nil -- Auto play yönü (VectorForce bunu kullanır)
 
 local function getTargetSpeed()
-    local cfg = getgenv().LightHubConfig
+    local cfg = getgenv().AnomalyHubConfig
     local mode = cfg.SpeedMode or "normal"
     if mode == "carry" then
         return cfg.StealSpeed
@@ -225,12 +217,12 @@ local function setupBoost(character)
         local ok, err = pcall(function()
             if not vectorForce or not vectorForce.Parent then return end
             -- Bat aimbot açıkken normal speed karışmasın
-            if getgenv().LightHubConfig.BatAimbotEnabled then
+            if getgenv().AnomalyHubConfig.BatAimbotEnabled then
                 vectorForce.Force = Vector3.zero
                 return
             end
 
-            if not getgenv().LightHubConfig.SpeedBoostEnabled or not rootPart:IsDescendantOf(workspace) or not humanoid.Parent then
+            if not getgenv().AnomalyHubConfig.SpeedBoostEnabled or not rootPart:IsDescendantOf(workspace) or not humanoid.Parent then
                 vectorForce.Force = Vector3.zero
                 return
             end
@@ -285,10 +277,7 @@ local function setupBoost(character)
     end)
 end
 
---========================================================================
--- [ BAT AIMBOT ] - En yakındaki oyuncuya VectorForce ile git
 -- 2 blok yukarıda kal, yatay 3 blokta dur
---========================================================================
 local batAimbotConn = nil
 local batAimbotForce = nil
 local batAimbotAtt = nil
@@ -377,74 +366,37 @@ end
 
 local function startBatAimbot()
     stopBatAimbot()
-    -- Her saniye bat al ve kullan
     batEquipConn = RunService.Heartbeat:Connect(function()
-        if not getgenv().LightHubConfig.BatAimbotEnabled then return end
+        if not getgenv().AnomalyHubConfig.BatAimbotEnabled then return end
     end)
     task.spawn(function()
-        while getgenv().LightHubConfig.BatAimbotEnabled do
+        while getgenv().AnomalyHubConfig.BatAimbotEnabled do
             useBatTool()
             task.wait(1)
         end
     end)
-
     batAimbotConn = RunService.RenderStepped:Connect(function()
-        local ok = pcall(function()
-        if not getgenv().LightHubConfig.BatAimbotEnabled then
-            if batAimbotForce then batAimbotForce.Force = Vector3.zero end
-            return
-        end
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if not root then
-            if batAimbotForce then batAimbotForce.Force = Vector3.zero end
-            return
-        end
-        ensureBatForce(root)
-
-        local speed = tonumber(getgenv().LightHubConfig.BatAimbotSpeed) or 65
-        -- WalkSpeed degistirilmez; sadece velocity ile hareket
-
-        local targetRoot = getNearestPlayerRoot()
-        if not targetRoot then
-            if batAimbotForce then batAimbotForce.Force = Vector3.zero end
-            return
-        end
-
-        -- Her zaman rakibin 2 blok üstünden git, adamın içine girebilir
-        local targetPos = targetRoot.Position + Vector3.new(0, 2, 0)
-        local myPos = root.Position
-        local offset = targetPos - myPos
-        if offset.Magnitude < 0.5 then
-            -- Çok yakındaysa sadece yüksekliği koru
-            local vel = root.AssemblyLinearVelocity
-            local yErr = targetPos.Y - myPos.Y
-            batAimbotForce.Force = Vector3.new(-vel.X * 150, yErr * 600, -vel.Z * 150)
-            return
-        end
-
-        local dir = offset.Unit
-        local vel = root.AssemblyLinearVelocity
-        local desiredVel = dir * speed
-        local currentSpeed = Vector3.new(vel.X, 0, vel.Z).Magnitude
-
-        if currentSpeed >= speed then
-            batAimbotForce.Force = Vector3.new(0, (desiredVel.Y - vel.Y) * 400, 0)
-            return
-        end
-
-        batAimbotForce.Force = Vector3.new(dir.X, dir.Y, dir.Z) * (speed * 20)
-        end) -- pcall
-        if not ok then
-            pcall(function() if batAimbotForce then batAimbotForce.Force = Vector3.zero end end)
-        end
+        pcall(function()
+            if not getgenv().AnomalyHubConfig.BatAimbotEnabled then return end
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+            local speed = tonumber(getgenv().AnomalyHubConfig.BatAimbotSpeed) or 65
+            local targetRoot = getNearestPlayerRoot()
+            if not targetRoot then return end
+            local targetPos = targetRoot.Position + Vector3.new(0, 2, 0)
+            local myPos = root.Position
+            local offset = targetPos - myPos
+            if offset.Magnitude < 0.5 then
+                local yErr = targetPos.Y - myPos.Y
+                root.AssemblyLinearVelocity = Vector3.new(0, yErr * 8, 0)
+                return
+            end
+            root.AssemblyLinearVelocity = offset.Unit * speed
+        end)
     end)
 end
 
---========================================================================
--- [ MULTI JUMP ] - VectorForce yöntemi (bug korumasına daha dayanıklı)
---========================================================================
 local multiJumpForce = nil
 local multiJumpAtt = nil
 local lastMultiJump = 0
@@ -454,10 +406,10 @@ local function ensureMultiJumpForce(root)
     if multiJumpAtt then pcall(function() multiJumpAtt:Destroy() end) end
     if multiJumpForce then pcall(function() multiJumpForce:Destroy() end) end
     multiJumpAtt = Instance.new("Attachment")
-    multiJumpAtt.Name = "LH_MultiJumpAtt"
+    multiJumpAtt.Name = "AH_MultiJumpAtt"
     multiJumpAtt.Parent = root
     multiJumpForce = Instance.new("VectorForce")
-    multiJumpForce.Name = "LH_MultiJumpForce"
+    multiJumpForce.Name = "AH_MultiJumpForce"
     multiJumpForce.Attachment0 = multiJumpAtt
     multiJumpForce.RelativeTo = Enum.ActuatorRelativeTo.World
     multiJumpForce.Force = Vector3.zero
@@ -465,7 +417,7 @@ local function ensureMultiJumpForce(root)
 end
 
 local function applyMultiJumpImpulse()
-    if not getgenv().LightHubConfig.MultiJumpEnabled then return end
+    if not getgenv().AnomalyHubConfig.MultiJumpEnabled then return end
     local character = LocalPlayer.Character
     if not character then return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -537,7 +489,7 @@ end)
 local multiJumpHoldAcc = 0
 RunService.Heartbeat:Connect(function(dt)
     safeCall(function()
-        if not getgenv().LightHubConfig.MultiJumpEnabled then return end
+        if not getgenv().AnomalyHubConfig.MultiJumpEnabled then return end
 
         local keyDown = UserInputService:IsKeyDown(Enum.KeyCode.Space)
             or UserInputService:IsKeyDown(Enum.KeyCode.ButtonA)
@@ -792,9 +744,9 @@ local function stopAutoPath()
                 sv(B["Auto Right"], S["Auto Right"], false)
             end
         end
-        if getgenv().LightHubConfig then
-            getgenv().LightHubConfig.SavedAutoLeft = false
-            getgenv().LightHubConfig.SavedAutoRight = false
+        if getgenv().AnomalyHubConfig then
+            getgenv().AnomalyHubConfig.SavedAutoLeft = false
+            getgenv().AnomalyHubConfig.SavedAutoRight = false
             pcall(SaveConfig)
         end
     end)
@@ -812,7 +764,7 @@ local function startAutoPath(points)
     getgenv()._LH_AutoSteerDir = nil
     -- Speed boost açık + VectorForce yeniden kur
     pcall(function()
-        getgenv().LightHubConfig.SpeedBoostEnabled = true
+        getgenv().AnomalyHubConfig.SpeedBoostEnabled = true
         if LocalPlayer.Character then
             setupBoost(LocalPlayer.Character)
         end
@@ -956,10 +908,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end)
 end)
 
---========================================================================
--- [ WALKFLING (Drop Brainrot - walkfling hali) ]
 -- Sadece LocalPlayer'ı etkiler (client-side CanCollide + Velocity)
---========================================================================
 local connections = connections or {}
 connections.FreezePlayer = connections.FreezePlayer or {}
 local featureStates = featureStates or {}
@@ -1058,11 +1007,11 @@ local function walkfling(enabled)
 end
 
 -- Eski menü ve Blur efektleri temizle
-if CoreGui:FindFirstChild("LightHubIndependent") then
-    CoreGui.LightHubIndependent:Destroy()
+if CoreGui:FindFirstChild("AnomalyHubIndependent") then
+    CoreGui.AnomalyHubIndependent:Destroy()
 end
 for _, child in ipairs(Lighting:GetChildren()) do
-    if child.Name == "LightHubIntroBlur" then child:Destroy() end
+    if child.Name == "AnomalyHubIntroBlur" then child:Destroy() end
 end
 
 -- Shared UI state (register limit fix: GUI in separate function scope)
@@ -1072,7 +1021,7 @@ local _LH = getgenv()._LH
 -- GUI Part 1 (buttons, panel, features) — own register scope
 local function __LH_BuildGUI1()
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "LightHubIndependent"
+ScreenGui.Name = "AnomalyHubIndependent"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true 
 
@@ -1080,9 +1029,7 @@ local parentTarget = CoreGui
 if gethui then parentTarget = gethui() end
 ScreenGui.Parent = parentTarget
 
-----------------------------------------------------------------
 -- KÜÇÜK ÖZELLİK BUTONLARI (her zaman görünür)
-----------------------------------------------------------------
 local defaultLayout = {
     ["Auto Left"]     = { X = 0.68, Y = 0.12 }, ["Auto Right"]    = { X = 0.82, Y = 0.12 },
     ["Carry Speed"]   = { X = 0.68, Y = 0.26 }, ["Drop Brainrot"] = { X = 0.82, Y = 0.26 },
@@ -1183,7 +1130,7 @@ local UI_THEMES = {
 }
 
 local function getCurrentTheme()
-    local idx = tonumber(getgenv().LightHubConfig.UiColorIndex) or 1
+    local idx = tonumber(getgenv().AnomalyHubConfig.UiColorIndex) or 1
     if idx < 1 then idx = 1 end
     if idx > #UI_COLOR_NAMES then idx = 1 end
     local name = UI_COLOR_NAMES[idx]
@@ -1216,7 +1163,7 @@ local function applyUiColorTheme()
         name = "Black"
         idx = 1
     end
-    getgenv().LightHubConfig.UiColorIndex = idx
+    getgenv().AnomalyHubConfig.UiColorIndex = idx
     pcall(SaveConfig)
 
     -- Feature buttons
@@ -1239,7 +1186,7 @@ local function applyUiColorTheme()
         local hs = hubBtn:FindFirstChildOfClass("UIStroke")
         if hs then hs.Color = theme.panelStroke end
     end
-    local panel = ScreenGui:FindFirstChild("LightHubPanel")
+    local panel = ScreenGui:FindFirstChild("AnomalyHubPanel")
     if panel then
         local ps = panel:FindFirstChildOfClass("UIStroke")
         if ps then ps.Color = theme.panelStroke end
@@ -1247,7 +1194,7 @@ local function applyUiColorTheme()
 
     -- Auto Steal bar
     local parent = (gethui and gethui()) or CoreGui
-    local asg = parent:FindFirstChild("LightHubAutoStealBar")
+    local asg = parent:FindFirstChild("AnomalyHubAutoStealBar")
     if asg then
         local bar = asg:FindFirstChild("Bar")
         if bar then
@@ -1271,7 +1218,7 @@ local function applyUiColorTheme()
 end
 
 local function updateSpeedMode(newMode)
-    local cfg = getgenv().LightHubConfig
+    local cfg = getgenv().AnomalyHubConfig
     local oldMode = cfg.SpeedMode
     cfg.SpeedMode = newMode
     SaveConfig()
@@ -1412,10 +1359,10 @@ for text, defaultPos in pairs(defaultLayout) do
             elseif text == "Tp down" then
                 doTpDown()
             elseif text == "Drop Brainrot" then
-                local dropTypeBtn = ScreenGui:FindFirstChild("LightHubPanel") 
-                    and ScreenGui.LightHubPanel:FindFirstChild("ContentScroll")
-                    and ScreenGui.LightHubPanel.ContentScroll:FindFirstChild("DropTypeRow")
-                    and ScreenGui.LightHubPanel.ContentScroll.DropTypeRow:FindFirstChild("DropTypeBtn")
+                local dropTypeBtn = ScreenGui:FindFirstChild("AnomalyHubPanel") 
+                    and ScreenGui.AnomalyHubPanel:FindFirstChild("ContentScroll")
+                    and ScreenGui.AnomalyHubPanel.ContentScroll:FindFirstChild("DropTypeRow")
+                    and ScreenGui.AnomalyHubPanel.ContentScroll.DropTypeRow:FindFirstChild("DropTypeBtn")
                 
                 local currentDropType = "walkfling"
                 if dropTypeBtn then
@@ -1427,14 +1374,14 @@ for text, defaultPos in pairs(defaultLayout) do
                     walkfling(true)
                     task.delay(0.7, function()
                         walkfling(false)
-                        getgenv().LightHubConfig.SpeedBoostEnabled = true
-                        getgenv().LightHubConfig.MultiJumpEnabled = true
+                        getgenv().AnomalyHubConfig.SpeedBoostEnabled = true
+                        getgenv().AnomalyHubConfig.MultiJumpEnabled = true
                         SaveConfig()
                         if LocalPlayer.Character then
                             setupBoost(LocalPlayer.Character)
                         end
-                        if _G.LightHub_SetMultiJumpVisual then
-                            _G.LightHub_SetMultiJumpVisual(true)
+                        if _G.AnomalyHub_SetMultiJumpVisual then
+                            _G.AnomalyHub_SetMultiJumpVisual(true)
                         end
                     end)
                 elseif currentDropType == "high jump" then
@@ -1476,7 +1423,7 @@ for text, defaultPos in pairs(defaultLayout) do
     elseif text == "Carry Speed" then
         Btn.MouseButton1Click:Connect(function()
             if hasMoved then return end
-            local cfg = getgenv().LightHubConfig
+            local cfg = getgenv().AnomalyHubConfig
             if cfg.SpeedMode == "carry" then
                 -- Kapat → normal'e dön
                 updateSpeedMode("normal")
@@ -1488,7 +1435,7 @@ for text, defaultPos in pairs(defaultLayout) do
     elseif text == "Lagger Speed" then
         Btn.MouseButton1Click:Connect(function()
             if hasMoved then return end
-            local cfg = getgenv().LightHubConfig
+            local cfg = getgenv().AnomalyHubConfig
             if cfg.SpeedMode == "lagger" or cfg.SpeedMode == "lagger_carry" then
                 -- Kapat → normal
                 updateSpeedMode("normal")
@@ -1501,7 +1448,7 @@ for text, defaultPos in pairs(defaultLayout) do
         -- Bu = Lagger Carry
         Btn.MouseButton1Click:Connect(function()
             if hasMoved then return end
-            local cfg = getgenv().LightHubConfig
+            local cfg = getgenv().AnomalyHubConfig
             if cfg.SpeedMode == "lagger_carry" then
                 -- Kapat: Lagger Mode açıksa ona dön, değilse normal
                 -- (lagger_carry iken Lagger Mode butonu da yanık görünür; yine de lagger'a dön)
@@ -1520,9 +1467,26 @@ for text, defaultPos in pairs(defaultLayout) do
     elseif text == "Bat Aimbot" then
         Btn.MouseButton1Click:Connect(function()
             if hasMoved then return end
+            if not ButtonToggled[text] then
+                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                local ws = (hum and hum.WalkSpeed) or 0
+                if type(ws) ~= "number" or ws < 27 then
+                    local oldBg, oldStroke = Btn.BackgroundColor3, BtnStroke.Color
+                    Btn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+                    BtnStroke.Color = Color3.fromRGB(255, 80, 80)
+                    task.delay(0.35, function()
+                        pcall(function()
+                            if not ButtonToggled[text] then
+                                setButtonVisual(Btn, BtnStroke, false)
+                            end
+                        end)
+                    end)
+                    return
+                end
+            end
             ButtonToggled[text] = not ButtonToggled[text]
             setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
-            getgenv().LightHubConfig.BatAimbotEnabled = ButtonToggled[text]
+            getgenv().AnomalyHubConfig.BatAimbotEnabled = ButtonToggled[text]
             SaveConfig()
             if ButtonToggled[text] then
                 startBatAimbot()
@@ -1536,9 +1500,9 @@ for text, defaultPos in pairs(defaultLayout) do
             ButtonToggled[text] = not ButtonToggled[text]
             setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
             setAutoLeft(ButtonToggled[text] == true)
-            getgenv().LightHubConfig.SavedAutoLeft = ButtonToggled[text] == true
+            getgenv().AnomalyHubConfig.SavedAutoLeft = ButtonToggled[text] == true
             if ButtonToggled[text] then
-                getgenv().LightHubConfig.SavedAutoRight = false
+                getgenv().AnomalyHubConfig.SavedAutoRight = false
             end
             SaveConfig()
         end)
@@ -1548,9 +1512,9 @@ for text, defaultPos in pairs(defaultLayout) do
             ButtonToggled[text] = not ButtonToggled[text]
             setButtonVisual(Btn, BtnStroke, ButtonToggled[text])
             setAutoRight(ButtonToggled[text] == true)
-            getgenv().LightHubConfig.SavedAutoRight = ButtonToggled[text] == true
+            getgenv().AnomalyHubConfig.SavedAutoRight = ButtonToggled[text] == true
             if ButtonToggled[text] then
-                getgenv().LightHubConfig.SavedAutoLeft = false
+                getgenv().AnomalyHubConfig.SavedAutoLeft = false
             end
             SaveConfig()
         end)
@@ -1564,11 +1528,9 @@ for text, defaultPos in pairs(defaultLayout) do
 end
 
 -- Başlangıçta config'deki mode'u uygula
-updateSpeedMode(getgenv().LightHubConfig.SpeedMode or "normal")
+updateSpeedMode(getgenv().AnomalyHubConfig.SpeedMode or "normal")
 
-----------------------------------------------------------------
--- SOL ÜST LIGHT HUB TUŞU + BAĞIMSIZ BÜYÜK PANEL (sürüklenebilir)
-----------------------------------------------------------------
+-- SOL ÜST ANOMALY HUB TUŞU + BAĞIMSIZ BÜYÜK PANEL (sürüklenebilir)
 local function MakeDraggable(guiObject)
     local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
     local hasMoved = false
@@ -1618,7 +1580,7 @@ HubBtn.Size = UDim2.new(0, 130, 0, 42)
 HubBtn.BackgroundColor3 = Color3.fromRGB(22, 24, 34)
 HubBtn.BackgroundTransparency = 0.05
 HubBtn.AutoButtonColor = false
-HubBtn.Text = "Light Hub"
+HubBtn.Text = "Anomaly Hub"
 HubBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 HubBtn.TextSize = 16
 HubBtn.Font = Enum.Font.GothamBlack
@@ -1639,7 +1601,7 @@ local hubWasDragged = MakeDraggable(HubBtn)
 
 -- Bağımsız büyük panel
 local HubPanel = Instance.new("Frame")
-HubPanel.Name = "LightHubPanel"
+HubPanel.Name = "AnomalyHubPanel"
 HubPanel.Parent = ScreenGui
 HubPanel.AnchorPoint = Vector2.new(0.5, 0.5)
 HubPanel.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -1683,7 +1645,7 @@ PanelTitle.Parent = HubPanel
 PanelTitle.Size = UDim2.new(1, 0, 0, 48)
 PanelTitle.Position = UDim2.new(0, 0, 0, 0)
 PanelTitle.BackgroundTransparency = 1
-PanelTitle.Text = "Light Hub"
+PanelTitle.Text = "Anomaly Hub"
 PanelTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 PanelTitle.TextSize = 22
 PanelTitle.Font = Enum.Font.GothamBlack
@@ -1794,61 +1756,61 @@ local function MakeRow(labelText, defaultValue, order)
 end
 
 MakeSectionTitle("Speed Boost", 1)
-local NormalSpeedBox = MakeRow("Normal Speed", tostring(getgenv().LightHubConfig.NormalSpeed), 2)
-local StealSpeedBox = MakeRow("Steal Speed", tostring(getgenv().LightHubConfig.StealSpeed), 3)
-local LaggerSpeedBox = MakeRow("Lagger Speed", tostring(getgenv().LightHubConfig.LaggerSpeed), 4)
-local LaggerStealBox = MakeRow("Lagger Steal", tostring(getgenv().LightHubConfig.LaggerSteal), 5)
+local NormalSpeedBox = MakeRow("Normal Speed", tostring(getgenv().AnomalyHubConfig.NormalSpeed), 2)
+local StealSpeedBox = MakeRow("Steal Speed", tostring(getgenv().AnomalyHubConfig.StealSpeed), 3)
+local LaggerSpeedBox = MakeRow("Lagger Speed", tostring(getgenv().AnomalyHubConfig.LaggerSpeed), 4)
+local LaggerStealBox = MakeRow("Lagger Steal", tostring(getgenv().AnomalyHubConfig.LaggerSteal), 5)
 
 -- TextBox'ları config'e bağla
 NormalSpeedBox.FocusLost:Connect(function(enter)
     local num = tonumber(NormalSpeedBox.Text)
     if num then
-        getgenv().LightHubConfig.NormalSpeed = num
+        getgenv().AnomalyHubConfig.NormalSpeed = num
         SaveConfig()
-        if getgenv().LightHubConfig.SpeedMode == "normal" and LocalPlayer.Character then
+        if getgenv().AnomalyHubConfig.SpeedMode == "normal" and LocalPlayer.Character then
             setupBoost(LocalPlayer.Character)
         end
     else
-        NormalSpeedBox.Text = tostring(getgenv().LightHubConfig.NormalSpeed)
+        NormalSpeedBox.Text = tostring(getgenv().AnomalyHubConfig.NormalSpeed)
     end
 end)
 
 StealSpeedBox.FocusLost:Connect(function(enter)
     local num = tonumber(StealSpeedBox.Text)
     if num then
-        getgenv().LightHubConfig.StealSpeed = num
+        getgenv().AnomalyHubConfig.StealSpeed = num
         SaveConfig()
-        if getgenv().LightHubConfig.SpeedMode == "carry" and LocalPlayer.Character then
+        if getgenv().AnomalyHubConfig.SpeedMode == "carry" and LocalPlayer.Character then
             setupBoost(LocalPlayer.Character)
         end
     else
-        StealSpeedBox.Text = tostring(getgenv().LightHubConfig.StealSpeed)
+        StealSpeedBox.Text = tostring(getgenv().AnomalyHubConfig.StealSpeed)
     end
 end)
 
 LaggerSpeedBox.FocusLost:Connect(function(enter)
     local num = tonumber(LaggerSpeedBox.Text)
     if num then
-        getgenv().LightHubConfig.LaggerSpeed = num
+        getgenv().AnomalyHubConfig.LaggerSpeed = num
         SaveConfig()
-        if getgenv().LightHubConfig.SpeedMode == "lagger" and LocalPlayer.Character then
+        if getgenv().AnomalyHubConfig.SpeedMode == "lagger" and LocalPlayer.Character then
             setupBoost(LocalPlayer.Character)
         end
     else
-        LaggerSpeedBox.Text = tostring(getgenv().LightHubConfig.LaggerSpeed)
+        LaggerSpeedBox.Text = tostring(getgenv().AnomalyHubConfig.LaggerSpeed)
     end
 end)
 
 LaggerStealBox.FocusLost:Connect(function(enter)
     local num = tonumber(LaggerStealBox.Text)
     if num then
-        getgenv().LightHubConfig.LaggerSteal = num
+        getgenv().AnomalyHubConfig.LaggerSteal = num
         SaveConfig()
-        if getgenv().LightHubConfig.SpeedMode == "lagger_carry" and LocalPlayer.Character then
+        if getgenv().AnomalyHubConfig.SpeedMode == "lagger_carry" and LocalPlayer.Character then
             setupBoost(LocalPlayer.Character)
         end
     else
-        LaggerStealBox.Text = tostring(getgenv().LightHubConfig.LaggerSteal)
+        LaggerStealBox.Text = tostring(getgenv().AnomalyHubConfig.LaggerSteal)
     end
 end)
 
@@ -1894,7 +1856,7 @@ DropTypeBtn.BackgroundTransparency = 0.1
 local dropModes = {"walkfling", "high jump"}
 local dropIndex = 1
 do
-    local savedDrop = getgenv().LightHubConfig.DropType or "walkfling"
+    local savedDrop = getgenv().AnomalyHubConfig.DropType or "walkfling"
     for i, m in ipairs(dropModes) do
         if m == savedDrop then dropIndex = i break end
     end
@@ -1919,7 +1881,7 @@ DropTypeBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 DropTypeBtn.MouseButton1Click:Connect(function()
     dropIndex = dropIndex % #dropModes + 1
     DropTypeBtn.Text = dropModes[dropIndex]
-    getgenv().LightHubConfig.DropType = dropModes[dropIndex]
+    getgenv().AnomalyHubConfig.DropType = dropModes[dropIndex]
     pcall(SaveConfig)
 end)
 
@@ -2021,17 +1983,17 @@ local function MakeToggle(labelText, order, initialOn, onChanged)
     end
 end
 
-local GetMultiJump, SetMultiJumpVisual = MakeToggle("Multi Jump", 7, getgenv().LightHubConfig.MultiJumpEnabled, function(state)
-    getgenv().LightHubConfig.MultiJumpEnabled = state
+local GetMultiJump, SetMultiJumpVisual = MakeToggle("Multi Jump", 7, getgenv().AnomalyHubConfig.MultiJumpEnabled, function(state)
+    getgenv().AnomalyHubConfig.MultiJumpEnabled = state
     SaveConfig()
 end)
-_G.LightHub_SetMultiJumpVisual = SetMultiJumpVisual
+_G.AnomalyHub_SetMultiJumpVisual = SetMultiJumpVisual
 
 local autoStealBarGui = nil
 local autoStealBarConn = nil
 local autoStealPromptConn = nil
 local autoStealProgress = 0
-local autoStealRadius = tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
+local autoStealRadius = tonumber(getgenv().AnomalyHubConfig.AutoStealRadius) or 50
 
 local function destroyAutoStealBar()
     pcall(function()
@@ -2062,14 +2024,14 @@ local function getStealRadius()
             local n = tonumber(box.Text)
             if n then
                 autoStealRadius = n
-                getgenv().LightHubConfig.AutoStealRadius = n
+                getgenv().AnomalyHubConfig.AutoStealRadius = n
             end
         end
     end
-    return autoStealRadius or tonumber(getgenv().LightHubConfig.AutoStealRadius) or 50
+    return autoStealRadius or tonumber(getgenv().AnomalyHubConfig.AutoStealRadius) or 50
 end
 
--- Auto Steal engine (basit: steal prompt + 1.3 checkpoint + 2.6 total + fireproximityprompt)
+
 local stealDelay = 1.30
 local TOTAL_DURATION = 2.6
 local CHECKPOINT_TIME = 1.3
@@ -2077,8 +2039,420 @@ local TRIGGER_INTERVAL = 0.8
 local isStealing = false
 local holdingPrompt = nil
 local autoStealLoopRunning = false
-local stealPrompts = {}
-local isProcessing = false
+local stealConnection = nil
+local allAnimalsCache = {}
+local PromptMemoryCache = {}
+local InternalStealCache = {}
+local plotAnimalSync = { caches = {}, connections = {} }
+local AnimalsDataMod = nil
+local syncReady = false
+local StealState = { active = false, startTime = 0, phase = "idle", label = "" }
+local SpiralFX = { cubes = {}, connection = nil, targetPosition = nil, rotationAngle = 0 }
+
+local AS_CFG = {
+	HOLD_MIN = 1.3,
+	HOLD_MAX = 2.6,
+	ENTRY_DELAY = 0.3,
+	COOLDOWN = 0.05,
+	STEAL_RANGE = 10,
+	PRIME_RANGE = 80,
+}
+
+local function getThemeAccent()
+	local c = Color3.fromRGB(80, 160, 255)
+	pcall(function()
+		if type(getCurrentTheme) == "function" then
+			local t = getCurrentTheme()
+			if t and t.accent then c = t.accent end
+		end
+	end)
+	return c
+end
+
+local function clearSpiral()
+	if SpiralFX.connection then
+		pcall(function() SpiralFX.connection:Disconnect() end)
+		SpiralFX.connection = nil
+	end
+	for _, v in ipairs(SpiralFX.cubes) do
+		pcall(function()
+			if v.part and v.part.Parent then v.part:Destroy() end
+		end)
+	end
+	SpiralFX.cubes = {}
+	SpiralFX.targetPosition = nil
+	pcall(function()
+		local f = workspace:FindFirstChild("SpiralCubes")
+		if f then f:Destroy() end
+	end)
+end
+
+local function createSpiral(targetPos)
+	clearSpiral()
+	if not targetPos then return end
+	local char = LocalPlayer.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	local startPos = hrp.Position
+	local folder = Instance.new("Folder")
+	folder.Name = "SpiralCubes"
+	folder.Parent = workspace
+	local unit = (targetPos - startPos)
+	if unit.Magnitude < 0.01 then return end
+	unit = unit.Unit
+	local mag = (targetPos - startPos).Magnitude
+	local accent = getThemeAccent()
+	local n = 30
+	for i = 1, n do
+		local part = Instance.new("Part")
+		part.Shape = Enum.PartType.Block
+		part.Size = Vector3.new(0.3, 0.3, 0.3)
+		part.Material = Enum.Material.Neon
+		part.Color = accent
+		part.CanCollide = false
+		part.Anchored = true
+		part.CFrame = CFrame.new(startPos)
+		part.Parent = folder
+		table.insert(SpiralFX.cubes, {
+			part = part,
+			index = i,
+			totalCubes = n,
+		})
+	end
+	SpiralFX.targetPosition = targetPos
+	SpiralFX.rotationAngle = 0
+	SpiralFX.connection = RunService.RenderStepped:Connect(function(dt)
+		pcall(function()
+			SpiralFX.rotationAngle = SpiralFX.rotationAngle + dt * 5
+			local ch = LocalPlayer.Character
+			local root = ch and ch:FindFirstChild("HumanoidRootPart")
+			if not root or not SpiralFX.targetPosition then return end
+			local pos = root.Position
+			local tp = SpiralFX.targetPosition
+			local diff = tp - pos
+			local dist = diff.Magnitude
+			if dist <= 0.01 then return end
+			local dir = diff.Unit
+			local side = Vector3.new(-dir.Z, 0, dir.X)
+			if side.Magnitude < 0.01 then side = Vector3.new(1, 0, 0) end
+			side = side.Unit
+			local up = dir:Cross(side)
+			if up.Magnitude > 0 then up = up.Unit end
+			local col = getThemeAccent()
+			for _, v in ipairs(SpiralFX.cubes) do
+				local part = v.part
+				if part and part.Parent then
+					part.Color = col
+					local t = v.index / v.totalCubes
+					local base = pos + dir * (dist * t)
+					local ang = t * math.pi * 4 + SpiralFX.rotationAngle
+					part.Position = base + (side * math.cos(ang) * 2.5 + up * math.sin(ang) * 2.5)
+				end
+			end
+		end)
+	end)
+end
+
+local function initSynchronizer()
+	pcall(function()
+		local RS = game:GetService("ReplicatedStorage")
+		local Packages = RS:WaitForChild("Packages", 5)
+		local Datas = RS:WaitForChild("Datas", 5)
+		if not Packages or not Datas then return end
+		pcall(function()
+			AnimalsDataMod = require(Datas:WaitForChild("Animals", 5))
+		end)
+		local folder = Packages:WaitForChild("Synchronizer", 5)
+		if not folder then return end
+		local channelFolder = folder:WaitForChild("Channel", 5)
+		local routeRemote = folder:WaitForChild("CommunicationRoute", 5)
+		local requestData = folder:FindFirstChild("RequestData")
+		local plots = workspace:FindFirstChild("Plots")
+		if not channelFolder or not plots then return end
+
+		local function splitSyncPath(path)
+			if typeof(path) == "table" then return path end
+			local out = {}
+			for part in string.gmatch(tostring(path), "[^%.]+") do
+				table.insert(out, tonumber(part) or part)
+			end
+			return out
+		end
+
+		local function resolveSyncPath(path, root)
+			local current, parent, key = root, nil, nil
+			for _, part in ipairs(splitSyncPath(path)) do
+				parent = current
+				key = part
+				current = current and current[part] or nil
+			end
+			return current, parent, key
+		end
+
+		local function applyPlotSyncDiff(channelName, packet)
+			local cache = plotAnimalSync.caches[channelName]
+			if typeof(cache) ~= "table" then return end
+			local path, action, a, b = packet[1], packet[2], packet[3], packet[4]
+			local current, parent, key = resolveSyncPath(path, cache)
+			if action == "Changed" then
+				if parent ~= nil then parent[key] = a end
+			elseif action == "ArrayInsert" then
+				if current ~= nil then table.insert(current, b, a) end
+			elseif action == "ArrayRemoved" then
+				if current ~= nil then table.remove(current, b) end
+			elseif action == "DictionaryInsert" then
+				if current ~= nil then current[b] = a end
+			elseif action == "DictionaryRemoved" then
+				if current ~= nil then current[b] = nil end
+			end
+		end
+
+		local function attachPlotChannel(remote)
+			if plotAnimalSync.connections[remote] then return end
+			local channelName = tostring(remote.Name)
+			if not plots:FindFirstChild(channelName) then return end
+			if requestData and plotAnimalSync.caches[channelName] == nil then
+				local ok2, data = pcall(function()
+					return requestData:InvokeServer(channelName)
+				end)
+				plotAnimalSync.caches[channelName] = (ok2 and typeof(data) == "table") and data or {}
+			elseif plotAnimalSync.caches[channelName] == nil then
+				plotAnimalSync.caches[channelName] = {}
+			end
+			plotAnimalSync.connections[remote] = remote.OnClientEvent:Connect(function(queue)
+				for _, packet in ipairs(queue) do
+					applyPlotSyncDiff(channelName, packet)
+				end
+			end)
+		end
+
+		for _, child in ipairs(channelFolder:GetChildren()) do
+			if child:IsA("RemoteEvent") then attachPlotChannel(child) end
+		end
+		channelFolder.ChildAdded:Connect(function(child)
+			if child:IsA("RemoteEvent") then attachPlotChannel(child) end
+		end)
+		if routeRemote then
+			routeRemote.OnClientEvent:Connect(function(actions)
+				for _, action in ipairs(actions) do
+					local kind, channelName = action[1], tostring(action[2])
+					if plots:FindFirstChild(channelName) and kind == "ListenerAdded" then
+						local remote = channelFolder:FindFirstChild(channelName)
+						if remote and remote:IsA("RemoteEvent") then attachPlotChannel(remote) end
+					end
+				end
+			end)
+		end
+		syncReady = true
+	end)
+end
+
+local function getPlotOwner(plot)
+	local sign = plot:FindFirstChild("PlotSign")
+	local frame = sign and sign:FindFirstChild("SurfaceGui") and sign.SurfaceGui:FindFirstChild("Frame")
+	local label = frame and frame:FindFirstChild("TextLabel")
+	if not label or label.Text == "Empty Base" then return nil end
+	return label.Text:gsub("'s [Bb]ase$", ""):gsub("%s+$", "")
+end
+
+local function isMyBaseAnimal(animalData)
+	if not animalData or not animalData.plot then return false end
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return false end
+	local plot = plots:FindFirstChild(animalData.plot)
+	if not plot then return false end
+	return getPlotOwner(plot) == LocalPlayer.DisplayName
+end
+
+local function findProximityPromptForAnimal(animalData)
+	if not animalData then return nil end
+	local cached = PromptMemoryCache[animalData.uid]
+	if cached and cached.Parent then return cached end
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return nil end
+	local plot = plots:FindFirstChild(animalData.plot)
+	if not plot then return nil end
+	local podiums = plot:FindFirstChild("AnimalPodiums")
+	if not podiums then return nil end
+	local podium = podiums:FindFirstChild(animalData.slot)
+	if not podium then return nil end
+	local base = podium:FindFirstChild("Base")
+	if not base then return nil end
+	local spawn = base:FindFirstChild("Spawn")
+	if not spawn then return nil end
+	local attach = spawn:FindFirstChild("PromptAttachment")
+	if not attach then return nil end
+	for _, p in ipairs(attach:GetChildren()) do
+		if p:IsA("ProximityPrompt") then
+			PromptMemoryCache[animalData.uid] = p
+			return p
+		end
+	end
+	return nil
+end
+
+local function getAnimalPosition(animalData)
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return nil end
+	local plot = plots:FindFirstChild(animalData.plot)
+	if not plot then return nil end
+	local podiums = plot:FindFirstChild("AnimalPodiums")
+	if not podiums then return nil end
+	local podium = podiums:FindFirstChild(animalData.slot)
+	if not podium then return nil end
+	local ok, pos = pcall(function() return podium:GetPivot().Position end)
+	return ok and pos or nil
+end
+
+local function distToAnimal(animalData)
+	local char = LocalPlayer.Character
+	local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso"))
+	if not hrp then return math.huge end
+	local pos = getAnimalPosition(animalData)
+	if not pos then return math.huge end
+	return (hrp.Position - pos).Magnitude
+end
+
+local function scanAllPlots()
+	local newCache = {}
+	local plots = workspace:FindFirstChild("Plots")
+	if not plots then return 0 end
+	for _, plot in ipairs(plots:GetChildren()) do
+		local cache = plotAnimalSync.caches[plot.Name]
+		if cache and typeof(cache) == "table" then
+			local animalList = cache.AnimalList
+			if typeof(animalList) == "table" then
+				for slot, animalData in pairs(animalList) do
+					if type(animalData) == "table" then
+						local animalName = animalData.Index
+						local displayName = animalName
+						if AnimalsDataMod and AnimalsDataMod[animalName] then
+							displayName = AnimalsDataMod[animalName].DisplayName or animalName
+						end
+						if animalName then
+							table.insert(newCache, {
+								name = displayName or tostring(animalName),
+								plot = plot.Name,
+								slot = tostring(slot),
+								uid = plot.Name .. "_" .. tostring(slot),
+							})
+						end
+					end
+				end
+			end
+		end
+	end
+	allAnimalsCache = newCache
+	return #allAnimalsCache
+end
+
+local function pickClosest()
+	local char = LocalPlayer.Character
+	local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso"))
+	if not hrp then return nil end
+	local best, bestDist = nil, math.huge
+	for _, animalData in ipairs(allAnimalsCache) do
+		if not isMyBaseAnimal(animalData) then
+			local pos = getAnimalPosition(animalData)
+			if pos then
+				local dist = (hrp.Position - pos).Magnitude
+				if dist <= AS_CFG.PRIME_RANGE and dist < bestDist then
+					bestDist = dist
+					best = animalData
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function buildStealCallbacks(prompt)
+	if InternalStealCache[prompt] then return end
+	local data = { holdCallbacks = {}, triggerCallbacks = {}, ready = true }
+	if type(getconnections) == "function" then
+		local ok1, conns1 = pcall(getconnections, prompt.PromptButtonHoldBegan)
+		if ok1 and type(conns1) == "table" then
+			for _, conn in ipairs(conns1) do
+				if type(conn.Function) == "function" then
+					table.insert(data.holdCallbacks, conn.Function)
+				end
+			end
+		end
+		local ok2, conns2 = pcall(getconnections, prompt.Triggered)
+		if ok2 and type(conns2) == "table" then
+			for _, conn in ipairs(conns2) do
+				if type(conn.Function) == "function" then
+					table.insert(data.triggerCallbacks, conn.Function)
+				end
+			end
+		end
+	end
+	if #data.holdCallbacks > 0 or #data.triggerCallbacks > 0 then
+		InternalStealCache[prompt] = data
+	end
+end
+
+local function executeStealAsync(prompt, animalData)
+	local data = InternalStealCache[prompt]
+	if not data or not data.ready then return false end
+	data.ready = false
+	isStealing = true
+	holdingPrompt = prompt
+	StealState.active = true
+	StealState.startTime = tick()
+	StealState.phase = "holding"
+	StealState.label = animalData.name or "Animal"
+	autoStealProgress = 0
+
+	local pos = getAnimalPosition(animalData)
+	if pos then createSpiral(pos) end
+
+	task.spawn(function()
+		for _, fn in ipairs(data.holdCallbacks) do
+			task.spawn(fn)
+		end
+
+		local t0 = tick()
+		while tick() - t0 < AS_CFG.HOLD_MIN do
+			if not prompt.Parent then break end
+			if not autoStealBarGui or not autoStealBarGui.Parent then break end
+			autoStealProgress = math.clamp((tick() - t0) / AS_CFG.HOLD_MAX, 0, 0.5)
+			task.wait(0.03)
+		end
+		StealState.phase = "waitingRange"
+		autoStealProgress = 0.75
+
+		local alreadyInRange = distToAnimal(animalData) <= AS_CFG.STEAL_RANGE
+		local fired = false
+		while tick() - StealState.startTime < AS_CFG.HOLD_MAX and prompt.Parent do
+			if not autoStealBarGui or not autoStealBarGui.Parent then break end
+			local dist = distToAnimal(animalData)
+			autoStealProgress = math.clamp((tick() - StealState.startTime) / AS_CFG.HOLD_MAX, 0.5, 1)
+			if dist <= AS_CFG.STEAL_RANGE then
+				if not alreadyInRange then
+					task.wait(AS_CFG.ENTRY_DELAY)
+				end
+				for _, fn in ipairs(data.triggerCallbacks) do
+					task.spawn(fn)
+				end
+				fired = true
+				autoStealProgress = 1
+				break
+			end
+			task.wait()
+		end
+
+		clearSpiral()
+		task.wait(AS_CFG.COOLDOWN)
+		data.ready = true
+		isStealing = false
+		holdingPrompt = nil
+		StealState.active = false
+		StealState.phase = "idle"
+		autoStealProgress = 0
+	end)
+	return true
+end
 
 local function isValidStealPrompt(prompt)
 	if not prompt or not prompt.Parent then return false end
@@ -2091,97 +2465,21 @@ local function isValidStealPrompt(prompt)
 	return string.find(actionText, "steal", 1, true) ~= nil or string.find(objName, "steal", 1, true) ~= nil
 end
 
-local function getPromptWorldPosition(prompt)
-	local parent = prompt and prompt.Parent
-	if not parent then return nil end
-	if parent:IsA("BasePart") then return parent.Position end
-	if parent:IsA("Attachment") then return parent.WorldPosition end
-	if parent:IsA("Model") then
-		local ok, pos = pcall(function() return parent:GetPivot().Position end)
-		if ok then return pos end
-	end
-	return nil
-end
-
 local function processStealPrompt(prompt)
 	pcall(function()
-		if not prompt or not prompt:IsA("ProximityPrompt") then return end
-		prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
-		prompt.RequiresLineOfSight = false
-		prompt.HoldDuration = CHECKPOINT_TIME
-	end)
-end
-
-local function registerStealPrompt(obj)
-	if isValidStealPrompt(obj) then
-		processStealPrompt(obj)
-		-- duplicate kontrol
-		for _, p in ipairs(stealPrompts) do
-			if p == obj then return end
+		if prompt and prompt:IsA("ProximityPrompt") then
+			prompt.HoldDuration = 1.3
+			prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance or 0, getStealRadius())
+			prompt.RequiresLineOfSight = false
 		end
-		table.insert(stealPrompts, obj)
-	end
+	end)
 end
 
 local function scanAllStealPrompts()
-	stealPrompts = {}
 	pcall(function()
-		for _, obj in ipairs(workspace:GetDescendants()) do
-			registerStealPrompt(obj)
-		end
-	end)
-end
-
-local function getNearestStealPrompt()
-	local char = LocalPlayer.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
-	if not root then return nil, math.huge end
-	local radius = getStealRadius()
-	local closest, minDist = nil, radius + 1
-	-- temizle ölü promptlar
-	local alive = {}
-	for _, p in ipairs(stealPrompts) do
-		if p and p.Parent then
-			table.insert(alive, p)
-			if p.Enabled then
-				local pos = getPromptWorldPosition(p)
-				if pos then
-					local dist = (root.Position - pos).Magnitude
-					if dist <= radius and dist < minDist then
-						minDist = dist
-						closest = p
-					end
-				end
-			end
-		end
-	end
-	stealPrompts = alive
-	return closest, minDist
-end
-
-local function fireProx(prompt)
-	pcall(function()
-		if fireproximityprompt then
-			fireproximityprompt(prompt)
-		end
-	end)
-	pcall(function()
-		if type(getconnections) == "function" then
-			local ok, conns = pcall(getconnections, prompt.Triggered)
-			if ok and type(conns) == "table" then
-				for _, c in ipairs(conns) do
-					if type(c.Function) == "function" then
-						task.spawn(c.Function)
-					end
-				end
-			end
-			local ok2, conns2 = pcall(getconnections, prompt.PromptButtonHoldBegan)
-			if ok2 and type(conns2) == "table" then
-				for _, c in ipairs(conns2) do
-					if type(c.Function) == "function" then
-						task.spawn(c.Function)
-					end
-				end
+		for _, d in ipairs(workspace:GetDescendants()) do
+			if d:IsA("ProximityPrompt") and isValidStealPrompt(d) then
+				processStealPrompt(d)
 			end
 		end
 	end)
@@ -2193,73 +2491,50 @@ end
 local function startAutoStealLoop()
 	if autoStealLoopRunning then return end
 	autoStealLoopRunning = true
-	isProcessing = false
-	scanAllStealPrompts()
 	task.spawn(function()
-		while autoStealLoopRunning and autoStealBarGui and autoStealBarGui.Parent do
-			if not isProcessing then
-				local closestPrompt, minDist = getNearestStealPrompt()
-				if closestPrompt then
-					isProcessing = true
-					isStealing = true
-					holdingPrompt = closestPrompt
-					pcall(function()
-						closestPrompt:InputHoldBegin()
-					end)
-					fireProx(closestPrompt)
-
-					local startTime = tick()
-					local lastTriggerTime = 0
-
-					while autoStealLoopRunning and autoStealBarGui and autoStealBarGui.Parent do
-						local elapsed = tick() - startTime
-						if not closestPrompt or not closestPrompt.Parent or not closestPrompt.Enabled or elapsed >= TOTAL_DURATION then
-							break
-						end
-
-						local progress = 0
-						if elapsed <= CHECKPOINT_TIME then
-							progress = (elapsed / CHECKPOINT_TIME) * 0.75
-						else
-							progress = 0.75 + (((elapsed - CHECKPOINT_TIME) / (TOTAL_DURATION - CHECKPOINT_TIME)) * 0.25)
-							if (tick() - lastTriggerTime) >= TRIGGER_INTERVAL then
-								lastTriggerTime = tick()
-								fireProx(closestPrompt)
-							end
-						end
-						autoStealProgress = math.clamp(progress, 0, 1)
-						task.wait(0.03)
-					end
-
-					if closestPrompt and closestPrompt.Parent then
-						fireProx(closestPrompt)
-						pcall(function() closestPrompt:InputHoldEnd() end)
-					end
-					autoStealProgress = 0
-					holdingPrompt = nil
-					isStealing = false
-					isProcessing = false
-					task.wait(0.3)
-				else
-					autoStealProgress = 0
-					task.wait(0.05)
-				end
-			else
-				task.wait(0.05)
+		initSynchronizer()
+	end)
+	task.spawn(function()
+		while autoStealLoopRunning do
+			pcall(scanAllPlots)
+			task.wait(5)
+		end
+	end)
+	if stealConnection then
+		pcall(function() stealConnection:Disconnect() end)
+		stealConnection = nil
+	end
+	stealConnection = RunService.Heartbeat:Connect(function()
+		if not autoStealLoopRunning then return end
+		if not autoStealBarGui or not autoStealBarGui.Parent then return end
+		if isStealing or StealState.active then return end
+		local target = pickClosest()
+		if not target then return end
+		local prompt = PromptMemoryCache[target.uid]
+		if not prompt or not prompt.Parent then
+			prompt = findProximityPromptForAnimal(target)
+		end
+		if prompt then
+			buildStealCallbacks(prompt)
+			if InternalStealCache[prompt] then
+				executeStealAsync(prompt, target)
 			end
 		end
-		autoStealLoopRunning = false
-		isProcessing = false
-		isStealing = false
 	end)
 end
 
 local function stopAutoStealLoop()
 	autoStealLoopRunning = false
-	isProcessing = false
 	isStealing = false
 	holdingPrompt = nil
 	autoStealProgress = 0
+	StealState.active = false
+	StealState.phase = "idle"
+	clearSpiral()
+	if stealConnection then
+		pcall(function() stealConnection:Disconnect() end)
+		stealConnection = nil
+	end
 end
 
 local function createAutoStealBar()
@@ -2267,7 +2542,7 @@ local function createAutoStealBar()
     local theme = getCurrentTheme()
     local parent = (gethui and gethui()) or CoreGui
     autoStealBarGui = Instance.new("ScreenGui")
-    autoStealBarGui.Name = "LightHubAutoStealBar"
+    autoStealBarGui.Name = "AnomalyHubAutoStealBar"
     autoStealBarGui.ResetOnSpawn = false
     autoStealBarGui.IgnoreGuiInset = true
     autoStealBarGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -2289,13 +2564,13 @@ local function createAutoStealBar()
     barStroke.Thickness = 1.2
     barStroke.Transparency = 0.35
 
-    -- Light Hub
+    -- Anomaly Hub
     local title = Instance.new("TextLabel")
     title.Parent = bar
     title.Size = UDim2.new(0, 68, 1, 0)
     title.Position = UDim2.new(0, 8, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "Light Hub"
+    title.Text = "Anomaly Hub"
     title.TextColor3 = theme.offText
     title.TextSize = 11
     title.Font = Enum.Font.GothamBold
@@ -2372,7 +2647,7 @@ local function createAutoStealBar()
         local n = tonumber(radiusBox.Text)
         if n then
             autoStealRadius = n
-            getgenv().LightHubConfig.AutoStealRadius = n
+            getgenv().AnomalyHubConfig.AutoStealRadius = n
             pcall(SaveConfig)
         end
     end)
@@ -2380,7 +2655,7 @@ local function createAutoStealBar()
         local n = tonumber(radiusBox.Text)
         if n then
             autoStealRadius = n
-            getgenv().LightHubConfig.AutoStealRadius = n
+            getgenv().AnomalyHubConfig.AutoStealRadius = n
             pcall(SaveConfig)
         else
             radiusBox.Text = tostring(autoStealRadius or 50)
@@ -2431,8 +2706,8 @@ local function createAutoStealBar()
     end)
 end
 
-local GetAutoSteal = MakeToggle("Auto Steal", 8, getgenv().LightHubConfig.AutoStealEnabled == true, function(state)
-    getgenv().LightHubConfig.AutoStealEnabled = state
+local GetAutoSteal = MakeToggle("Auto Steal", 8, getgenv().AnomalyHubConfig.AutoStealEnabled == true, function(state)
+    getgenv().AnomalyHubConfig.AutoStealEnabled = state
     pcall(SaveConfig)
     safeCall(function()
         if state then
@@ -2515,8 +2790,8 @@ local function stopAntiRagdoll()
     end
 end
 
-local GetAntiRagdoll = MakeToggle("Anti Ragdoll", 9, getgenv().LightHubConfig.AntiRagdollEnabled == true, function(state)
-    getgenv().LightHubConfig.AntiRagdollEnabled = state
+local GetAntiRagdoll = MakeToggle("Anti Ragdoll", 9, getgenv().AnomalyHubConfig.AntiRagdollEnabled == true, function(state)
+    getgenv().AnomalyHubConfig.AntiRagdollEnabled = state
     pcall(SaveConfig)
     if state then startAntiRagdoll() else stopAntiRagdoll() end
 end)
@@ -2638,8 +2913,8 @@ local function startMedusaCounter()
     end))
 end
 
-local GetMedusaCounter = MakeToggle("Medusa Counter", 10, getgenv().LightHubConfig.MedusaCounterEnabled == true, function(state)
-    getgenv().LightHubConfig.MedusaCounterEnabled = state
+local GetMedusaCounter = MakeToggle("Medusa Counter", 10, getgenv().AnomalyHubConfig.MedusaCounterEnabled == true, function(state)
+    getgenv().AnomalyHubConfig.MedusaCounterEnabled = state
     pcall(SaveConfig)
     if state then startMedusaCounter() else stopMedusaCounter() end
 end)
@@ -2673,7 +2948,7 @@ TpBox.Position = UDim2.new(0.40, 0, 0.5, -14)
 TpBox.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
 TpBox.BackgroundTransparency = 0.25
 do
-    local savedTh = tonumber(getgenv().LightHubConfig.AutoTpDownThreshold) or 20
+    local savedTh = tonumber(getgenv().AnomalyHubConfig.AutoTpDownThreshold) or 20
     TpBox.Text = tostring(savedTh)
 end
 TpBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -2702,7 +2977,7 @@ TpBox.FocusLost:Connect(function()
     local n = tonumber(TpBox.Text) or 20
     if n < 1 then n = 20 end
     TpBox.Text = tostring(n)
-    getgenv().LightHubConfig.AutoTpDownThreshold = n
+    getgenv().AnomalyHubConfig.AutoTpDownThreshold = n
     pcall(SaveConfig)
 end)
 
@@ -2770,7 +3045,7 @@ local function startAutoTpDownLoop()
         if not root then return end
         local spawnY = savedSpawnY
         if spawnY == nil then return end
-        local threshold = tonumber(TpBox and TpBox.Text) or tonumber(getgenv().LightHubConfig.AutoTpDownThreshold) or 20
+        local threshold = tonumber(TpBox and TpBox.Text) or tonumber(getgenv().AnomalyHubConfig.AutoTpDownThreshold) or 20
         if not threshold or threshold < 1 then threshold = 20 end
         if root.Position.Y >= (spawnY + threshold) then
             local now = tick()
@@ -2791,7 +3066,7 @@ end
 TpHit.MouseButton1Click:Connect(function()
     tpOn = not tpOn
     setTpDownVisual(tpOn)
-    getgenv().LightHubConfig.AutoTpDownEnabled = tpOn
+    getgenv().AnomalyHubConfig.AutoTpDownEnabled = tpOn
     pcall(SaveConfig)
     if tpOn then
         startAutoTpDownLoop()
@@ -2801,7 +3076,7 @@ TpHit.MouseButton1Click:Connect(function()
 end)
 
 -- Kaydedilmiş durumdan geri yükle
-if getgenv().LightHubConfig.AutoTpDownEnabled == true then
+if getgenv().AnomalyHubConfig.AutoTpDownEnabled == true then
     setTpDownVisual(true)
     startAutoTpDownLoop()
 end
@@ -2810,9 +3085,7 @@ _LH.startAutoTpDownLoop = startAutoTpDownLoop
 _LH.stopAutoTpDownLoop = stopAutoTpDownLoop
 _LH.setTpDownVisual = setTpDownVisual
 
-----------------------------------------------------------------
 -- VISUAL SECTION (Tryard Animation / No Animation / Anti Lag)
-----------------------------------------------------------------
 MakeSectionTitle("Visual", 12)
 
 -- ========== TRYARD ANIMATION ==========
@@ -2935,9 +3208,9 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
-local GetTryardAnim = MakeToggle("Tryard Animation", 13, getgenv().LightHubConfig.TryardAnimEnabled == true, function(state)
+local GetTryardAnim = MakeToggle("Tryard Animation", 13, getgenv().AnomalyHubConfig.TryardAnimEnabled == true, function(state)
     tryardAnimEnabled = state
-    getgenv().LightHubConfig.TryardAnimEnabled = state
+    getgenv().AnomalyHubConfig.TryardAnimEnabled = state
     pcall(SaveConfig)
     if state then
         if noAnimationEnabled then return end -- No Animation açıksa uygulama
@@ -2986,9 +3259,9 @@ local function stopNoAnimation()
     end
 end
 
-local GetNoAnimation = MakeToggle("No Animation", 14, getgenv().LightHubConfig.NoAnimationEnabled == true, function(state)
+local GetNoAnimation = MakeToggle("No Animation", 14, getgenv().AnomalyHubConfig.NoAnimationEnabled == true, function(state)
     noAnimationEnabled = state
-    getgenv().LightHubConfig.NoAnimationEnabled = state
+    getgenv().AnomalyHubConfig.NoAnimationEnabled = state
     pcall(SaveConfig)
     if state then
         startNoAnimation()
@@ -3190,9 +3463,9 @@ local function startAntiLag()
     end)
 end
 
-local GetAntiLag = MakeToggle("Anti Lag", 15, getgenv().LightHubConfig.AntiLagEnabled == true, function(state)
+local GetAntiLag = MakeToggle("Anti Lag", 15, getgenv().AnomalyHubConfig.AntiLagEnabled == true, function(state)
     antiLagEnabled = state
-    getgenv().LightHubConfig.AntiLagEnabled = state
+    getgenv().AnomalyHubConfig.AntiLagEnabled = state
     pcall(SaveConfig)
     if state then
         startAntiLag()
@@ -3201,24 +3474,20 @@ local GetAntiLag = MakeToggle("Anti Lag", 15, getgenv().LightHubConfig.AntiLagEn
     end
 end)
 
-----------------------------------------------------------------
 -- BAT AIMBOT PANEL
-----------------------------------------------------------------
 MakeSectionTitle("Bat Aimbot", 16)
-local BatAimbotSpeedBox = MakeRow("Bat Aimbot Speed", tostring(getgenv().LightHubConfig.BatAimbotSpeed or 65), 17)
+local BatAimbotSpeedBox = MakeRow("Bat Aimbot Speed", tostring(getgenv().AnomalyHubConfig.BatAimbotSpeed or 65), 17)
 BatAimbotSpeedBox.FocusLost:Connect(function()
     local num = tonumber(BatAimbotSpeedBox.Text)
     if num then
-        getgenv().LightHubConfig.BatAimbotSpeed = num
+        getgenv().AnomalyHubConfig.BatAimbotSpeed = num
         SaveConfig()
     else
-        BatAimbotSpeedBox.Text = tostring(getgenv().LightHubConfig.BatAimbotSpeed or 65)
+        BatAimbotSpeedBox.Text = tostring(getgenv().AnomalyHubConfig.BatAimbotSpeed or 65)
     end
 end)
 
-----------------------------------------------------------------
 -- ANTI-DIE (Bat Aimbot altı)
-----------------------------------------------------------------
 MakeSectionTitle("Anti-die", 17)
 local antiDieRenderConn = nil
 local antiDieCharConn = nil
@@ -3300,8 +3569,8 @@ local function startAntiDie()
     end)
 end
 
-local GetAntiDie = MakeToggle("Anti-die", 18, getgenv().LightHubConfig.AntiDieEnabled == true, function(state)
-    getgenv().LightHubConfig.AntiDieEnabled = state == true
+local GetAntiDie = MakeToggle("Anti-die", 18, getgenv().AnomalyHubConfig.AntiDieEnabled == true, function(state)
+    getgenv().AnomalyHubConfig.AntiDieEnabled = state == true
     pcall(SaveConfig)
     if state then
         startAntiDie()
@@ -3312,9 +3581,7 @@ end)
 _LH.startAntiDie = startAntiDie
 _LH.stopAntiDie = stopAntiDie
 
-----------------------------------------------------------------
 -- KEYBINDS (Console Mode + PC Keybinds)
-----------------------------------------------------------------
 
     _LH.ScreenGui = ScreenGui
     _LH.Buttons = Buttons
@@ -3399,33 +3666,33 @@ local PC_KEYBIND_ACTIONS = {
     "Bat Aimbot", "Tp down", "Carry Speed", "Lagger Speed", "Lagger Steal",
 }
 
-if not getgenv().LightHubConfig.Keybinds then
-    getgenv().LightHubConfig.Keybinds = {
+if not getgenv().AnomalyHubConfig.Keybinds then
+    getgenv().AnomalyHubConfig.Keybinds = {
         ["Auto Left"] = "DPadLeft", ["Auto Right"] = "DPadRight",
         ["Tp down"] = "DPadDown", ["Bat Aimbot"] = "ButtonB",
         ["Carry Speed"] = "ButtonL3", ["Reset"] = "ButtonY",
         ["Lagger Speed"] = "ButtonR3", ["Drop Brainrot"] = "ButtonX",
     }
 end
-if not getgenv().LightHubConfig.Keybinds["Drop Brainrot"] then
-    getgenv().LightHubConfig.Keybinds["Drop Brainrot"] = "ButtonX"
+if not getgenv().AnomalyHubConfig.Keybinds["Drop Brainrot"] then
+    getgenv().AnomalyHubConfig.Keybinds["Drop Brainrot"] = "ButtonX"
 end
-if not getgenv().LightHubConfig.PCKeybinds then
-    getgenv().LightHubConfig.PCKeybinds = {
+if not getgenv().AnomalyHubConfig.PCKeybinds then
+    getgenv().AnomalyHubConfig.PCKeybinds = {
         ["Auto Left"] = "L", ["Auto Right"] = "R", ["Drop Brainrot"] = "K",
         ["Reset"] = "T", ["Bat Aimbot"] = "B", ["Tp down"] = "Q",
         ["Carry Speed"] = "C", ["Lagger Speed"] = "J", ["Lagger Steal"] = "G",
     }
 end
-if getgenv().LightHubConfig.PCKeybinds["Drop Brainrot"] == "D" then
-    getgenv().LightHubConfig.PCKeybinds["Drop Brainrot"] = "K"
+if getgenv().AnomalyHubConfig.PCKeybinds["Drop Brainrot"] == "D" then
+    getgenv().AnomalyHubConfig.PCKeybinds["Drop Brainrot"] = "K"
 end
 
 local function updateKeybindLabels()
-    local consoleOn = getgenv().LightHubConfig.ConsoleMode
-    local pcOn = getgenv().LightHubConfig.PCKeybindsEnabled
-    local binds = getgenv().LightHubConfig.Keybinds or {}
-    local pcBinds = getgenv().LightHubConfig.PCKeybinds or {}
+    local consoleOn = getgenv().AnomalyHubConfig.ConsoleMode
+    local pcOn = getgenv().AnomalyHubConfig.PCKeybindsEnabled
+    local binds = getgenv().AnomalyHubConfig.Keybinds or {}
+    local pcBinds = getgenv().AnomalyHubConfig.PCKeybinds or {}
     for action, label in pairs(ButtonKeyLabels) do
         if consoleOn then
             if binds[action] then
@@ -3458,20 +3725,20 @@ local function fireDropBrainrot()
         setButtonVisual(b, s, true)
         task.delay(0.2, function() setButtonVisual(b, s, false) end)
     end
-    local dropTypeBtn = ScreenGui:FindFirstChild("LightHubPanel")
-        and ScreenGui.LightHubPanel:FindFirstChild("ContentScroll")
-        and ScreenGui.LightHubPanel.ContentScroll:FindFirstChild("DropTypeRow")
-        and ScreenGui.LightHubPanel.ContentScroll.DropTypeRow:FindFirstChild("DropTypeBtn")
+    local dropTypeBtn = ScreenGui:FindFirstChild("AnomalyHubPanel")
+        and ScreenGui.AnomalyHubPanel:FindFirstChild("ContentScroll")
+        and ScreenGui.AnomalyHubPanel.ContentScroll:FindFirstChild("DropTypeRow")
+        and ScreenGui.AnomalyHubPanel.ContentScroll.DropTypeRow:FindFirstChild("DropTypeBtn")
     local currentDropType = dropTypeBtn and dropTypeBtn.Text or "walkfling"
     if currentDropType == "walkfling" then
         walkfling(true)
         task.delay(0.7, function()
             walkfling(false)
-            getgenv().LightHubConfig.SpeedBoostEnabled = true
-            getgenv().LightHubConfig.MultiJumpEnabled = true
+            getgenv().AnomalyHubConfig.SpeedBoostEnabled = true
+            getgenv().AnomalyHubConfig.MultiJumpEnabled = true
             SaveConfig()
             if LocalPlayer.Character then setupBoost(LocalPlayer.Character) end
-            if _G.LightHub_SetMultiJumpVisual then _G.LightHub_SetMultiJumpVisual(true) end
+            if _G.AnomalyHub_SetMultiJumpVisual then _G.AnomalyHub_SetMultiJumpVisual(true) end
         end)
     elseif currentDropType == "high jump" then
         doStrongJumpOnce()
@@ -3509,7 +3776,7 @@ end
 
 local function triggerScreenButton(actionName)
     if actionName == "Carry Speed" then
-        local cfg = getgenv().LightHubConfig
+        local cfg = getgenv().AnomalyHubConfig
         if cfg.SpeedMode == "carry" then
             updateSpeedMode("normal")
         elseif cfg.SpeedMode == "lagger_carry" then
@@ -3524,14 +3791,14 @@ local function triggerScreenButton(actionName)
             updateSpeedMode("carry")
         end
     elseif actionName == "Lagger Speed" then
-        local cfg = getgenv().LightHubConfig
+        local cfg = getgenv().AnomalyHubConfig
         if cfg.SpeedMode == "lagger" or cfg.SpeedMode == "lagger_carry" then
             updateSpeedMode("normal")
         else
             updateSpeedMode("lagger")
         end
     elseif actionName == "Lagger Steal" then
-        local cfg = getgenv().LightHubConfig
+        local cfg = getgenv().AnomalyHubConfig
         if cfg.SpeedMode == "lagger_carry" then
             updateSpeedMode("lagger")
             if Buttons["Lagger Steal"] then
@@ -3542,9 +3809,29 @@ local function triggerScreenButton(actionName)
             updateSpeedMode("lagger_carry")
         end
     elseif actionName == "Bat Aimbot" then
+        if not ButtonToggled["Bat Aimbot"] then
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local ws = (hum and hum.WalkSpeed) or 0
+            if type(ws) ~= "number" or ws < 27 then
+                local Btn = Buttons["Bat Aimbot"]
+                local BtnStroke = ButtonStrokes["Bat Aimbot"]
+                if Btn and BtnStroke then
+                    Btn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+                    BtnStroke.Color = Color3.fromRGB(255, 80, 80)
+                    task.delay(0.35, function()
+                        pcall(function()
+                            if not ButtonToggled["Bat Aimbot"] then
+                                setButtonVisual(Btn, BtnStroke, false)
+                            end
+                        end)
+                    end)
+                end
+                return
+            end
+        end
         ButtonToggled["Bat Aimbot"] = not ButtonToggled["Bat Aimbot"]
         setButtonVisual(Buttons["Bat Aimbot"], ButtonStrokes["Bat Aimbot"], ButtonToggled["Bat Aimbot"])
-        getgenv().LightHubConfig.BatAimbotEnabled = ButtonToggled["Bat Aimbot"]
+        getgenv().AnomalyHubConfig.BatAimbotEnabled = ButtonToggled["Bat Aimbot"]
         SaveConfig()
         if ButtonToggled["Bat Aimbot"] then startBatAimbot() else stopBatAimbot() end
     elseif actionName == "Drop Brainrot" then
@@ -3599,7 +3886,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if waitingForRebind then
         local mode, action = waitingForRebind:match("^(%w+):(.+)$")
         if mode == "console" and isPad then
-            getgenv().LightHubConfig.Keybinds[action] = codeName
+            getgenv().AnomalyHubConfig.Keybinds[action] = codeName
             SaveConfig()
             if rebindButtons[action] then
                 rebindButtons[action].Text = KEYBIND_DISPLAY[codeName] or codeName
@@ -3609,7 +3896,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             waitingForRebind = nil
             return
         elseif mode == "pc" and isKey then
-            getgenv().LightHubConfig.PCKeybinds[action] = codeName
+            getgenv().AnomalyHubConfig.PCKeybinds[action] = codeName
             SaveConfig()
             if pcRebindButtons[action] then
                 pcRebindButtons[action].Text = codeName
@@ -3621,8 +3908,8 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end
     end
 
-    if isPad and getgenv().LightHubConfig.ConsoleMode then
-        local binds = getgenv().LightHubConfig.Keybinds or {}
+    if isPad and getgenv().AnomalyHubConfig.ConsoleMode then
+        local binds = getgenv().AnomalyHubConfig.Keybinds or {}
         for action, bindName in pairs(binds) do
             if bindName == codeName then
                 safeCall(function() triggerScreenButton(action) end)
@@ -3631,9 +3918,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end
     end
 
-    if isKey and getgenv().LightHubConfig.PCKeybindsEnabled then
+    if isKey and getgenv().AnomalyHubConfig.PCKeybindsEnabled then
         if UserInputService:GetFocusedTextBox() then return end
-        local binds = getgenv().LightHubConfig.PCKeybinds or {}
+        local binds = getgenv().AnomalyHubConfig.PCKeybinds or {}
         for action, bindName in pairs(binds) do
             if bindName == codeName then
                 safeCall(function() triggerScreenButton(action) end)
@@ -3647,10 +3934,10 @@ end)
 MakeSectionTitle("Keybinds", 18)
 
 local SetPCKeybindsVisual = nil -- forward
-local GetConsoleMode, SetConsoleModeVisual = MakeToggle("Console Mode", 19, getgenv().LightHubConfig.ConsoleMode == true, function(state)
-    getgenv().LightHubConfig.ConsoleMode = state
+local GetConsoleMode, SetConsoleModeVisual = MakeToggle("Console Mode", 19, getgenv().AnomalyHubConfig.ConsoleMode == true, function(state)
+    getgenv().AnomalyHubConfig.ConsoleMode = state
     if state then
-        getgenv().LightHubConfig.PCKeybindsEnabled = false
+        getgenv().AnomalyHubConfig.PCKeybindsEnabled = false
         if SetPCKeybindsVisual then SetPCKeybindsVisual(false) end
     end
     SaveConfig()
@@ -3678,7 +3965,7 @@ for _, action in ipairs(KEYBIND_ACTIONS) do
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.ZIndex = 63
 
-    local codeName = (getgenv().LightHubConfig.Keybinds and getgenv().LightHubConfig.Keybinds[action]) or "?"
+    local codeName = (getgenv().AnomalyHubConfig.Keybinds and getgenv().AnomalyHubConfig.Keybinds[action]) or "?"
     local rebindBtn = Instance.new("TextButton")
     rebindBtn.Parent = row
     rebindBtn.Size = UDim2.new(0.40, 0, 0, 26)
@@ -3697,10 +3984,10 @@ for _, action in ipairs(KEYBIND_ACTIONS) do
     rebindButtons[action] = rebindBtn
 
     rebindBtn.MouseButton1Click:Connect(function()
-        if not getgenv().LightHubConfig.ConsoleMode then
+        if not getgenv().AnomalyHubConfig.ConsoleMode then
             rebindBtn.Text = "Console ON!"
             task.delay(0.8, function()
-                local cn = getgenv().LightHubConfig.Keybinds[action]
+                local cn = getgenv().AnomalyHubConfig.Keybinds[action]
                 rebindBtn.Text = KEYBIND_DISPLAY[cn] or cn or "?"
             end)
             return
@@ -3716,10 +4003,10 @@ MakeSectionTitle("PC Keybinds", keybindOrder)
 keybindOrder = keybindOrder + 1
 
 local GetPCKeybinds
-GetPCKeybinds, SetPCKeybindsVisual = MakeToggle("PC Keybinds", keybindOrder, getgenv().LightHubConfig.PCKeybindsEnabled == true, function(state)
-    getgenv().LightHubConfig.PCKeybindsEnabled = state
+GetPCKeybinds, SetPCKeybindsVisual = MakeToggle("PC Keybinds", keybindOrder, getgenv().AnomalyHubConfig.PCKeybindsEnabled == true, function(state)
+    getgenv().AnomalyHubConfig.PCKeybindsEnabled = state
     if state then
-        getgenv().LightHubConfig.ConsoleMode = false
+        getgenv().AnomalyHubConfig.ConsoleMode = false
         if SetConsoleModeVisual then SetConsoleModeVisual(false) end
     end
     SaveConfig()
@@ -3747,7 +4034,7 @@ for _, action in ipairs(PC_KEYBIND_ACTIONS) do
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.ZIndex = 63
 
-    local codeName = (getgenv().LightHubConfig.PCKeybinds and getgenv().LightHubConfig.PCKeybinds[action]) or "?"
+    local codeName = (getgenv().AnomalyHubConfig.PCKeybinds and getgenv().AnomalyHubConfig.PCKeybinds[action]) or "?"
     local rebindBtn = Instance.new("TextButton")
     rebindBtn.Parent = row
     rebindBtn.Size = UDim2.new(0.40, 0, 0, 26)
@@ -3765,10 +4052,10 @@ for _, action in ipairs(PC_KEYBIND_ACTIONS) do
     pcRebindButtons[action] = rebindBtn
 
     rebindBtn.MouseButton1Click:Connect(function()
-        if not getgenv().LightHubConfig.PCKeybindsEnabled then
+        if not getgenv().AnomalyHubConfig.PCKeybindsEnabled then
             rebindBtn.Text = "PC ON!"
             task.delay(0.8, function()
-                local cn = getgenv().LightHubConfig.PCKeybinds[action]
+                local cn = getgenv().AnomalyHubConfig.PCKeybinds[action]
                 rebindBtn.Text = cn or "?"
             end)
             return
@@ -3781,9 +4068,7 @@ end
 
 updateKeybindLabels()
 
-----------------------------------------------------------------
 -- INTRO SETTINGS + MUSIC
-----------------------------------------------------------------
 local musicURLs = {
     "https://files.catbox.moe/zuid5n.mp3",
     "https://files.catbox.moe/z6eqnt.mp3",
@@ -3880,7 +4165,7 @@ local function playPreview(idx)
             end)
         end)
         if not ok then
-            warn("[LightHub] playPreview error:", err)
+            warn("[AnomalyHub] playPreview error:", err)
         end
     end)
 end
@@ -3888,7 +4173,7 @@ end
 local function playIntroSong()
     stopIntroMusic()
     stopPreview()
-    local idx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
+    local idx = tonumber(getgenv().AnomalyHubConfig.IntroSongIndex) or 1
     if idx < 1 then idx = 1 end
     if idx > #musicURLs then idx = #musicURLs end
     local assetId = loadSongAsset(idx)
@@ -3945,15 +4230,15 @@ end
 MakeSectionTitle("Intro", keybindOrder)
 keybindOrder = keybindOrder + 1
 
-local GetIntroToggle = MakeToggle("Intro", keybindOrder, getgenv().LightHubConfig.IntroEnabled ~= false, function(state)
-    getgenv().LightHubConfig.IntroEnabled = state
+local GetIntroToggle = MakeToggle("Intro", keybindOrder, getgenv().AnomalyHubConfig.IntroEnabled ~= false, function(state)
+    getgenv().AnomalyHubConfig.IntroEnabled = state
     SaveConfig()
     if not state then
         stopIntroMusic()
         stopPreview()
         -- Aktif intro varsa kapat
-        if _G.LightHub_CloseIntro then
-            pcall(_G.LightHub_CloseIntro)
+        if _G.AnomalyHub_CloseIntro then
+            pcall(_G.AnomalyHub_CloseIntro)
         end
     end
 end)
@@ -3986,7 +4271,7 @@ SongLabel.Font = Enum.Font.GothamBold
 SongLabel.TextXAlignment = Enum.TextXAlignment.Left
 SongLabel.ZIndex = 63
 
-local songIdx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
+local songIdx = tonumber(getgenv().AnomalyHubConfig.IntroSongIndex) or 1
 if songIdx < 1 or songIdx > 9 then songIdx = 1 end
 
 local SongBtn = Instance.new("TextButton")
@@ -4012,15 +4297,13 @@ SongBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 SongBtn.MouseButton1Click:Connect(function()
     songIdx = songIdx % 9 + 1
-    getgenv().LightHubConfig.IntroSongIndex = songIdx
+    getgenv().AnomalyHubConfig.IntroSongIndex = songIdx
     SaveConfig()
     SongBtn.Text = "Song " .. tostring(songIdx)
     playPreview(songIdx)
 end)
 
-----------------------------------------------------------------
 -- UI BACKGROUND
-----------------------------------------------------------------
 local BackgroundIDs = {
     "99416158073201",
     "126860692354524",
@@ -4032,7 +4315,7 @@ local function applyUiBackground(index)
     index = tonumber(index) or 1
     if index < 1 then index = 1 end
     if index > #BackgroundIDs then index = 1 end
-    getgenv().LightHubConfig.UiBackgroundIndex = index
+    getgenv().AnomalyHubConfig.UiBackgroundIndex = index
     SaveConfig()
     if PanelBg then
         PanelBg.Image = "rbxassetid://" .. BackgroundIDs[index]
@@ -4043,7 +4326,7 @@ end
 
 -- Başlangıç arka planı
 do
-    local bi = tonumber(getgenv().LightHubConfig.UiBackgroundIndex) or 1
+    local bi = tonumber(getgenv().AnomalyHubConfig.UiBackgroundIndex) or 1
     applyUiBackground(bi)
 end
 
@@ -4073,7 +4356,7 @@ UiBgLabel.Font = Enum.Font.GothamBold
 UiBgLabel.TextXAlignment = Enum.TextXAlignment.Left
 UiBgLabel.ZIndex = 63
 
-local bgIdx = tonumber(getgenv().LightHubConfig.UiBackgroundIndex) or 1
+local bgIdx = tonumber(getgenv().AnomalyHubConfig.UiBackgroundIndex) or 1
 local UiBgBtn = Instance.new("TextButton")
 UiBgBtn.Name = "UiBackgroundBtn"
 UiBgBtn.Parent = UiBgRow
@@ -4098,9 +4381,7 @@ UiBgBtn.MouseButton1Click:Connect(function()
     UiBgBtn.Text = "Image " .. tostring(bgIdx)
 end)
 
-----------------------------------------------------------------
 -- UI COLORS (Black / Blue / Green / Pink / Orange)
-----------------------------------------------------------------
 MakeSectionTitle("Ui Colors", keybindOrder)
 keybindOrder = keybindOrder + 1
 
@@ -4127,10 +4408,10 @@ UiColorLabel.Font = Enum.Font.GothamBold
 UiColorLabel.TextXAlignment = Enum.TextXAlignment.Left
 UiColorLabel.ZIndex = 63
 
-local colorIdx = tonumber(getgenv().LightHubConfig.UiColorIndex) or 1
+local colorIdx = tonumber(getgenv().AnomalyHubConfig.UiColorIndex) or 1
 if not UI_COLOR_NAMES then UI_COLOR_NAMES = { "Black", "Blue", "Green", "Pink", "Orange" } end
 if colorIdx < 1 or colorIdx > #UI_COLOR_NAMES then colorIdx = 1 end
-getgenv().LightHubConfig.UiColorIndex = colorIdx
+getgenv().AnomalyHubConfig.UiColorIndex = colorIdx
 
 local UiColorBtn = Instance.new("TextButton")
 UiColorBtn.Name = "UiColorBtn"
@@ -4154,7 +4435,7 @@ UiColorStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UiColorBtn.MouseButton1Click:Connect(function()
     if not UI_COLOR_NAMES or #UI_COLOR_NAMES == 0 then return end
     colorIdx = colorIdx % #UI_COLOR_NAMES + 1
-    getgenv().LightHubConfig.UiColorIndex = colorIdx
+    getgenv().AnomalyHubConfig.UiColorIndex = colorIdx
     local name = UI_COLOR_NAMES[colorIdx]
     if type(applyUiColorTheme) == "function" then
         local ok, n = pcall(applyUiColorTheme)
@@ -4168,14 +4449,12 @@ task.defer(function()
     pcall(function()
         if type(applyUiColorTheme) == "function" then applyUiColorTheme() end
         if UiColorBtn and UI_COLOR_NAMES then
-            UiColorBtn.Text = UI_COLOR_NAMES[tonumber(getgenv().LightHubConfig.UiColorIndex) or 1] or "Black"
+            UiColorBtn.Text = UI_COLOR_NAMES[tonumber(getgenv().AnomalyHubConfig.UiColorIndex) or 1] or "Black"
         end
     end)
 end)
 
-----------------------------------------------------------------
 -- RESET BUTTON POSITIONS
-----------------------------------------------------------------
 MakeSectionTitle("Reset Button Positions", keybindOrder)
 keybindOrder = keybindOrder + 1
 
@@ -4325,8 +4604,6 @@ if HubBtn then
     end)
 end
 
-----------------------------------------------------------------
-----------------------------------------------------------------
 
 
     _LH.ScreenGui = ScreenGui
@@ -4378,9 +4655,8 @@ local getCurrentTheme = _LH.getCurrentTheme or function()
 end
 
 -- KUSURSUZ SİNEMATİK İNTRO SİSTEMİ (ayrı scope - register limiti)
-----------------------------------------------------------------
 local function runCinematicIntro()
-    local introEnabledNow = getgenv().LightHubConfig.IntroEnabled ~= false
+    local introEnabledNow = getgenv().AnomalyHubConfig.IntroEnabled ~= false
     local SkipText = nil
 
     -- ScreenGui yoksa CoreGui'ye bağla (kartlar gelsin)
@@ -4401,7 +4677,7 @@ local function runCinematicIntro()
     IntroGui.Visible = introEnabledNow
 
     local CinematicBlur = Instance.new("BlurEffect")
-    CinematicBlur.Name = "LightHubIntroBlur"
+    CinematicBlur.Name = "AnomalyHubIntroBlur"
     CinematicBlur.Size = 0
     CinematicBlur.Parent = Lighting
 
@@ -4409,7 +4685,7 @@ local function runCinematicIntro()
         -- Intro eski tempo: şarkı + fade birlikte
         task.spawn(function()
             safeCall(function()
-                local idx = tonumber(getgenv().LightHubConfig.IntroSongIndex) or 1
+                local idx = tonumber(getgenv().AnomalyHubConfig.IntroSongIndex) or 1
                 if preloadAllSongs then preloadAllSongs(idx) end
                 if playIntroSong then playIntroSong() end
                 if IntroGui and IntroGui.Parent then
@@ -4435,11 +4711,11 @@ local function runCinematicIntro()
     MainTitle.Parent = IntroGui
     MainTitle.AnchorPoint = Vector2.new(0.5, 0.5)
     MainTitle.Position = UDim2.new(0.5, 0, 0.22, 0)
-    MainTitle.Size = UDim2.new(0, 500, 0, 80)
+    MainTitle.Size = UDim2.new(0, 700, 0, 70)
     MainTitle.BackgroundTransparency = 1
-    MainTitle.Text = "LIGHT"
+    MainTitle.Text = "ANOMALY HUB"
     MainTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    MainTitle.TextSize = 55
+    MainTitle.TextSize = 42
     MainTitle.Font = Enum.Font.GothamBlack
     MainTitle.TextTransparency = 1 
     MainTitle.ZIndex = 150
@@ -4457,12 +4733,12 @@ local function runCinematicIntro()
     CardContainer.ZIndex = 101
 
     local cards = {}
-    local letters = {"L", "I", "G", "H", "T"}
-    local targetRotations = {-24, -12, 0, 12, 24} 
-    local targetXOffsets = {-220, -110, 0, 110, 220} 
+    local letters = {"A", "N", "O", "M", "A", "L", "Y"}
+    local targetRotations = {-30, -20, -10, 0, 10, 20, 30}
+    local targetXOffsets = {-300, -200, -100, 0, 100, 200, 300}
 
-    local stackOffsets = {-16, -8, 0, 8, 16}
-    local stackRotations = {-9, -4.5, 0, 4.5, 9}
+    local stackOffsets = {-24, -16, -8, 0, 8, 16, 24}
+    local stackRotations = {-12, -8, -4, 0, 4, 8, 12}
 
     -- Kart renkleri GUI temasından (nil-safe)
     local introTheme = nil
@@ -4482,7 +4758,7 @@ local function runCinematicIntro()
         if MainTitle then MainTitle.TextColor3 = cardText end
     end)
 
-    for idx = 1, 5 do
+    for idx = 1, #letters do
         local wrapper = Instance.new("Frame")
         wrapper.Parent = CardContainer
         wrapper.AnchorPoint = Vector2.new(0.5, 1) 
@@ -4624,7 +4900,7 @@ local function runCinematicIntro()
             if SkipText and SkipText.Parent then SkipText:Destroy() end
         end)
     end
-    _G.LightHub_CloseIntro = CloseIntro
+    _G.AnomalyHub_CloseIntro = CloseIntro
 
     task.spawn(function()
         if not introEnabledNow then return end
@@ -4642,7 +4918,7 @@ local function runCinematicIntro()
         end
         end)
         if not okAnim then
-            warn("[LightHub] intro card anim:", errAnim)
+            warn("[AnomalyHub] intro card anim:", errAnim)
             -- Fallback: kartları direkt göster
             for _, c in ipairs(cards) do
                 if c and c.Wrapper then
@@ -4708,9 +4984,7 @@ safeCall(function()
     end)
 end)
 
---========================================================================
 -- Hız göstergesi (kafa üstü)
---========================================================================
 local speedBillboard = nil
 local speedLabel = nil
 local speedBillboardConn = nil
@@ -4733,7 +5007,7 @@ local function setupSpeedDisplay(character)
         local parent = head or root
 
         local bb = Instance.new("BillboardGui")
-        bb.Name = "LightHubSpeedDisplay"
+        bb.Name = "AnomalyHubSpeedDisplay"
         bb.Adornee = parent
         bb.AlwaysOnTop = true
         bb.Size = UDim2.new(0, 120, 0, 36)
@@ -4777,7 +5051,7 @@ local function setupSpeedDisplay(character)
                     if type(getTargetSpeed) == "function" then
                         spd = tonumber(getTargetSpeed()) or 16
                     else
-                        local cfg = getgenv().LightHubConfig
+                        local cfg = getgenv().AnomalyHubConfig
                         if cfg then
                             local mode = cfg.SpeedMode or "normal"
                             if mode == "carry" then
@@ -4805,9 +5079,7 @@ local function setupSpeedDisplay(character)
     end)
 end
 
---========================================================================
 -- Initialize
---========================================================================
 safeCall(function()
     if LocalPlayer.Character then
         setupBoost(LocalPlayer.Character)
@@ -4819,7 +5091,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
         setupBoost(char)
         setupSpeedDisplay(char)
         task.wait(0.3)
-        if getgenv().LightHubConfig and getgenv().LightHubConfig.BatAimbotEnabled then
+        if getgenv().AnomalyHubConfig and getgenv().AnomalyHubConfig.BatAimbotEnabled then
             startBatAimbot()
         end
     end)
@@ -4827,7 +5099,7 @@ end)
 
 -- Kaydedilmiş durumları geri yükle — özellikler GERÇEKTEN başlasın
 safeCall(function()
-    local cfg = getgenv().LightHubConfig
+    local cfg = getgenv().AnomalyHubConfig
     local LH = getgenv()._LH or {}
 
     if updateSpeedMode then
@@ -4904,27 +5176,25 @@ safeCall(function()
     end
 end)
 
---========================================================================
--- USING LIGHT HUB etiketi (aynı cihaz gerekmez — sunucudaki her hub kullanıcısı)
+-- USING ANOMALY HUB etiketi (aynı cihaz gerekmez — sunucudaki her hub kullanıcısı)
 -- Her client kendi karakterine etiket koyar; diğer hub client'ları da
 -- diğer oyuncuların karakterinde LightHub işareti arar / lokal etiket basar.
---========================================================================
 local hubUserTags = {} -- [userId] = BillboardGui
 
 local function markCharacterAsHubUser(character)
     if not character then return end
     pcall(function()
-        local marker = character:FindFirstChild("LightHub_ActiveMarker")
+        local marker = character:FindFirstChild("AnomalyHub_ActiveMarker")
         if not marker then
             marker = Instance.new("BoolValue")
-            marker.Name = "LightHub_ActiveMarker"
+            marker.Name = "AnomalyHub_ActiveMarker"
             marker.Value = true
             marker.Parent = character
         end
         -- Görünür işaret (bazı ortamlarda diğer client görebilir)
-        if not character:FindFirstChild("LightHub_ActiveFF") then
+        if not character:FindFirstChild("AnomalyHub_ActiveFF") then
             local ff = Instance.new("ForceField")
-            ff.Name = "LightHub_ActiveFF"
+            ff.Name = "AnomalyHub_ActiveFF"
             ff.Visible = false
             ff.Parent = character
         end
@@ -4940,7 +5210,7 @@ local function createUsingTag(character, player)
         local parent = head or root
         if not parent then return end
 
-        local old = parent:FindFirstChild("LightHub_UsingTag")
+        local old = parent:FindFirstChild("AnomalyHub_UsingTag")
         if old then
             -- Zaten var
             if uid then hubUserTags[uid] = old end
@@ -4948,7 +5218,7 @@ local function createUsingTag(character, player)
         end
 
         local bb = Instance.new("BillboardGui")
-        bb.Name = "LightHub_UsingTag"
+        bb.Name = "AnomalyHub_UsingTag"
         bb.Adornee = parent
         bb.AlwaysOnTop = true
         bb.Size = UDim2.new(0, 200, 0, 28)
@@ -4960,7 +5230,7 @@ local function createUsingTag(character, player)
         lbl.Parent = bb
         lbl.Size = UDim2.new(1, 0, 1, 0)
         lbl.BackgroundTransparency = 1
-        lbl.Text = "USING LIGHT HUB"
+        lbl.Text = "USING ANOMALY HUB"
         lbl.TextColor3 = Color3.fromRGB(130, 200, 255)
         lbl.TextStrokeTransparency = 0.2
         lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -4977,9 +5247,9 @@ end
 local function playerLooksLikeHubUser(plr)
     if not plr or not plr.Character then return false end
     local c = plr.Character
-    if c:FindFirstChild("LightHub_ActiveMarker") then return true end
-    if c:FindFirstChild("LightHub_ActiveFF") then return true end
-    if c:FindFirstChild("LightHub_UsingTag", true) then return true end
+    if c:FindFirstChild("AnomalyHub_ActiveMarker") then return true end
+    if c:FindFirstChild("AnomalyHub_ActiveFF") then return true end
+    if c:FindFirstChild("AnomalyHub_UsingTag", true) then return true end
     if c:FindFirstChild("SonsuzKalkan") then return true end
     return false
 end
@@ -5029,4 +5299,4 @@ safeCall(function()
     refreshHubUserTags()
 end)
 
-print("[Light Hub] Combined script loaded. Saved toggles restored.")
+print("[Anomaly Hub] loaded")
